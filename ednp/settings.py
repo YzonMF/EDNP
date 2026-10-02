@@ -96,14 +96,23 @@ WSGI_APPLICATION = 'ednp.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/6.1/ref/settings/#databases
 
+def _env(*names, default=''):
+    # First non-empty value wins: DB_* (local .env) or Railway's MYSQL* variables.
+    for name in names:
+        value = os.environ.get(name)
+        if value:
+            return value
+    return default
+
+
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': os.environ.get('DB_NAME', 'ednp_clergy_records'),
-        'USER': os.environ.get('DB_USER', 'root'),
-        'PASSWORD': os.environ.get('DB_PASSWORD', ''),
-        'HOST': os.environ.get('DB_HOST', 'localhost'),
-        'PORT': os.environ.get('DB_PORT', '3306'),
+        'NAME': _env('DB_NAME', 'MYSQLDATABASE', 'MYSQL_DATABASE', default='ednp_clergy_records'),
+        'USER': _env('DB_USER', 'MYSQLUSER', default='root'),
+        'PASSWORD': _env('DB_PASSWORD', 'MYSQLPASSWORD'),
+        'HOST': _env('DB_HOST', 'MYSQLHOST', default='localhost'),
+        'PORT': _env('DB_PORT', 'MYSQLPORT', default='3306'),
         'OPTIONS': {
             'charset': 'utf8mb4',
         },
