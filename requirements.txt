@@ -5,3 +5,6 @@ python-dotenv==1.2.3
 # machine (pip alone doesn't provide these on Windows) — see
 # https://doc.courtbouillon.org/weasyprint/stable/first_steps.html#installation
 weasyprint==70.0
+
+gunicorn==23.0.0
+whitenoise==6.9.0

@@ -5,3 +5,4 @@ __pycache__/
 media/
 db.sqlite3
 .idea/
+staticfiles/

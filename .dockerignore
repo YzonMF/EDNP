@@ -1,0 +1,10 @@
+.git
+.idea
+venv/
+.env
+media/
+staticfiles/
+__pycache__/
+*.pyc
+db.sqlite3
+resources/
