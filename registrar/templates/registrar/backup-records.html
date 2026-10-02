@@ -1,0 +1,36 @@
+{% extends 'registrar/base.html' %}
+{% load static %}
+{% block page_name %}Backup Records{% endblock %}
+{% block page_name_heading %}Backup Records{% endblock %}
+
+{% block content %}
+<section class="page active">
+
+<div class="panel">
+<div class="panel-head"><div><h3><i class="fa-solid fa-database"></i> Database Backup</h3><span class="muted">A fresh dump of clergy records, profiles and accounts — always current, stays fast no matter how many records there are.</span></div></div>
+<a class="btn" href="{% url 'registrar:download_database_backup' %}"><i class="fa-solid fa-download"></i> Download Database Backup</a>
+</div>
+
+<div class="panel" style="margin-top:18px">
+<div class="panel-head">
+  <div><h3><i class="fa-solid fa-box-archive"></i> Documents Archive</h3><span class="muted">Bundles every uploaded clergy document into a .zip. Can take a moment and grows large — archive occasionally rather than on every visit.</span></div>
+  <form method="post">{% csrf_token %}<button class="btn secondary"><i class="fa-solid fa-file-zipper"></i> Archive Documents Now</button></form>
+</div>
+<table><thead><tr><th>Created On</th><th>Created By</th><th>Size</th><th>Actions</th></tr></thead>
+<tbody>
+{% for archive in archives %}
+<tr>
+  <td>{{ archive.created_at|date:"F d, Y g:i A" }}</td>
+  <td>{{ archive.created_by.first_name|default:archive.created_by.username|default:"—" }}</td>
+  <td>{{ archive.file.size|filesizeformat }}</td>
+  <td><a class="btn small" href="{% url 'registrar:download_backup_archive' archive.id %}" download><i class="fa-solid fa-download"></i> Download</a></td>
+</tr>
+{% empty %}
+<tr><td colspan="4" class="empty">No documents archives yet.</td></tr>
+{% endfor %}
+</tbody>
+</table>
+</div>
+
+</section>
+{% endblock %}

@@ -1,0 +1,158 @@
+{% extends 'registrar/base.html' %}
+{% load static %}
+{% load registrar_extras %}
+{% block page_name %}{{ record.name }}{% endblock %}
+{% block page_name_heading %}{{ record.name }}{% endblock %}
+
+{% block content %}
+<section class="page active">
+<div class="panel">
+<div class="panel-head"><div><h3><i class="fa-solid fa-user-tie"></i> {{ record.name }}</h3><span class="muted">{{ record.id }} — {{ record.get_rank_display }} — {{ record.get_status_display }}</span></div><a class="btn secondary" href="{% url 'registrar:clergy_records' %}"><i class="fa-solid fa-arrow-left"></i> Back to Clergy Records</a></div>
+
+<div class="page-tabs">
+  <button type="button" id="tabBtnPersonal" onclick="selectTab('personal')"><i class="fa-solid fa-user"></i> Personal Information</button>
+  <button type="button" id="tabBtnDocuments" onclick="selectTab('documents')"><i class="fa-solid fa-folder-open"></i> Documents <span class="badge {{ record.document_summary|document_badge_class }}">{{ record.document_summary.submitted }}/{{ record.document_summary.total }}</span></button>
+</div>
+
+<div id="tabPersonal" class="tab-content">
+<form method="post">
+  {% csrf_token %}
+
+  <div class="section-card">
+  <h4><i class="fa-solid fa-user"></i> Personal Information</h4>
+  <div class="edit-grid">
+    <div class="edit-field"><label>Full Name</label><input name="name" value="{{ record.name }}" required></div>
+    <div class="edit-field"><label>Record ID</label><input value="{{ record.id }}" readonly></div>
+    <div class="edit-field"><label>Date of Birth</label><input name="date_of_birth" type="date" value="{{ record.date_of_birth|date:'Y-m-d' }}"></div>
+    <div class="edit-field"><label>Gender</label><select name="gender"><option value="">Select</option><option {% if record.gender == 'Male' %}selected{% endif %}>Male</option><option {% if record.gender == 'Female' %}selected{% endif %}>Female</option></select></div>
+    <div class="edit-field"><label>Date of Baptism</label><input name="baptism_date" type="date" value="{{ record.baptism_date|date:'Y-m-d' }}"></div>
+    <div class="edit-field"><label>Date of Confirmation</label><input name="confirmation_date" type="date" value="{{ record.confirmation_date|date:'Y-m-d' }}"></div>
+    <div class="edit-field"><label>Contact Number</label><input name="phone" type="tel" value="{{ record.phone }}"></div>
+    <div class="edit-field"><label>Email Address</label><input name="email" type="email" value="{{ record.email }}"></div>
+    <div class="edit-field full"><label>Residential Address</label><div class="input-with-action"><input name="address" id="addressInput" value="{{ record.address }}"><button type="button" class="ph-picker-btn" data-ph-picker-target="addressInput" title="Choose from province / city / barangay list"><i class="fa-solid fa-location-dot"></i></button></div></div>
+  </div>
+  </div>
+
+  <div class="section-card">
+  <h4><i class="fa-solid fa-church"></i> Ordination, Bishop &amp; Family</h4>
+  <div class="edit-grid">
+    <div class="edit-field"><label>Date of Ordination to Diaconate</label><input name="diaconate_date" type="date" value="{{ record.diaconate_date|date:'Y-m-d' }}"></div>
+    <div class="edit-field"><label>Date of Ordination to Priesthood</label><input name="ordination_date" type="date" value="{{ record.ordination_date|date:'Y-m-d' }}"></div>
+    <div class="edit-field"><label>Date for Holy Orders / Synod Entry</label><input name="holy_orders_date" type="date" value="{{ record.holy_orders_date|date:'Y-m-d' }}"></div>
+    <div class="edit-field"><label>Place of Ordination</label><input name="ordination_place" value="{{ record.ordination_place }}"></div>
+    <div class="edit-field"><label>Bishop</label><input name="bishop_name" value="{{ record.bishop_name }}"></div>
+    <div class="edit-field"><label>Date of Bishop Consecration</label><input name="consecration_date" type="date" value="{{ record.consecration_date|date:'Y-m-d' }}"></div>
+    <div class="edit-field"><label>Previous Assignment</label><input name="previous_assignment" value="{{ record.previous_assignment }}"></div>
+    <div class="edit-field"><label>Years of Service</label><input value="{{ record.years_of_service|default:'—' }}" readonly></div>
+    <div class="edit-field full"><label>Deployment &amp; Service History</label><textarea name="service_history" rows="3">{{ record.service_history }}</textarea></div>
+  </div>
+  </div>
+
+  <div class="section-card">
+  <h4><i class="fa-solid fa-map-location-dot"></i> Deployment &amp; Status</h4>
+  <div class="edit-grid">
+    <div class="edit-field"><label>Deanery</label><select name="deanery" id="editDeanery" onchange="updateParishOptions('editDeanery','editAssignment')"><option value="">Select Deanery</option></select></div>
+    <div class="edit-field"><label>Current Assignment</label><select name="assignment" id="editAssignment"><option value="">Select Deanery first</option></select></div>
+    <div class="edit-field"><label>Current Status</label><select name="status" id="editStatus" onchange="toggleLeaveReason('editStatus','editLeaveReasonField')">
+      <option value="Active" {% if record.status == 'Active' %}selected{% endif %}>Active</option>
+      <option value="On Leave" {% if record.status == 'On Leave' %}selected{% endif %}>On Leave</option>
+      <option value="Missionary to Other Diocese" {% if record.status == 'Missionary to Other Diocese' %}selected{% endif %}>Missionary to Other Diocese</option>
+      <option value="Retired" {% if record.status == 'Retired' %}selected{% endif %}>Retired</option>
+    </select></div>
+    <div class="edit-field" id="editLeaveReasonField" style="display:none"><label>Leave Reason</label><input name="leave_reason" value="{{ record.leave_reason }}" placeholder="e.g. medical leave, sabbatical"></div>
+    <div class="edit-field"><label>Rank</label><select name="rank">
+      <option value="postulancy" {% if record.rank == 'postulancy' %}selected{% endif %}>Postulancy</option>
+      <option value="deacon" {% if record.rank == 'deacon' %}selected{% endif %}>Deacon</option>
+      <option value="priest" {% if record.rank == 'priest' %}selected{% endif %}>Priest</option>
+      <option value="bishop" {% if record.rank == 'bishop' %}selected{% endif %}>Bishop</option>
+    </select></div>
+    <div class="edit-field"><label>Contract End Date</label><input name="contract_end" type="date" value="{{ record.contract_end|date:'Y-m-d' }}"></div>
+    <div class="edit-field"><label>Date of Retirement</label><input name="retirement_date" type="date" value="{{ record.retirement_date|date:'Y-m-d' }}"></div>
+  </div>
+  </div>
+
+  <div class="actions"><button type="submit" class="btn"><i class="fa-solid fa-floppy-disk"></i> Save Changes</button></div>
+</form>
+</div>
+
+<div id="tabDocuments" class="tab-content">
+<div class="notice">Uploading a document type that already has one replaces it and resets its submission date. The Registrar can manage both groups below.</div>
+
+<h4 class="doc-group-title"><i class="fa-solid fa-user"></i>Clergy Submissions</h4>
+<div class="doc-grid">
+{% for item in checklist.clergy %}
+<div class="doc-card">
+  <div class="doc-card-head">
+    <b>{{ item.document_type.name }}</b>
+    {% if item.status == 'Submitted' %}<span class="badge active-b">Submitted</span>
+    {% elif item.status == 'Expired' %}<span class="badge inactive-b">Expired</span>
+    {% else %}<span class="badge pending-b">Missing</span>{% endif %}
+  </div>
+  {% if item.document_type.notes %}<div class="muted">{{ item.document_type.notes }}</div>{% endif %}
+  {% if item.document %}
+  <div class="doc-card-file"><i class="fa-solid fa-file-lines"></i> Submitted {{ item.document.submitted_date }}{% if item.document.notes %}<br>{{ item.document.notes }}{% endif %}</div>
+  <div class="row-actions">
+    <a class="btn small secondary" href="{% url 'registrar:view_document' item.document.id %}" target="_blank" rel="noopener"><i class="fa-solid fa-eye"></i> View</a>
+    <a class="btn small secondary" href="{% url 'registrar:download_document' item.document.id %}"><i class="fa-solid fa-download"></i> Download</a>
+    <button type="button" class="btn small secondary" onclick="quickPrintFile('{% url 'registrar:view_document' item.document.id %}')"><i class="fa-solid fa-print"></i> Print</button>
+  </div>
+  {% endif %}
+  <form method="post" enctype="multipart/form-data" class="doc-card-upload">
+    {% csrf_token %}
+    <input type="hidden" name="document_type" value="{{ item.document_type.id }}">
+    <input type="file" name="file" required>
+    <input type="text" name="notes" placeholder="Notes (optional)">
+    <button class="btn small">{% if item.document %}<i class="fa-solid fa-rotate"></i> Replace{% else %}<i class="fa-solid fa-upload"></i> Upload{% endif %}</button>
+  </form>
+</div>
+{% empty %}
+<p class="empty">No clergy-submission document types configured.</p>
+{% endfor %}
+</div>
+
+<h4 class="doc-group-title"><i class="fa-solid fa-building-columns"></i>Registrar Uploads</h4>
+<div class="doc-grid">
+{% for item in checklist.registrar %}
+<div class="doc-card">
+  <div class="doc-card-head">
+    <b>{{ item.document_type.name }}</b>
+    {% if item.status == 'Submitted' %}<span class="badge active-b">Submitted</span>
+    {% elif item.status == 'Expired' %}<span class="badge inactive-b">Expired</span>
+    {% else %}<span class="badge pending-b">Missing</span>{% endif %}
+  </div>
+  {% if item.document_type.notes %}<div class="muted">{{ item.document_type.notes }}</div>{% endif %}
+  {% if item.document %}
+  <div class="doc-card-file"><i class="fa-solid fa-file-lines"></i> Submitted {{ item.document.submitted_date }}{% if item.document.notes %}<br>{{ item.document.notes }}{% endif %}</div>
+  <div class="row-actions">
+    <a class="btn small secondary" href="{% url 'registrar:view_document' item.document.id %}" target="_blank" rel="noopener"><i class="fa-solid fa-eye"></i> View</a>
+    <a class="btn small secondary" href="{% url 'registrar:download_document' item.document.id %}"><i class="fa-solid fa-download"></i> Download</a>
+    <button type="button" class="btn small secondary" onclick="quickPrintFile('{% url 'registrar:view_document' item.document.id %}')"><i class="fa-solid fa-print"></i> Print</button>
+  </div>
+  {% endif %}
+  <form method="post" enctype="multipart/form-data" class="doc-card-upload">
+    {% csrf_token %}
+    <input type="hidden" name="document_type" value="{{ item.document_type.id }}">
+    <input type="file" name="file" required>
+    <input type="text" name="notes" placeholder="Notes (optional)">
+    <button class="btn small">{% if item.document %}<i class="fa-solid fa-rotate"></i> Replace{% else %}<i class="fa-solid fa-upload"></i> Upload{% endif %}</button>
+  </form>
+</div>
+{% empty %}
+<p class="empty">No registrar-upload document types configured.</p>
+{% endfor %}
+</div>
+</div>
+
+</div>
+</section>
+
+{{ deaneries_map|json_script:"deaneries-data" }}
+{{ record_data|json_script:"record-data" }}
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'registrar/js/clergy-records.js' %}"></script>
+<script src="{% static 'registrar/js/record-detail.js' %}"></script>
+<script src="{% static 'clergy/js/address-picker.js' %}"></script>
+<script>initRecordDetailTabs('{{ active_tab }}');</script>
+{% endblock %}

@@ -1,0 +1,64 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="{% block meta_description %}Electronic Diocese Network Portal — Clergy Records Management System.{% endblock %}">
+<title>EDNP — {% block page_name %}{% endblock %}</title>
+<link rel="stylesheet" href="{% static 'registrar/css/style.css' %}">
+<link rel="stylesheet" href="{% static 'skeleton.css' %}">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer">
+</head>
+<body>
+<div class="app">
+<aside class="sidebar">
+  <div class="brand">
+    <div class="brand-icon"><img src="{% static 'ednp_logo.png' %}" alt="EDNP logo"></div>
+    <div>EDNP<br><small style="color:#9db0c1">Clergy Records</small></div>
+  </div>
+    <button class="nav-toggle" type="button" aria-label="Toggle menu" aria-expanded="false" onclick="var s=this.closest('.sidebar');var o=s.classList.toggle('nav-open');this.setAttribute('aria-expanded',o)"><i class="fa-solid fa-bars"></i></button>
+  <div class="sidebar-user">
+    <b>{{ request.user.first_name|default:request.user.username }}</b><div class="role">Full access</div>
+  </div>
+  <div class="nav">
+    <div class="section-title">Main</div>
+    <a class="{% if active_page == 'dashboard' %}active{% endif %}" href="{% url 'registrar:dashboard' %}"><i class="fa-solid fa-gauge"></i> Dashboard</a>
+    <a class="{% if active_page == 'clergy_records' %}active{% endif %}" href="{% url 'registrar:clergy_records' %}"><i class="fa-solid fa-address-book"></i> Clergy Records</a>
+    <a class="{% if active_page == 'documents' %}active{% endif %}" href="{% url 'registrar:documents_overview' %}"><i class="fa-solid fa-folder-open"></i> Documents {% if nav_documents_count %}<span class="badge blue">{{ nav_documents_count }}</span>{% endif %}</a>
+    <a class="{% if active_page == 'ordination_requirements' %}active{% endif %}" href="{% url 'registrar:ordination_requirements' %}"><i class="fa-solid fa-list-check"></i> Ordination Requirements</a>
+    <div class="section-title">Services</div>
+    <a class="{% if active_page == 'contract_review' %}active{% endif %}" href="{% url 'registrar:contract_review' %}"><i class="fa-solid fa-file-contract"></i> Contract Review</a>
+    <a class="{% if active_page == 'generate_report' %}active{% endif %}" href="{% url 'registrar:generate_report' %}"><i class="fa-solid fa-file-circle-plus"></i> Generate Report</a>
+    <a class="{% if active_page == 'backup_records' %}active{% endif %}" href="{% url 'registrar:backup_records' %}"><i class="fa-solid fa-rotate"></i> Backup Records</a>
+    <div class="section-title">Account</div>
+    <a class="{% if active_page == 'change_password' %}active{% endif %}" href="{% url 'registrar:change_password' %}"><i class="fa-solid fa-key"></i> Change Password</a>
+    <a class="nav-logout" href="{% url 'logout' %}"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
+  </div>
+  <div class="sidebar-foot">Registrar Portal<br>EDNP System v1.0</div>
+</aside>
+
+<main>
+<div class="topbar">
+  <div class="title"><h1>{% block page_name_heading %}{% endblock %}</h1><p>Electronic Diocese Network Portal — Clergy Records Management</p></div>
+</div>
+
+{% block content %}{% endblock %}
+
+</main>
+</div>
+
+{% block modals %}{% endblock %}
+
+<div class="toast" id="toast"></div>
+
+<script src="{% static 'registrar/js/ui.js' %}"></script>
+<script src="{% static 'skeleton.js' %}"></script>
+{% block extra_js %}{% endblock %}
+{% if messages %}
+<script>
+{% for message in messages %}showToast('{{ message|escapejs }}', '{{ message.tags|escapejs }}');{% endfor %}
+</script>
+{% endif %}
+</body>
+</html>

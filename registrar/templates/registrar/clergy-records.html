@@ -1,0 +1,84 @@
+{% extends 'registrar/base.html' %}
+{% load static %}
+{% load registrar_extras %}
+{% block page_name %}Clergy Records{% endblock %}
+{% block page_name_heading %}Clergy Records{% endblock %}
+
+{% block content %}
+<section class="page active">
+<div class="panel">
+<div class="panel-head"><div><h3><i class="fa-solid fa-address-book"></i> Clergy Records</h3><span class="muted">Create, search, retrieve and update stored clergy information</span></div><button class="btn" onclick="openNewRecordModal()"><i class="fa-solid fa-plus"></i> New Record</button></div>
+<form class="toolbar" method="get">
+  <input name="q" class="search" placeholder="Search by clergy name, assignment or ID..." value="{{ search_query }}">
+  <select name="status" class="select" onchange="this.form.submit()">
+    <option value="">All Status</option>
+    {% for value, label in status_choices %}
+    <option value="{{ value }}" {% if status_filter == value %}selected{% endif %}>{{ label }}</option>
+    {% endfor %}
+  </select>
+  <button type="submit" class="btn secondary"><i class="fa-solid fa-magnifying-glass"></i> Search</button>
+</form>
+<table><thead><tr><th>Record ID</th><th>Clergy Name</th><th>Assignment</th><th>Status</th><th>Contract End</th><th>Portal Account</th><th>Actions</th></tr></thead>
+<tbody>
+{% for record in records %}
+<tr>
+  <td>{{ record.id }}</td>
+  <td><b>{{ record.name }}</b></td>
+  <td>{{ record.assignment|default:"—" }}</td>
+  <td><span class="badge {{ record.status|status_badge_class }}">{{ record.status }}</span></td>
+  <td>{{ record.contract_end|default:"—" }}</td>
+  <td>
+    {% if record.id in linked_ids %}
+    <span class="badge active-b">Linked</span>
+    {% else %}
+    <button class="btn small secondary" onclick="openLinkAccountModal(this)" data-record-id="{{ record.id }}" data-record-name="{{ record.name }}"><i class="fa-solid fa-user-plus"></i> Create Account</button>
+    {% endif %}
+  </td>
+  <td>
+    <a class="btn small secondary" href="{% url 'registrar:record_detail' record.id %}"><i class="fa-solid fa-id-card"></i> Personal Information</a>
+    <a class="btn small secondary" href="{% url 'registrar:record_detail' record.id %}?tab=documents"><i class="fa-solid fa-folder-open"></i> Documents</a>
+    <span class="badge {{ record.doc_summary|document_badge_class }}">{{ record.doc_summary.submitted }}/{{ record.doc_summary.total }}</span>
+  </td>
+</tr>
+{% empty %}
+<tr><td colspan="7" class="empty">No records found.</td></tr>
+{% endfor %}
+</tbody></table>
+</div>
+</section>
+{% endblock %}
+
+{% block modals %}
+<!-- New record modal -->
+<div class="modal-bg" id="recordModal"><div class="modal">
+<div class="modal-head"><div><h3 style="margin:0"><i class="fa-solid fa-plus"></i> Create Clergy Record</h3><span class="muted">Encode verified clergy biodata and set up portal access</span></div><button class="close" type="button" aria-label="Close" onclick="closeModal('recordModal')"><i class="fa-solid fa-xmark"></i></button></div>
+<form method="post" action="{% url 'registrar:create_record' %}"><div class="form-grid">
+{% csrf_token %}
+<div class="field"><label>Clergy Name</label><input name="name" required></div><div class="field"><label>Record ID</label><input id="newId" value="{{ next_id }}" readonly></div>
+<div class="field"><label>Deanery</label><select name="deanery" id="newDeanery" onchange="updateParishOptions('newDeanery','newAssignment')"><option value="">Select Deanery</option></select></div><div class="field"><label>Parish / Assignment</label><select name="assignment" id="newAssignment" required disabled><option value="">Select Deanery first</option></select></div>
+<div class="field"><label>Status</label><select name="status" id="newStatus" onchange="toggleLeaveReason('newStatus','newLeaveReasonField')"><option>Active</option><option>On Leave</option><option>Missionary to Other Diocese</option><option>Retired</option></select></div>
+<div class="field" id="newLeaveReasonField" style="display:none"><label>Leave Reason</label><input name="leave_reason" id="newLeaveReason" placeholder="e.g. medical leave, sabbatical"></div>
+<div class="field"><label>Rank</label><select name="rank"><option value="postulancy">Postulancy</option><option value="deacon">Deacon</option><option value="priest">Priest</option><option value="bishop">Bishop</option></select></div>
+<div class="field"><label>Date of Baptism</label><input name="baptism_date" type="date"></div><div class="field"><label>Date of Confirmation</label><input name="confirmation_date" type="date"></div>
+<div class="field"><label>Contract End</label><input name="contract_end" type="date"></div>
+<div class="field"><label>Portal Username</label><input name="new_username" required></div><div class="field"><label>Portal Temporary Password</label><input name="new_password" type="text" minlength="8" placeholder="Min. 8 characters" required></div>
+</div>
+<div class="modal-actions"><button type="button" class="btn secondary" onclick="closeModal('recordModal')"><i class="fa-solid fa-xmark"></i> Cancel</button><button class="btn"><i class="fa-solid fa-floppy-disk"></i> Save Record</button></div></form>
+</div></div>
+
+<!-- Create portal account for an existing record -->
+<div class="modal-bg" id="linkAccountModal"><div class="modal">
+<div class="modal-head"><div><h3 style="margin:0"><i class="fa-solid fa-user-plus"></i> Create Portal Account</h3><span class="muted" id="linkAccountName"></span></div><button class="close" type="button" aria-label="Close" onclick="closeModal('linkAccountModal')"><i class="fa-solid fa-xmark"></i></button></div>
+<form method="post" id="linkAccountForm"><div class="form-grid">
+{% csrf_token %}
+<div class="field"><label>Username</label><input name="username" required></div><div class="field"><label>Temporary Password</label><input name="password" type="text" minlength="8" placeholder="Min. 8 characters" required></div>
+</div>
+<div class="modal-actions"><button type="button" class="btn secondary" onclick="closeModal('linkAccountModal')"><i class="fa-solid fa-xmark"></i> Cancel</button><button class="btn"><i class="fa-solid fa-user-plus"></i> Create Account</button></div></form>
+</div></div>
+
+{{ deaneries_map|json_script:"deaneries-data" }}
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'registrar/js/clergy-records.js' %}"></script>
+{% endblock %}

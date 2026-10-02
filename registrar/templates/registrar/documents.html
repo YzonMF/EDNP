@@ -1,0 +1,31 @@
+{% extends 'registrar/base.html' %}
+{% load static %}
+{% load registrar_extras %}
+{% block page_name %}Documents{% endblock %}
+{% block page_name_heading %}Documents{% endblock %}
+
+{% block content %}
+<section class="page active">
+<div class="panel">
+<div class="panel-head"><div><h3><i class="fa-solid fa-folder-open"></i> Documents</h3><span class="muted">Rank-based document checklist status across every clergy record</span></div></div>
+<table><thead><tr><th>Record ID</th><th>Clergy Name</th><th>Rank</th><th>Documents</th><th>Action</th></tr></thead>
+<tbody>
+{% for row in rows %}
+<tr>
+  <td>{{ row.record.id }}</td>
+  <td><b>{{ row.record.name }}</b></td>
+  <td>{{ row.record.get_rank_display }}</td>
+  <td>
+    <span class="badge {{ row.summary|document_badge_class }}">{{ row.summary.submitted }}/{{ row.summary.total }} Submitted</span>
+    {% if row.summary.expired %}<span class="badge inactive-b">{{ row.summary.expired }} Expired</span>{% endif %}
+  </td>
+  <td><a class="btn small secondary" href="{% url 'registrar:record_detail' row.record.id %}?tab=documents"><i class="fa-solid fa-list-check"></i> View Checklist</a></td>
+</tr>
+{% empty %}
+<tr><td colspan="5" class="empty">No clergy records found.</td></tr>
+{% endfor %}
+</tbody>
+</table>
+</div>
+</section>
+{% endblock %}

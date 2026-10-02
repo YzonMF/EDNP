@@ -1,0 +1,82 @@
+{% extends 'clergy/base.html' %}
+{% load static %}
+{% block page_name %}My Requirements &amp; Attachments{% endblock %}
+{% block page_name_heading %}My Requirements &amp; Attachments{% endblock %}
+
+{% block content %}
+<section class="page active">
+
+  <div class="panel">
+    <div class="panel-head">
+      <div>
+        <h3><i class="fa-solid fa-folder-open"></i> My Requirements &amp; Attachments</h3>
+        <span class="muted">Required documents for your current rank ({{ profile.record.get_rank_display }}), cumulative from Postulancy.</span>
+      </div>
+      <span class="badge blue">Own Record Only</span>
+    </div>
+
+    <div class="notice">You can view and submit documents attached to <b>your own clergy record only</b>. You cannot search, view, edit, or access another clergy member's records.</div>
+
+    <h3 style="margin:20px 0 10px"><i class="fa-solid fa-user" style="color:var(--blue);margin-right:6px"></i>Own Requirements &amp; Ordination Attachments</h3>
+    <div class="doc-grid">
+    {% for item in checklist.clergy %}
+    <div class="doc-card">
+      <div class="doc-card-head">
+        <b>{{ item.document_type.name }}</b>
+        {% if item.status == 'Submitted' %}<span class="badge green">Submitted</span>
+        {% elif item.status == 'Expired' %}<span class="badge red">Expired</span>
+        {% else %}<span class="badge amber">Missing</span>{% endif %}
+      </div>
+      {% if item.document_type.notes %}<div class="muted">{{ item.document_type.notes }}</div>{% endif %}
+      {% if item.document %}
+      <div class="doc-card-file"><i class="fa-solid fa-file-lines"></i> Submitted {{ item.document.submitted_date }}{% if item.document.notes %}<br>{{ item.document.notes }}{% endif %}</div>
+      <div class="row-actions">
+        <a class="btn secondary small" href="{% url 'registrar:view_document' item.document.id %}" target="_blank" rel="noopener"><i class="fa-solid fa-eye"></i> View</a>
+        <a class="btn secondary small" href="{% url 'registrar:download_document' item.document.id %}"><i class="fa-solid fa-download"></i> Download</a>
+        <button type="button" class="btn secondary small" onclick="quickPrintFile('{% url 'registrar:view_document' item.document.id %}')"><i class="fa-solid fa-print"></i> Print</button>
+      </div>
+      {% endif %}
+      <form method="post" enctype="multipart/form-data" class="doc-card-upload">
+        {% csrf_token %}
+        <input type="hidden" name="document_type" value="{{ item.document_type.id }}">
+        <input type="file" name="file" required>
+        <input type="text" name="notes" placeholder="Notes (optional)">
+        <button class="btn small">{% if item.document %}<i class="fa-solid fa-rotate"></i> Replace{% else %}<i class="fa-solid fa-upload"></i> Upload{% endif %}</button>
+      </form>
+    </div>
+    {% empty %}
+    <p class="empty">No requirements configured yet.</p>
+    {% endfor %}
+    </div>
+
+    <h3 style="margin:25px 0 10px"><i class="fa-solid fa-building-columns" style="color:var(--blue);margin-right:6px"></i>Registrar / Official Documents</h3>
+    <div class="notice">These are provided and maintained by the Registrar — view-only from your portal.</div>
+    <div class="doc-grid">
+    {% for item in checklist.registrar %}
+    <div class="doc-card">
+      <div class="doc-card-head">
+        <b>{{ item.document_type.name }}</b>
+        {% if item.status == 'Submitted' %}<span class="badge green">Submitted</span>
+        {% elif item.status == 'Expired' %}<span class="badge red">Expired</span>
+        {% else %}<span class="badge amber">Pending</span>{% endif %}
+      </div>
+      {% if item.document_type.notes %}<div class="muted">{{ item.document_type.notes }}</div>{% endif %}
+      {% if item.document %}
+      <div class="doc-card-file"><i class="fa-solid fa-file-lines"></i> Submitted {{ item.document.submitted_date }}{% if item.document.notes %}<br>{{ item.document.notes }}{% endif %}</div>
+      <div class="row-actions">
+        <a class="btn secondary small" href="{% url 'registrar:view_document' item.document.id %}" target="_blank" rel="noopener"><i class="fa-solid fa-eye"></i> View</a>
+        <a class="btn secondary small" href="{% url 'registrar:download_document' item.document.id %}"><i class="fa-solid fa-download"></i> Download</a>
+        <button type="button" class="btn secondary small" onclick="quickPrintFile('{% url 'registrar:view_document' item.document.id %}')"><i class="fa-solid fa-print"></i> Print</button>
+      </div>
+      {% else %}
+      <div class="muted">Not yet provided by the Registrar.</div>
+      {% endif %}
+    </div>
+    {% empty %}
+    <p class="empty">No registrar-provided documents configured yet.</p>
+    {% endfor %}
+    </div>
+  </div>
+
+</section>
+{% endblock %}

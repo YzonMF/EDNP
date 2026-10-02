@@ -1,0 +1,7 @@
+Django==4.2.30
+mysqlclient==2.2.8
+python-dotenv==1.2.3
+# weasyprint also needs the GTK/Pango native libraries installed on the
+# machine (pip alone doesn't provide these on Windows) — see
+# https://doc.courtbouillon.org/weasyprint/stable/first_steps.html#installation
+weasyprint==70.0

@@ -1,0 +1,32 @@
+{% extends 'clergy/base.html' %}
+{% load static %}
+{% block page_name %}My Notifications{% endblock %}
+{% block page_name_heading %}My Notifications{% endblock %}
+
+{% block content %}
+<section class="page active">
+
+  <div class="panel">
+
+    <div class="panel-head">
+      <div>
+        <h3><i class="fa-solid fa-bell"></i> My Notifications</h3>
+        <span class="muted">System notices related to your own account.</span>
+      </div>
+    </div>
+
+    <div class="notice success">
+      <b><i class="fa-solid fa-circle-check"></i> Account verified.</b><br>
+      Your clergy record is currently verified and active.
+    </div>
+
+    <div class="notice">
+      <b><i class="fa-solid fa-shield-halved"></i> Privacy restriction.</b><br>
+      You can only access and edit your own profile information. Official clergy
+      records remain controlled by the Registrar.
+    </div>
+
+  </div>
+
+</section>
+{% endblock %}

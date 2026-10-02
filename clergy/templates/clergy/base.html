@@ -1,0 +1,75 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="{% block meta_description %}Electronic Diocese Network Portal — Clergy Self-Service.{% endblock %}">
+<title>EDNP — {% block page_name %}{% endblock %}</title>
+<link rel="stylesheet" href="{% static 'clergy/css/style.css' %}">
+<link rel="stylesheet" href="{% static 'skeleton.css' %}">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer">
+</head>
+<body>
+
+<div id="app" class="app">
+
+  <aside class="sidebar">
+
+    <div class="brand">
+      <div class="brand-icon"><img src="{% static 'ednp_logo.png' %}" alt="EDNP logo"></div>
+      <div>EDNP<br><small>Clergy Portal</small></div>
+    </div>
+
+    <button class="nav-toggle" type="button" aria-label="Toggle menu" aria-expanded="false" onclick="var s=this.closest('.sidebar');var o=s.classList.toggle('nav-open');this.setAttribute('aria-expanded',o)"><i class="fa-solid fa-bars"></i></button>
+    <div class="sidebar-user">
+      <b>{{ profile.full_name }}</b><div class="role">Clergy User</div>
+    </div>
+
+    <div class="nav">
+      <div class="nav-title">My Portal</div>
+      <a class="{% if active_page == 'dashboard' %}active{% endif %}" href="{% url 'clergy:dashboard' %}"><i class="fa-solid fa-house"></i> Dashboard</a>
+      <a class="{% if active_page == 'my_profile' %}active{% endif %}" href="{% url 'clergy:my_profile' %}"><i class="fa-solid fa-id-card"></i> My Record &amp; Profile</a>
+      <a class="{% if active_page == 'my_requirements' %}active{% endif %}" href="{% url 'clergy:my_requirements' %}"><i class="fa-solid fa-file-lines"></i> My Requirements &amp; Attachments {% if nav_documents_total %}<span class="badge blue{% if nav_documents_submitted == nav_documents_total %} complete{% endif %}">{{ nav_documents_submitted }}/{{ nav_documents_total }}</span>{% endif %}</a>
+      <a class="{% if active_page == 'notifications' %}active{% endif %}" href="{% url 'clergy:notifications' %}"><i class="fa-solid fa-bell"></i> Notifications</a>
+      <a class="nav-logout" href="{% url 'logout' %}"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
+    </div>
+
+    <div class="side-foot">
+      Clergy User<br>
+      Self-Service Access<br>
+      EDNP v1.0
+    </div>
+
+  </aside>
+
+  <main>
+
+    <div class="top">
+      <div>
+        <h1>{% block page_name_heading %}{% endblock %}</h1>
+        <div class="sub">Electronic Diocese Network Portal — Clergy Self-Service</div>
+      </div>
+      {% block top_actions %}{% endblock %}
+    </div>
+
+    {% block content %}{% endblock %}
+
+  </main>
+
+</div>
+
+{% block modals %}{% endblock %}
+
+<div id="toast" class="toast"></div>
+
+<script src="{% static 'clergy/js/ui.js' %}"></script>
+<script src="{% static 'skeleton.js' %}"></script>
+{% block extra_js %}{% endblock %}
+{% if messages %}
+<script>
+{% for message in messages %}showToast('{{ message|escapejs }}', '{{ message.tags|escapejs }}');{% endfor %}
+</script>
+{% endif %}
+</body>
+</html>

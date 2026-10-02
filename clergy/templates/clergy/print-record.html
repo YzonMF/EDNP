@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>EDNP Clergy Record - {{ profile.full_name }}</title>
+<style>
+  @page{size:A4;margin:16mm}
+  body{font-family:Arial,Segoe UI,sans-serif;color:#17212b;font-size:12px;line-height:1.45;margin:0}
+  h1{font-size:22px;margin:0 0 4px}
+  h2{font-size:16px;margin:24px 0 8px;border-bottom:2px solid #17324d;padding-bottom:5px}
+  .header{border-bottom:3px solid #17324d;padding-bottom:12px;margin-bottom:18px}
+  .subtitle{color:#64748b}
+  table{width:100%;border-collapse:collapse}
+  th,td{border:1px solid #d9e0e7;padding:7px;text-align:left;vertical-align:top}
+  th{width:32%;background:#f3f5f7;font-size:11px;text-transform:uppercase;color:#526273}
+  .note{margin-top:20px;padding:10px;background:#f3f7fb;border:1px solid #d9e0e7;color:#526273}
+  .actions{position:fixed;top:12px;right:12px;display:flex;gap:8px}
+  .actions a,.actions button{border:0;border-radius:7px;padding:9px 14px;font-weight:700;cursor:pointer;text-decoration:none;font-family:Arial,Segoe UI,sans-serif;font-size:12px}
+  .print-btn{background:#239b62;color:white}
+  .download-btn{background:#eef1f5;color:#17324d}
+  @media print{.actions{display:none}}
+</style>
+</head>
+<body>
+  <div class="actions">
+    <button type="button" class="print-btn" onclick="window.print()">Print Record</button>
+    {% if download_url %}<a class="download-btn" href="{{ download_url }}">Download PDF</a>{% endif %}
+  </div>
+
+  <div class="header">
+    <h1>EDNP Clergy Record</h1>
+    <div class="subtitle">Personal Copy — {{ profile.full_name }}</div>
+    <div class="subtitle">This printout contains information from the logged-in clergy user's own record.</div>
+  </div>
+
+  <h2>Clergy Record</h2>
+  <table>
+    <tr><th>Clergy ID</th><td>{{ profile.record.id|default:"Pending" }}</td></tr>
+    <tr><th>Full Name</th><td>{{ profile.full_name }}</td></tr>
+    <tr><th>Status</th><td>{{ profile.record.status|default:"—" }}</td></tr>
+    <tr><th>Deanery</th><td>{{ profile.record.deanery|default:"—" }}</td></tr>
+    <tr><th>Deployment</th><td>{{ profile.record.assignment|default:"—" }}</td></tr>
+    <tr><th>Verification</th><td>{{ profile.verification }}</td></tr>
+    <tr><th>Contract End</th><td>{{ profile.record.contract_end|default:"—" }}</td></tr>
+    <tr><th>Retirement Date</th><td>{{ profile.record.retirement_date|default:"—" }}</td></tr>
+    <tr><th>Date of Birth</th><td>{{ profile.record.date_of_birth|default:"—" }}</td></tr>
+    <tr><th>Place of Birth</th><td>{{ profile.place_of_birth|default:"—" }}</td></tr>
+    <tr><th>Gender</th><td>{{ profile.record.gender|default:"—" }}</td></tr>
+    <tr><th>Civil Status</th><td>{{ profile.civil_status|default:"—" }}</td></tr>
+    <tr><th>Baptism Date</th><td>{{ profile.record.baptism_date|default:"—" }}</td></tr>
+    <tr><th>Baptism Place</th><td>{{ profile.baptism_place|default:"—" }}</td></tr>
+    <tr><th>Confirmation Date</th><td>{{ profile.record.confirmation_date|default:"—" }}</td></tr>
+    <tr><th>Confirmation Place</th><td>{{ profile.confirmation_place|default:"—" }}</td></tr>
+    <tr><th>Address</th><td>{{ profile.record.address|default:"—" }}</td></tr>
+    <tr><th>Contact Number</th><td>{{ profile.record.phone|default:"—" }}</td></tr>
+    <tr><th>Email Address</th><td>{{ profile.record.email|default:"—" }}</td></tr>
+    <tr><th>Diaconate Ordination</th><td>{{ profile.record.diaconate_date|default:"—" }}</td></tr>
+    <tr><th>Priesthood Ordination</th><td>{{ profile.record.ordination_date|default:"—" }}</td></tr>
+    <tr><th>Holy Orders Date</th><td>{{ profile.record.holy_orders_date|default:"—" }}</td></tr>
+    <tr><th>Ordination Place</th><td>{{ profile.record.ordination_place|default:"—" }}</td></tr>
+    <tr><th>Bishop</th><td>{{ profile.record.bishop_name|default:"—" }}</td></tr>
+    <tr><th>Consecration Date</th><td>{{ profile.record.consecration_date|default:"—" }}</td></tr>
+    <tr><th>Previous Assignment</th><td>{{ profile.record.previous_assignment|default:"—" }}</td></tr>
+    <tr><th>Years of Service</th><td>{{ profile.record.years_of_service|default:"—" }}</td></tr>
+    <tr><th>Service History</th><td>{{ profile.record.service_history|default:"—"|linebreaksbr }}</td></tr>
+    <tr><th>Educational Background</th><td>{{ profile.education|default:"—" }}</td></tr>
+    <tr><th>Marriage Date</th><td>{{ profile.marriage_date|default:"—" }}</td></tr>
+    <tr><th>Spouse</th><td>{{ profile.spouse_name|default:"—" }}</td></tr>
+    <tr><th>Children</th><td>{{ profile.children_names|default:"—"|linebreaksbr }}</td></tr>
+    <tr><th>SSS No.</th><td>{{ profile.sss_number|default:"—" }}</td></tr>
+    <tr><th>PhilHealth No.</th><td>{{ profile.philhealth_number|default:"—" }}</td></tr>
+    <tr><th>Pag-IBIG No.</th><td>{{ profile.pagibig_number|default:"—" }}</td></tr>
+    <tr><th>Reason for Leave</th><td>{{ profile.record.leave_reason|default:"—" }}</td></tr>
+  </table>
+
+  <h2>Requirements &amp; Attachments</h2>
+  <table>
+    <thead><tr><th style="width:auto">Document</th><th style="width:auto">Status</th><th style="width:auto">Submitted</th></tr></thead>
+    <tbody>
+      {% for item in checklist %}
+      <tr>
+        <td>{{ item.document_type.name }}</td>
+        <td>{{ item.status }}</td>
+        <td>{{ item.document.submitted_date|default:"—" }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="3">No requirements configured.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <div class="note">
+    <b>Privacy Notice:</b> This is a personal copy of the logged-in clergy user's own record.
+    Other clergy records and Registrar-only functions are not included.
+  </div>
+
+</body>
+</html>

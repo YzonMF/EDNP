@@ -1,0 +1,27 @@
+{% extends 'registrar/base.html' %}
+{% load static %}
+{% block page_name %}Ordination Requirements{% endblock %}
+{% block page_name_heading %}Ordination Requirements{% endblock %}
+
+{% block content %}
+<section class="page active">
+<div class="panel">
+<div class="panel-head"><div><h3><i class="fa-solid fa-list-check"></i> Clergy Records &amp; Requirements</h3><span class="muted">Reference checklist of documents required at each rank — generated live from the Documents catalog, cumulative from Postulancy upward.</span></div></div>
+
+<div class="req-grid">
+{% for group in groups %}
+<div class="req-card">
+  <h4><i class="fa-solid fa-clipboard-check"></i> {{ group.label }}</h4>
+  <ul>
+    {% for doc_type in group.types %}
+    <li>{{ doc_type.name }}{% if doc_type.validity_period_months %} — valid for {{ doc_type.validity_period_months }} month{{ doc_type.validity_period_months|pluralize }}{% endif %}{% if doc_type.notes %} — {{ doc_type.notes }}{% endif %}</li>
+    {% endfor %}
+  </ul>
+</div>
+{% empty %}
+<div class="req-card"><p class="muted" style="margin:0">No document types configured yet.</p></div>
+{% endfor %}
+</div>
+</div>
+</section>
+{% endblock %}

@@ -1,0 +1,52 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Sign in to the EDNP Clergy Record-Keeping and Document Tracking System.">
+    <title>EDNP — Sign In</title>
+    <link rel="stylesheet" href="{% static 'index.css' %}">
+    <link rel="stylesheet" href="{% static 'theme.css' %}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer">
+  </head>
+  <body>
+    <div class="login-screen">
+      <div class="login-container">
+        <div class="brand-panel">
+          <div class="brand-panel-inner">
+            <img src="{% static 'ednp_logo.png' %}" alt="EDNP Logo" class="brand-logo">
+            <p>Clergy Record-Keeping and Document Tracking System</p>
+          </div>
+        </div>
+        <div class="form-panel">
+          <div class="form-panel-inner">
+            <h2>Sign In</h2>
+            <p class="form-sub">Enter your credentials to continue.</p>
+            <form method="post">
+              {% csrf_token %}
+              <div class="field">
+                <label><i class="fa-solid fa-user"></i> Username</label>
+                <input name="username" value="{{ username|default:'' }}" placeholder="Enter your username" autocomplete="username" required {% if not username %}autofocus{% endif %}>
+              </div>
+              <div class="field">
+                <label><i class="fa-solid fa-lock"></i> Password</label>
+                <input name="password"
+                       type="password"
+                       placeholder="Enter your password"
+                       autocomplete="current-password"
+                       required
+                       {% if username %}autofocus{% endif %}>
+              </div>
+              {% if login_error %}
+              <div class="login-error"><i class="fa-solid fa-triangle-exclamation"></i> {{ login_error_message }}</div>
+              {% endif %}
+              <button class="btn" type="submit"><i class="fa-solid fa-right-to-bracket"></i> Sign In</button>
+            </form>
+
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

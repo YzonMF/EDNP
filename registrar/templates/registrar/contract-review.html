@@ -1,0 +1,27 @@
+{% extends 'registrar/base.html' %}
+{% load static %}
+{% load registrar_extras %}
+{% block page_name %}Contract Review{% endblock %}
+{% block page_name_heading %}Contract Expiry Review{% endblock %}
+
+{% block content %}
+<section class="page active">
+<div class="panel"><div class="panel-head"><div><h3><i class="fa-solid fa-file-contract"></i> Contract Expiry Review</h3><span class="muted">Clergy contracts near expiration and post-notice status decisions</span></div></div>
+<div class="alert">Advance notices should be generated when a contract term is near its end date.</div>
+<table><thead><tr><th>Clergy</th><th>Assignment</th><th>Contract End</th><th>Days Left</th><th>Current Status</th></tr></thead>
+<tbody>
+{% for row in rows %}
+<tr>
+  <td>{{ row.record.name }}</td>
+  <td>{{ row.record.assignment|default:"—" }}</td>
+  <td>{{ row.record.contract_end }}</td>
+  <td><b>{{ row.days_left }}</b></td>
+  <td><span class="badge {{ row.record.status|status_badge_class }}">{{ row.record.status }}</span></td>
+</tr>
+{% empty %}
+<tr><td colspan="5" class="empty">No contracts on file.</td></tr>
+{% endfor %}
+</tbody>
+</table></div>
+</section>
+{% endblock %}

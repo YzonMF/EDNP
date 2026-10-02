@@ -1,0 +1,42 @@
+{% extends 'registrar/base.html' %}
+{% load static %}
+{% load registrar_extras %}
+{% block page_name %}Dashboard{% endblock %}
+{% block page_name_heading %}Dashboard{% endblock %}
+
+{% block content %}
+<section class="page active">
+  <div class="cards cards-2">
+    <div class="stat"><small><i class="fa-solid fa-users"></i> Total Clergy Records</small><h2>{{ stats.total }}</h2><div class="note">Stored records</div></div>
+    <div class="stat"><small><i class="fa-solid fa-user-check"></i> Active Clergy</small><h2>{{ stats.active }}</h2><div class="note">Current status</div></div>
+  </div>
+  <div class="grid2">
+    <div class="panel">
+      <div class="panel-head"><div><h3><i class="fa-solid fa-clock-rotate-left"></i> Recent Clergy Records</h3><span class="muted">Latest records in the system</span></div><a class="btn small" href="{% url 'registrar:clergy_records' %}"><i class="fa-solid fa-arrow-right"></i> View all</a></div>
+      <table><thead><tr><th>Name</th><th>Assignment</th><th>Status</th><th>Action</th></tr></thead>
+      <tbody>
+      {% for record in recent_records %}
+      <tr>
+        <td><b>{{ record.name }}</b><br><span class="muted">{{ record.id }}</span></td>
+        <td>{{ record.assignment|default:"—" }}</td>
+        <td><span class="badge {{ record.status|status_badge_class }}">{{ record.status }}</span></td>
+        <td><a class="btn small secondary" href="{% url 'registrar:record_detail' record.id %}"><i class="fa-solid fa-id-card"></i> Personal Information</a></td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="4" class="empty">No records yet.</td></tr>
+      {% endfor %}
+      </tbody>
+      </table>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><div><h3><i class="fa-solid fa-bolt"></i> Quick Actions</h3><span class="muted">Common registrar tasks</span></div></div>
+      <div class="action-grid">
+        <a class="action" href="{% url 'registrar:clergy_records' %}"><strong><i class="fa-solid fa-plus"></i> Create Clergy Record</strong><span>Encode a new record and set up portal access</span></a>
+        <a class="action" href="{% url 'registrar:contract_review' %}"><strong><i class="fa-solid fa-file-contract"></i> Contract Review</strong><span>View contracts near expiry</span></a>
+        <a class="action" href="{% url 'registrar:generate_report' %}"><strong><i class="fa-solid fa-file-circle-plus"></i> Generate Report</strong><span>Create a summary report of clergy records</span></a>
+        <a class="action" href="{% url 'registrar:backup_records' %}"><strong><i class="fa-solid fa-rotate"></i> Backup Records</strong><span>Database dump and documents archive</span></a>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}
