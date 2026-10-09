@@ -124,6 +124,7 @@ def verify_device(request):
 
     return render(request, 'verify_device.html', {
         'masked_phone': mask(security.phone),
+        'sent': True,   # the code is texted the moment the password is accepted
         'resend': otp.resend_status(user, 'device', security.phone),
         'test_mode': sms.is_test_backend(),
         'test_code': request.session.get(DEVICE_TEST_CODE_KEY) if sms.is_test_backend() else None,
