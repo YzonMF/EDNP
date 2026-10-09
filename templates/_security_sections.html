@@ -6,10 +6,11 @@
 
   <form method="post" action="{% url 'my_security' %}" autocomplete="off">{% csrf_token %}
     <input type="hidden" name="action" value="change_username">
-    <div class="form-grid" style="grid-template-columns:1fr 1fr">
+    <div class="form-grid" style="grid-template-columns:1fr;max-width:420px">
       <div class="field"><label for="sec_username">Username</label><input id="sec_username" name="username" value="{{ request.user.username }}" autocomplete="username" required></div>
       <div class="field"><label for="sec_pw_user">Current password</label><input id="sec_pw_user" name="current_password" type="password" autocomplete="current-password" required></div>
     </div>
+    <p class="muted" style="margin:8px 0 14px">This is what you sign in with, so make sure you remember it.</p>
     <div class="modal-actions" style="justify-content:flex-start"><button class="btn" type="submit"><i class="fa-solid fa-floppy-disk"></i> Change username</button></div>
   </form>
 
@@ -17,7 +18,7 @@
 
   <form method="post" action="{% url 'my_security' %}" autocomplete="off">{% csrf_token %}
     <input type="hidden" name="action" value="change_password">
-    <div class="form-grid" style="grid-template-columns:1fr 1fr 1fr">
+    <div class="form-grid" style="grid-template-columns:1fr;max-width:420px">
       <div class="field"><label for="sec_pw_cur">Current password</label><input id="sec_pw_cur" name="current_password" type="password" autocomplete="current-password" required></div>
       <div class="field"><label for="sec_pw_new">New password</label><input id="sec_pw_new" name="new_password" type="password" autocomplete="new-password" required></div>
       <div class="field"><label for="sec_pw_conf">Confirm new password</label><input id="sec_pw_conf" name="confirm_password" type="password" autocomplete="new-password" required></div>
@@ -36,7 +37,7 @@
   {% endif %}
   <form method="post" action="{% url 'my_security' %}" autocomplete="off">{% csrf_token %}
     <button type="submit" class="default-submit" name="action" value="{% if sent %}verify_change_code{% else %}send_change_code{% endif %}" tabindex="-1" aria-hidden="true"></button>
-    <div class="form-grid" style="grid-template-columns:1fr 1fr">
+    <div class="form-grid" style="grid-template-columns:1fr;max-width:420px">
       <div class="field"><label for="sec_phone">New mobile number</label><input id="sec_phone" name="phone" type="tel" inputmode="tel" placeholder="0917 123 4567" value="{{ pending_display }}" required {% if sent %}readonly{% endif %}></div>
       <div class="field"><label for="sec_pw_phone">Current password</label><input id="sec_pw_phone" name="current_password" type="password" autocomplete="current-password" {% if sent %}disabled placeholder="Confirmed"{% else %}required{% endif %}></div>
     </div>
