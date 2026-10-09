@@ -55,15 +55,13 @@
               <form method="post" autocomplete="off">
                 {% csrf_token %}
                 <input type="hidden" name="action" value="send_code">
-                {% if name_required %}
                 <div class="field">
                   <label><i class="fa-solid fa-id-card"></i> Full name</label>
                   <input name="name" value="{{ name }}" placeholder="Your full name" autocomplete="name" maxlength="150" required>
                 </div>
-                {% endif %}
                 <div class="field">
                   <label><i class="fa-solid fa-mobile-screen"></i> Mobile number</label>
-                  <input name="phone" type="tel" value="{{ phone }}" placeholder="0917 123 4567" autocomplete="tel" inputmode="tel" required {% if not name_required %}autofocus{% endif %}>
+                  <input name="phone" type="tel" value="{{ phone }}" placeholder="0917 123 4567" autocomplete="tel" inputmode="tel" required>
                 </div>
                 <p class="setup-note"><i class="fa-solid fa-circle-info"></i> One number can belong to one account only. It is also used to sign in on new devices and to reset your password.</p>
                 <button class="btn" type="submit"><i class="fa-solid fa-paper-plane"></i> Send code</button>

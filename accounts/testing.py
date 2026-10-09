@@ -11,6 +11,9 @@ def activate(user, phone=None):
     """Marks `user` as fully set up. Each user gets a distinct number (the
     column is unique) unless one is given."""
     now = timezone.now()
+    if not user.get_full_name().strip() and not hasattr(user, 'clergy_profile'):
+        user.first_name = 'Test User'   # staff must have a name to count as set up
+        user.save(update_fields=['first_name'])
     UserSecurity.objects.update_or_create(user=user, defaults={
         'phone': phone or f'+639{user.pk:09d}',
         'phone_verified_at': now,
