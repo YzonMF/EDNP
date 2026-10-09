@@ -75,6 +75,16 @@ def issue(user, purpose, target):
     return code if sms.is_test_backend() else None
 
 
+def has_live_challenge(user, purpose, target):
+    """True if a code for this user/number is already out and still usable —
+    lets a page that was reloaded carry on with the code just sent instead of
+    failing on the resend cooldown."""
+    return OtpChallenge.objects.filter(
+        user=user, purpose=purpose, target=target, consumed_at__isnull=True,
+        expires_at__gt=timezone.now(), attempts__lt=settings.OTP_MAX_ATTEMPTS,
+    ).exists()
+
+
 def verify(user, purpose, target, submitted):
     """Raises OtpError unless `submitted` is the live code for this
     user/purpose/number; on success the code is used up."""

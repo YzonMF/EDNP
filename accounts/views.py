@@ -8,7 +8,7 @@ from django.utils import timezone
 
 from ednp.password_helpers import validate_password_or_flag_errors
 
-from . import otp, setup, sms
+from . import devices, otp, setup, sms
 from .session_utils import keep_signed_in_after_password_change
 from .models import UserSecurity
 from .phone import mask, normalize_ph_mobile
@@ -118,7 +118,9 @@ def activate(request):
             request.session.pop(TEST_CODE_KEY, None)
             if setup.pending_stage(user) is None:
                 messages.success(request, 'Your number is verified.')
-                return redirect(_home_url_name(user))
+                response = redirect(_home_url_name(user))
+                devices.trust(response, request, user)
+                return response
             messages.success(request, 'Your number is verified. One last step: choose your own password.')
             return redirect('activate')
 
@@ -140,7 +142,9 @@ def activate(request):
                 security.setup_expires_at = None
                 security.save(update_fields=['password_changed_at', 'activated_at', 'setup_expires_at'])
                 messages.success(request, 'Account activated. Welcome!')
-                return redirect(_home_url_name(user))
+                response = redirect(_home_url_name(user))
+                devices.trust(response, request, user)  # they just proved this browser with their phone
+                return response
             return redirect('activate')
 
         return redirect('activate')

@@ -15,6 +15,7 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
+from django.shortcuts import redirect
 from django.urls import include, path
 
 from accounts import views as account_views
@@ -27,10 +28,15 @@ from . import views
 # (see registrar.views.view_document/download_document and friends). Serving
 # MEDIA_ROOT directly would bypass all of those checks.
 
+# Django admin would otherwise be a second sign-in page that never asks for the
+# new-device code. Everyone signs in through the portal login instead.
+admin.site.login = lambda request, extra_context=None: redirect('index')
+
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', views.index, name='index'),
     path('logout/', views.logout_view, name='logout'),
+    path('verify-device/', views.verify_device, name='verify_device'),
     path('activate/', account_views.activate, name='activate'),
     path('registrar/', include('registrar.urls')),
     path('clergy/', include('clergy.urls')),

@@ -1,7 +1,7 @@
 from django.contrib.auth import get_user_model
 from django.test import Client, TestCase
 
-from .testing import activate
+from .testing import activate, trust_device
 
 
 class SingleSessionTests(TestCase):
@@ -9,7 +9,7 @@ class SingleSessionTests(TestCase):
         self.user = activate(get_user_model().objects.create_user('fr_juan', password='pw12345!x', is_staff=True))
 
     def _login(self):
-        c = Client()
+        c = trust_device(Client(), self.user)
         c.post('/', {'username': 'fr_juan', 'password': 'pw12345!x'})
         return c
 
@@ -35,9 +35,9 @@ class SingleSessionTests(TestCase):
         self.assertEqual(other.active_session.session_key, c.session.session_key)
 
     def test_other_users_unaffected(self):
-        activate(get_user_model().objects.create_user('other', password='pw12345!x', is_staff=True))
+        other = activate(get_user_model().objects.create_user('other', password='pw12345!x', is_staff=True))
         phone = self._login()
-        Client().post('/', {'username': 'other', 'password': 'pw12345!x'})
+        trust_device(Client(), other).post('/', {'username': 'other', 'password': 'pw12345!x'})
         self.assertNotIn('signed_out', phone.get('/')['Location'])
 
 
@@ -47,8 +47,8 @@ class PasswordChangeKeepsSessionTests(TestCase):
 
     def test_registrar_change_password_stays_signed_in(self):
         from django.urls import reverse
-        activate(get_user_model().objects.create_user('reg', password='pw12345!x', is_staff=True))
-        c = Client()
+        reg = activate(get_user_model().objects.create_user('reg', password='pw12345!x', is_staff=True))
+        c = trust_device(Client(), reg)
         c.post('/', {'username': 'reg', 'password': 'pw12345!x'})
         c.post(reverse('registrar:change_password'), {
             'current_password': 'pw12345!x', 'new_password': 'Sturdy!Pass-2026', 'confirm_password': 'Sturdy!Pass-2026'})
@@ -61,7 +61,7 @@ class PasswordChangeKeepsSessionTests(TestCase):
         from registrar.models import ClergyRecord
         user = activate(get_user_model().objects.create_user('fr', password='pw12345!x'))
         ClergyProfile.objects.create(user=user, record=ClergyRecord.objects.create(id='CLG-001', name='Fr. A'))
-        c = Client()
+        c = trust_device(Client(), user)
         c.post('/', {'username': 'fr', 'password': 'pw12345!x'})
         r = c.post(reverse('clergy:my_profile'), {'username': 'fr', 'name': 'Fr. A'})
         self.assertRedirects(r, reverse('clergy:my_profile'), fetch_redirect_response=False)

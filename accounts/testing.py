@@ -20,3 +20,21 @@ def activate(user, phone=None):
         'setup_expires_at': None,
     })
     return user
+
+
+def trust_device(client, user):
+    """Gives `client` a live trusted-device cookie for `user`, so a sign-in
+    from it goes straight through instead of asking for a texted code."""
+    import secrets
+    from datetime import timedelta
+
+    from . import devices
+    from .models import TrustedDevice
+
+    token = secrets.token_urlsafe(16)
+    TrustedDevice.objects.create(
+        user=user, token_hash=devices._hash(token), label='Test browser',
+        expires_at=timezone.now() + timedelta(days=30),
+    )
+    client.cookies[devices.cookie_name(user)] = token
+    return client

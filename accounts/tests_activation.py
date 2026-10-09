@@ -199,3 +199,20 @@ class TestModeNumbersMustBeReverifiedForRealTests(TestCase):
         UserSecurity.objects.filter(user=user).update(phone_verified_via='sms')
         with override_settings(SMS_BACKEND='semaphore', SEMAPHORE_API_KEY='k'):
             self.assertIsNone(setup.pending_stage(user))
+
+
+class ActivationTrustsTheDeviceTests(ActivationTestCase):
+    def test_finishing_setup_trusts_this_browser_so_the_next_sign_in_needs_no_code(self):
+        from . import devices
+        from .models import TrustedDevice
+
+        self.send_code()
+        self.verify()
+        r = self.client.post(reverse('activate'), {
+            'action': 'set_password', 'new_password': NEW_PASSWORD, 'confirm_password': NEW_PASSWORD})
+        self.assertIn(devices.cookie_name(self.user), r.cookies)
+        self.assertEqual(TrustedDevice.objects.filter(user=self.user).count(), 1)
+
+        self.client.get(reverse('logout'))
+        r = self.client.post('/', {'username': 'CLG-001', 'password': NEW_PASSWORD})
+        self.assertRedirects(r, reverse('clergy:dashboard'), fetch_redirect_response=False)

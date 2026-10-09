@@ -1,0 +1,66 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EDNP — Confirm This Device</title>
+    <link rel="stylesheet" href="{% static 'index.css' %}">
+    <link rel="stylesheet" href="{% static 'theme.css' %}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer">
+    <style>
+      .setup-ok { background:#e3f6ea; color:#1d7a46; border-radius:9px; padding:10px 12px; font-size:12px; margin:0 0 14px; }
+      .test-banner { background:#fff6e3; color:#865e00; border:1px dashed #d9a400; border-radius:9px; padding:10px 12px; font-size:12px; margin:0 0 14px; }
+      .test-banner b { font-size:20px; letter-spacing:.2em; display:block; margin-top:4px; }
+      .link-btn { background:none; border:0; padding:0; color:#2f6fed; cursor:pointer; font:inherit; font-size:12px; text-decoration:underline; }
+      .row-gap { display:flex; gap:14px; align-items:center; margin-top:12px; flex-wrap:wrap; }
+      .remember { display:flex; gap:8px; align-items:center; font-size:12px; margin:0 0 14px; color:#334155; }
+    </style>
+  </head>
+  <body>
+    <div class="login-screen">
+      <div class="login-container">
+        <div class="brand-panel">
+          <div class="brand-panel-inner">
+            <img src="{% static 'ednp_logo.png' %}" alt="EDNP Logo" class="brand-logo">
+            <p>Clergy Record-Keeping and Document Tracking System</p>
+          </div>
+        </div>
+        <div class="form-panel">
+          <div class="form-panel-inner">
+            <h2>Confirm this device</h2>
+            <p class="form-sub">You're signing in from a device we don't recognise. We sent a 6-digit code to <b>{{ masked_phone }}</b>.</p>
+
+            {% for message in messages %}
+              {% if message.level_tag == 'error' %}
+              <div class="login-error"><i class="fa-solid fa-triangle-exclamation"></i> {{ message }}</div>
+              {% else %}
+              <div class="setup-ok"><i class="fa-solid fa-circle-check"></i> {{ message }}</div>
+              {% endif %}
+            {% endfor %}
+
+            {% if test_mode %}
+            <div class="test-banner"><i class="fa-solid fa-flask"></i> Test mode — no text message was sent.{% if test_code %} Your code is:<b>{{ test_code }}</b>{% endif %}</div>
+            {% endif %}
+
+            <form method="post" autocomplete="off">
+              {% csrf_token %}
+              <input type="hidden" name="action" value="verify_code">
+              <div class="field">
+                <label><i class="fa-solid fa-key"></i> Verification code</label>
+                <input name="code" inputmode="numeric" pattern="[0-9 ]*" maxlength="8" placeholder="123456" autocomplete="one-time-code" required autofocus>
+              </div>
+              <label class="remember"><input type="checkbox" name="remember" value="1" checked> Remember this device — don't ask again on this browser</label>
+              <button class="btn" type="submit"><i class="fa-solid fa-right-to-bracket"></i> Verify &amp; sign in</button>
+            </form>
+            <div class="row-gap">
+              <form method="post" style="display:inline">{% csrf_token %}<input type="hidden" name="action" value="resend"><button class="link-btn" type="submit">Send a new code</button></form>
+              <form method="post" style="display:inline">{% csrf_token %}<input type="hidden" name="action" value="cancel"><button class="link-btn" type="submit">Cancel</button></form>
+            </div>
+            <p class="muted" style="font-size:11px;margin-top:14px;color:#7d92a6">Lost access to this phone number? Ask the registrar to help.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>
