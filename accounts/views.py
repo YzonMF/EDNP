@@ -169,6 +169,9 @@ def activate(request):
         'test_code': request.session.get(TEST_CODE_KEY) if sms.is_test_backend() else None,
         'test_mode': sms.is_test_backend(),
         'reverifying': security is not None and bool(security.phone) and stage == setup.PHONE,
+        # Countdown for the resend button, and whether today's codes are used up.
+        'resend': otp.resend_status(user, 'phone_verify', pending['phone']) if pending else None,
+        'daily': otp.resend_status(user, 'phone_verify', ''),
     }
     return render(request, 'activate.html', context)
 
@@ -216,6 +219,8 @@ def security_context(request):
         'card_class': 'panel' if user.is_staff else 'section-card',
         'masked_phone': mask(security.phone) if security.phone else None,
         'pending_masked': mask(pending['phone']) if pending else None,
+        'resend': otp.resend_status(user, 'phone_change', pending['phone']) if pending else None,
+        'daily': otp.resend_status(user, 'phone_change', ''),
         'test_mode': sms.is_test_backend(),
         'test_code': request.session.get(CHANGE_TEST_CODE_KEY) if sms.is_test_backend() else None,
         'trusted_devices': [{'device': d, 'is_current': current is not None and d.pk == current.pk} for d in trusted],

@@ -44,7 +44,8 @@
       <div class="modal-actions" style="justify-content:flex-start"><button class="btn" type="submit"><i class="fa-solid fa-check"></i> Confirm new number</button></div>
     </form>
     <div style="display:flex;gap:8px;margin-top:8px">
-      <form method="post" action="{% url 'my_security' %}">{% csrf_token %}<input type="hidden" name="action" value="resend_change"><button class="btn small secondary" type="submit">Send a new code</button></form>
+      {% url 'my_security' as security_url %}
+      {% include '_resend.html' with post_url=security_url action_value='resend_change' btn_class='btn small secondary' %}
       <form method="post" action="{% url 'my_security' %}">{% csrf_token %}<input type="hidden" name="action" value="cancel_change"><button class="btn small secondary" type="submit">Cancel</button></form>
     </div>
   {% else %}
@@ -55,7 +56,8 @@
         <div class="field"><label for="sec_pw_phone">Current password</label><input id="sec_pw_phone" name="current_password" type="password" autocomplete="current-password" required></div>
       </div>
       <p class="muted" style="margin:10px 0 0">We'll text a code to the new number. If you no longer have your current phone, visit the registrar in person instead.</p>
-      <div class="modal-actions" style="justify-content:flex-start"><button class="btn" type="submit"><i class="fa-solid fa-paper-plane"></i> Send code to new number</button></div>
+      {% if daily.exhausted %}<div class="alert" style="margin-top:10px">You've used all {{ daily.daily_cap }} codes for today. You can try again in about {{ daily.retry_text }}.</div>{% endif %}
+      <div class="modal-actions" style="justify-content:flex-start"><button class="btn" type="submit" {% if daily.exhausted %}disabled style="opacity:.55;cursor:not-allowed"{% endif %}><i class="fa-solid fa-paper-plane"></i> Send code to new number</button></div>
     </form>
   {% endif %}
 </div>

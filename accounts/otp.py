@@ -37,6 +37,48 @@ def _seconds_text(seconds):
     return f'{seconds} second{"" if seconds == 1 else "s"}'
 
 
+# Registering or changing a number is rare and each attempt can text a stranger,
+# so these share one small daily allowance. Sign-in codes (purpose 'device') are
+# not part of it: a real person on a few different computers must not be locked
+# out of their own account for a day.
+SETUP_PURPOSES = ('phone_verify', 'phone_change')
+
+
+def _daily_limit(user, purpose, now):
+    """(used up?, seconds until a code is available again) for the daily
+    allowance. Only applies to SETUP_PURPOSES; 'rolling' so it reopens 24 hours
+    after the earliest of the codes counted, i.e. the next day."""
+    if purpose not in SETUP_PURPOSES:
+        return False, 0
+    recent = list(OtpChallenge.objects.filter(
+        user=user, purpose__in=SETUP_PURPOSES, created_at__gte=now - timedelta(hours=24),
+    ).order_by('created_at').values_list('created_at', flat=True))
+    if len(recent) < settings.OTP_MAX_SENDS_PER_DAY:
+        return False, 0
+    # The code that has to age out is the one that brings us back under the cap.
+    frees_up = recent[len(recent) - settings.OTP_MAX_SENDS_PER_DAY] + timedelta(hours=24)
+    return True, max(int((frees_up - now).total_seconds()), 1)
+
+
+def _hours_text(seconds):
+    hours = max(-(-seconds // 3600), 1)  # round up
+    return f'{hours} hour{"" if hours == 1 else "s"}'
+
+
+def resend_status(user, purpose, target):
+    """What the code-entry page needs to draw its resend button: how many
+    seconds until another code may be requested for this number, and whether
+    today's allowance is used up (and when it reopens)."""
+    now = timezone.now()
+    latest = (OtpChallenge.objects.filter(user=user, purpose=purpose, target=target).order_by('-created_at').first())
+    wait = 0
+    if latest is not None:
+        wait = max(settings.OTP_RESEND_COOLDOWN_SECONDS - int((now - latest.created_at).total_seconds()), 0)
+    exhausted, retry_in = _daily_limit(user, purpose, now)
+    return {'wait': wait, 'exhausted': exhausted, 'retry_text': _hours_text(retry_in) if exhausted else '',
+            'daily_cap': settings.OTP_MAX_SENDS_PER_DAY}
+
+
 def issue(user, purpose, target):
     """Texts a new code to `target` and returns it ONLY in test mode (so the
     page can show it); in real mode returns None and the code exists nowhere
@@ -46,11 +88,19 @@ def issue(user, purpose, target):
     send leaves no trace, so it doesn't use up the user's allowance."""
     now = timezone.now()
 
-    latest = (OtpChallenge.objects.filter(user=user, purpose=purpose).order_by('-created_at').first())
+    # The cooldown is per number: asking again for the SAME number is a resend and
+    # has to wait, but correcting a mistyped number and sending to the right one
+    # shouldn't (the daily allowance below still limits how often that can happen).
+    latest = (OtpChallenge.objects.filter(user=user, purpose=purpose, target=target).order_by('-created_at').first())
     if latest is not None:
         wait = settings.OTP_RESEND_COOLDOWN_SECONDS - int((now - latest.created_at).total_seconds())
         if wait > 0:
             raise OtpError(f'Please wait {_seconds_text(wait)} before requesting another code.')
+
+    exhausted, retry_in = _daily_limit(user, purpose, now)
+    if exhausted:
+        raise OtpError(f"You've used all {settings.OTP_MAX_SENDS_PER_DAY} codes for today. "
+                       f'You can try again in about {_hours_text(retry_in)}.')
 
     hour_ago = now - timedelta(hours=1)
     cap = settings.OTP_MAX_SENDS_PER_HOUR
@@ -108,7 +158,8 @@ def verify(user, purpose, target, submitted):
                 challenge.consumed_at = now
             else:
                 left = settings.OTP_MAX_ATTEMPTS - challenge.attempts
-                outcome = ('That code is incorrect.' if left > 0 else 'That code is incorrect. Request a new code.')
+                outcome = (f'That code is incorrect. {left} attempt{"" if left == 1 else "s"} left.' if left > 0
+                           else 'That code is incorrect. That was your last attempt for this code; request a new one.')
             challenge.save(update_fields=['attempts', 'consumed_at'])
 
     if outcome:

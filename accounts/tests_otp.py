@@ -6,6 +6,7 @@ from datetime import timedelta
 from unittest import mock
 
 from django.contrib.auth import get_user_model
+from django.conf import settings
 from django.test import SimpleTestCase, TestCase, override_settings
 from django.utils import timezone
 
@@ -119,10 +120,10 @@ class OtpTests(TestCase):
     def test_wrong_guesses_are_counted_and_lock_the_code_even_for_the_right_answer(self):
         code = self._issue()
         wrong = '000000' if code != '000000' else '111111'
-        for _ in range(5):
+        for _ in range(settings.OTP_MAX_ATTEMPTS):
             with self.assertRaises(otp.OtpError):
                 otp.verify(self.user, 'phone_verify', self.target, wrong)
-        self.assertEqual(OtpChallenge.objects.get().attempts, 5)  # kept despite the exceptions
+        self.assertEqual(OtpChallenge.objects.get().attempts, settings.OTP_MAX_ATTEMPTS)  # kept despite the exceptions
         with self.assertRaisesMessage(otp.OtpError, 'Too many wrong attempts'):
             otp.verify(self.user, 'phone_verify', self.target, code)
 
@@ -156,11 +157,12 @@ class OtpTests(TestCase):
             self._issue()
 
     def test_hourly_cap_per_account(self):
+        # Sign-in codes aren't under the daily setup allowance, only the hourly cap.
         for i in range(5):
-            self._issue(target=f'+63917000000{i}')
+            self._issue(purpose='device', target=f'+63917000000{i}')
             self._skip_cooldown()
         with self.assertRaisesMessage(otp.OtpError, 'Too many codes'):
-            self._issue(target='+639178888888')
+            self._issue(purpose='device', target='+639178888888')
 
     def test_hourly_cap_per_number_across_accounts(self):
         # Five different accounts can't be used to spam one stranger's phone.

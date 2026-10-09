@@ -194,9 +194,12 @@ if SMS_BACKEND == 'semaphore' and not SEMAPHORE_API_KEY and not TESTING:
 
 OTP_LENGTH = 6
 OTP_TTL_SECONDS = 5 * 60
-OTP_MAX_ATTEMPTS = 5           # wrong guesses per code before it is dead
+OTP_MAX_ATTEMPTS = 3           # wrong guesses per code before it is dead
 OTP_RESEND_COOLDOWN_SECONDS = 60
 OTP_MAX_SENDS_PER_HOUR = 5     # per account, and separately per phone number (each send costs credits)
+# Registering or changing a number: this many codes per account per rolling 24 hours, then it
+# opens again the next day. Sign-in codes for a new device aren't held to this (see otp.py).
+OTP_MAX_SENDS_PER_DAY = 3
 
 TRUSTED_DEVICE_DAYS = 60       # a device that signs in again within this window stays trusted
 

@@ -1,0 +1,34 @@
+{# The "send a new code" button for any code-entry screen.
+   Needs: resend (accounts.otp.resend_status), action_value, btn_class; optional post_url (default: this page).
+   It stays greyed out and counts down until another code may be requested, and stays off for the day once
+   today's codes are used up. The server enforces the same rules; this only shows them. #}
+<form method="post" action="{{ post_url }}" class="resend-form" data-wait="{{ resend.wait }}">
+  {% csrf_token %}
+  <input type="hidden" name="action" value="{{ action_value }}">
+  <button type="submit" class="resend-btn {{ btn_class }}" data-label="Send a new code" {% if resend.wait or resend.exhausted %}disabled{% endif %}>
+    {% if resend.exhausted %}No more codes today{% elif resend.wait %}Send a new code in {{ resend.wait }}s{% else %}Send a new code{% endif %}
+  </button>
+</form>
+{% if resend.exhausted %}
+<p class="muted resend-note" style="font-size:11px;margin:6px 0 0">You've used all {{ resend.daily_cap }} codes for today. You can try again in about {{ resend.retry_text }}.</p>
+{% endif %}
+<script>
+(function () {
+  document.querySelectorAll('.resend-form').forEach(function (form) {
+    var left = parseInt(form.dataset.wait, 10) || 0;
+    var btn = form.querySelector('.resend-btn');
+    if (left <= 0 || btn.textContent.indexOf('No more') !== -1) return;
+    var timer = setInterval(function () {
+      left -= 1;
+      if (left <= 0) {
+        clearInterval(timer);
+        btn.disabled = false;
+        btn.textContent = btn.dataset.label;
+      } else {
+        btn.textContent = btn.dataset.label + ' in ' + left + 's';
+      }
+    }, 1000);
+  });
+})();
+</script>
+<style>.resend-btn:disabled{opacity:.55;cursor:not-allowed;text-decoration:none}</style>

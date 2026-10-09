@@ -13,6 +13,10 @@
       .test-banner { background:#fff6e3; color:#865e00; border:1px dashed #d9a400; border-radius:9px; padding:10px 12px; font-size:12px; margin:0 0 14px; }
       .test-banner b { font-size:20px; letter-spacing:.2em; display:block; margin-top:4px; }
       .link-btn { background:none; border:0; padding:0; color:#2f6fed; cursor:pointer; font:inherit; font-size:12px; text-decoration:underline; }
+      .btn-row { display:flex; gap:10px; margin-top:8px; }
+      .btn-row .btn { margin-top:0; flex:1; }
+      .btn.ghost { background:transparent; color:inherit; border:1px solid rgba(125,146,166,.55); }
+      .btn.ghost:hover { background:rgba(125,146,166,.15); }
       .row-gap { display:flex; gap:14px; align-items:center; margin-top:12px; flex-wrap:wrap; }
       .remember { display:flex; gap:8px; align-items:center; font-size:12px; margin:0 0 14px; color:#334155; }
     </style>
@@ -54,7 +58,7 @@
               <button class="btn" type="submit"><i class="fa-solid fa-right-to-bracket"></i> Verify &amp; sign in</button>
             </form>
             <div class="row-gap">
-              <form method="post" style="display:inline">{% csrf_token %}<input type="hidden" name="action" value="resend"><button class="link-btn" type="submit">Send a new code</button></form>
+              {% include '_resend.html' with action_value='resend' btn_class='link-btn' %}
               <form method="post" style="display:inline">{% csrf_token %}<input type="hidden" name="action" value="cancel"><button class="link-btn" type="submit">Cancel</button></form>
             </div>
             <p class="muted" style="font-size:11px;margin-top:14px;color:#7d92a6">Lost access to this phone number? Ask the registrar to help.</p>
