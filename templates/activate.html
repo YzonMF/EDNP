@@ -9,7 +9,7 @@
     <link rel="stylesheet" href="{% static 'theme.css' %}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer">
     <style>
-      .setup-steps { display:flex; gap:8px; margin:0 0 18px; font-size:12px; color:#7d92a6; }
+      .setup-steps { display:flex; flex-wrap:wrap; gap:8px; margin:0 0 18px; font-size:12px; color:#7d92a6; }
       .setup-steps span { padding:4px 10px; border-radius:999px; background:#eef1f5; }
       .setup-steps span.on { background:#2f6fed; color:#fff; font-weight:700; }
       .setup-steps span.done { background:#e3f6ea; color:#1d7a46; }
@@ -33,11 +33,6 @@
         <div class="form-panel">
           <div class="form-panel-inner">
 
-            <div class="setup-steps" aria-label="Setup progress">
-              <span class="{% if stage == 'phone' %}on{% else %}done{% endif %}">1 · Your number</span>
-              <span class="{% if stage == 'password' %}on{% endif %}">2 · New password</span>
-            </div>
-
             {% for message in messages %}
               {% if message.level_tag == 'error' %}
               <div class="login-error"><i class="fa-solid fa-triangle-exclamation"></i> {{ message }}</div>
@@ -52,6 +47,7 @@
                 {% if reverifying %}Please confirm your mobile number with a new code.
                 {% else %}Register your mobile number. We'll text you a code to confirm it.{% endif %}
               </p>
+              {% include '_setup_steps.html' %}
               <form method="post" autocomplete="off">
                 {% csrf_token %}
                 <input type="hidden" name="action" value="send_code">
@@ -70,6 +66,7 @@
             {% elif stage == 'phone' %}
               <h2>Enter the code</h2>
               <p class="form-sub">We sent a 6-digit code to <b>{{ pending_phone_masked }}</b>. It expires in 5 minutes.</p>
+              {% include '_setup_steps.html' %}
               {% if test_mode %}
               <div class="test-banner"><i class="fa-solid fa-flask"></i> Test mode — no text message was sent.{% if test_code %} Your code is:<b>{{ test_code }}</b>{% endif %}</div>
               {% endif %}
@@ -90,6 +87,7 @@
             {% else %}
               <h2>Choose your own password</h2>
               <p class="form-sub">The password you signed in with was issued by the registrar. Replace it with one only you know.</p>
+              {% include '_setup_steps.html' %}
               <form method="post" autocomplete="off">
                 {% csrf_token %}
                 <input type="hidden" name="action" value="set_password">

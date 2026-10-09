@@ -95,3 +95,26 @@ class TrustedDevice(models.Model):
 
     class Meta:
         ordering = ['-last_seen_at']
+
+
+class AccountAuditLog(models.Model):
+    """Who did what to whose account, for accountability. Names are copied in
+    at the time (and the user links are SET_NULL) so an entry stays readable
+    and truthful even if either account is later renamed or deleted."""
+
+    ACTION_CHOICES = [
+        ('account_created', 'Account created'),
+        ('password_reprinted', 'Temporary password reissued'),
+        ('lost_phone_reset', 'Account reset (lost phone)'),
+    ]
+
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, blank=True, null=True, related_name='+')
+    actor_name = models.CharField(max_length=150)
+    target = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, blank=True, null=True, related_name='+')
+    target_name = models.CharField(max_length=150)
+    action = models.CharField(max_length=24, choices=ACTION_CHOICES)
+    note = models.CharField(max_length=255, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at', '-id']

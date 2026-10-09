@@ -41,6 +41,13 @@ function openNewRecordModal(){
  openModal('recordModal');
 }
 
+function openResetAccountModal(button){
+ const id=button.dataset.recordId;
+ document.getElementById('resetAccountName').textContent=button.dataset.recordName;
+ document.getElementById('resetAccountForm').action=`/registrar/clergy-records/${id}/reset-account/`;
+ openModal('resetAccountModal');
+}
+
 function openLinkAccountModal(button){
  const id=button.dataset.recordId;
  document.getElementById('linkAccountName').textContent=button.dataset.recordName;

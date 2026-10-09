@@ -2,6 +2,7 @@ import secrets
 from datetime import date, timedelta
 
 from django.contrib import messages
+from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
 from django.core.files.base import ContentFile
 from django.db import transaction
@@ -11,6 +12,8 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
 
+from accounts import audit
+from accounts.models import AccountAuditLog
 from accounts.session_utils import keep_signed_in_after_password_change
 from clergy.models import ClergyProfile
 from ednp.password_helpers import validate_password_or_flag_errors
@@ -19,7 +22,8 @@ from . import backups, bulk, reports, slips
 from .decorators import registrar_required
 from .forms import ClergyRecordForm, DocumentUploadForm, PersonalInfoForm, first_error
 from .models import RANK_CHOICES, BackupArchive, ClergyRecord, Deanery, Document, DocumentType, GeneratedReport, save_document
-from .provisioning import SETUP_WINDOW_DAYS, ProvisionError, account_status, provision_account, reset_credentials
+from .provisioning import (SETUP_WINDOW_DAYS, ProvisionError, account_status, provision_account, reset_credentials,
+                           reset_lost_phone)
 
 NEAR_EXPIRY_WINDOW_DAYS = 180
 
@@ -128,9 +132,9 @@ def _portal_url(request):
     return request.build_absolute_uri('/')
 
 
-def _slip_entry(record, user, password):
+def _slip_entry(name, user, password):
     return {
-        'name': record.name,
+        'name': name,
         'username': user.username,
         'password': password,
         'expires_on': user.security.setup_expires_at.date(),
@@ -169,7 +173,8 @@ def create_record(request):
             record.id = ClergyRecord.allocate_id()
             record.save()
             user, password = provision_account(record)
-            return _slips_response(request, [_slip_entry(record, user, password)])
+            audit.record(request.user, user, 'account_created', target_name=record.name)
+            return _slips_response(request, [_slip_entry(record.name, user, password)])
     except ProvisionError as exc:
         messages.error(request, str(exc))
         return redirect('registrar:clergy_records')
@@ -189,7 +194,8 @@ def link_account(request, record_id):
     try:
         with transaction.atomic():
             user, password = provision_account(record)
-            return _slips_response(request, [_slip_entry(record, user, password)])
+            audit.record(request.user, user, 'account_created', target_name=record.name)
+            return _slips_response(request, [_slip_entry(record.name, user, password)])
     except ProvisionError as exc:
         messages.error(request, str(exc))
         return redirect('registrar:clergy_records')
@@ -197,8 +203,15 @@ def link_account(request, record_id):
 
 @registrar_required
 def reset_account(request, record_id):
-    """Lost slip, or a temporary password that ran out before activation: a
-    fresh password and another 30 days, printed on a new slip."""
+    """Two kinds of reset, both ending in a freshly printed slip:
+
+    - 'reprint' (the default): a lost slip, or a temporary password that ran out
+      before the account was activated. Refused for an activated account.
+    - 'lost_phone': the owner lost their number or phone and has come in person.
+      Forgets the number, revokes every trusted device and open session, and
+      sends them back through first-login setup with the new password.
+
+    The registrar's optional note is kept in the account activity log."""
     record = get_object_or_404(ClergyRecord, id=record_id)
 
     if request.method != 'POST':
@@ -211,11 +224,51 @@ def reset_account(request, record_id):
 
     try:
         with transaction.atomic():
-            password = reset_credentials(profile.user)
-            return _slips_response(request, [_slip_entry(record, profile.user, password)])
+            if request.POST.get('kind') == 'lost_phone':
+                password, action = reset_lost_phone(profile.user), 'lost_phone_reset'
+            else:
+                password, action = reset_credentials(profile.user), 'password_reprinted'
+            audit.record(request.user, profile.user, action, request.POST.get('note', ''), target_name=record.name)
+            return _slips_response(request, [_slip_entry(record.name, profile.user, password)])
     except ProvisionError as exc:
         messages.error(request, str(exc))
         return redirect('registrar:clergy_records')
+
+
+@registrar_required
+def account_security(request):
+    """Registrar accounts (so one registrar can recover another) and the recent
+    account activity log."""
+    User = get_user_model()
+    staff = User.objects.filter(is_staff=True).select_related('security').order_by('first_name', 'username')
+    rows = []
+    for user in staff:
+        state, days_left = account_status(getattr(user, 'security', None))
+        rows.append({'user': user, 'name': audit.display_name(user), 'state': state, 'days_left': days_left,
+                     'is_self': user.pk == request.user.pk})
+    return render(request, 'registrar/account-security.html', {
+        'active_page': 'account_security',
+        'rows': rows,
+        'activity': AccountAuditLog.objects.all()[:50],
+    })
+
+
+@registrar_required
+def reset_staff_account(request, user_id):
+    """One registrar recovering another who lost their phone or password.
+    Never your own account: a hijacked session could otherwise reset itself,
+    and a lone registrar is recovered from the server instead (manage.py
+    reset_account)."""
+    if request.method != 'POST':
+        return redirect('registrar:account_security')
+    target = get_object_or_404(get_user_model(), pk=user_id, is_staff=True)
+    if target.pk == request.user.pk:
+        messages.error(request, "You can't reset your own account. Ask another registrar, or the person who manages the server.")
+        return redirect('registrar:account_security')
+    with transaction.atomic():
+        password = reset_lost_phone(target)
+        audit.record(request.user, target, 'lost_phone_reset', request.POST.get('note', ''))
+        return _slips_response(request, [_slip_entry(audit.display_name(target), target, password)])
 
 
 BULK_TOKEN_SESSION_KEY = 'bulk_import_token'
@@ -256,7 +309,8 @@ def bulk_accounts(request):
                     record.id = ClergyRecord.allocate_id()
                     record.save()
                     user, password = provision_account(record)
-                    entries.append(_slip_entry(record, user, password))
+                    audit.record(request.user, user, 'account_created', target_name=record.name)
+                    entries.append(_slip_entry(record.name, user, password))
                 return _slips_response(request, entries)
         except ProvisionError as exc:
             messages.error(request, f'Nothing was created. {exc}')

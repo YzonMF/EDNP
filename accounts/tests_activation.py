@@ -240,3 +240,14 @@ class ActivationTrustsTheDeviceTests(ActivationTestCase):
         self.client.get(reverse('logout'))
         r = self.client.post('/', {'username': 'CLG-001', 'password': NEW_PASSWORD})
         self.assertRedirects(r, reverse('clergy:dashboard'), fetch_redirect_response=False)
+
+
+class ProgressBarTests(ActivationTestCase):
+    def test_step_follows_where_the_user_is(self):
+        self.assertEqual(self.client.get(reverse('activate')).context['step'], 1)      # details
+        self.send_code()
+        self.assertEqual(self.client.get(reverse('activate')).context['step'], 2)      # verify code
+        self.verify()
+        page = self.client.get(reverse('activate'))
+        self.assertEqual(page.context['step'], 3)                                      # new password
+        self.assertContains(page, '3 · New password')

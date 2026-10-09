@@ -158,6 +158,7 @@ def activate(request):
 
     context = {
         'stage': stage,
+        'step': 3 if stage == setup.PASSWORD else (2 if pending else 1),
         'name': (pending or {}).get('name') or (record.name if record else user.get_full_name()),
         'phone': prefill_phone(pending, security),
         'pending_phone_masked': mask(pending['phone']) if pending else None,
