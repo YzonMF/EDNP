@@ -116,6 +116,7 @@
           <div class="field">
             <label>Contact Number <span class="req-mark">*</span></label>
             <input type="tel" value="{{ profile.record.phone|default:'' }}" readonly title="Verified by text message. It can only be changed with a code sent to the new number.">
+            <span class="muted"><a href="{% url 'my_security' %}">Change my number</a></span>
           </div>
 
           <div class="field">

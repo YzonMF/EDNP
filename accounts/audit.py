@@ -4,6 +4,11 @@ SERVER_ACTOR = 'Server command'
 
 
 def display_name(user):
+    """How a person is shown in the log. Clergy are known by their record's name
+    (their user has none); registrar staff by the name on their account."""
+    profile = getattr(user, 'clergy_profile', None)
+    if profile is not None and profile.record is not None:
+        return profile.record.name
     return user.get_full_name().strip() or user.username
 
 

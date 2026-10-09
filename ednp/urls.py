@@ -38,6 +38,7 @@ urlpatterns = [
     path('logout/', views.logout_view, name='logout'),
     path('verify-device/', views.verify_device, name='verify_device'),
     path('activate/', account_views.activate, name='activate'),
+    path('my-security/', account_views.my_security, name='my_security'),
     path('registrar/', include('registrar.urls')),
     path('clergy/', include('clergy.urls')),
 ]

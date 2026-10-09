@@ -61,6 +61,7 @@ class OtpChallenge(models.Model):
     PURPOSE_CHOICES = [
         ('phone_verify', 'Verify phone number'),
         ('device', 'Sign in on a new device'),
+        ('phone_change', 'Change phone number'),
         ('password_reset', 'Reset password'),
     ]
 
@@ -106,6 +107,7 @@ class AccountAuditLog(models.Model):
         ('account_created', 'Account created'),
         ('password_reprinted', 'Temporary password reissued'),
         ('lost_phone_reset', 'Account reset (lost phone)'),
+        ('phone_changed', 'Mobile number changed'),
     ]
 
     actor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, blank=True, null=True, related_name='+')

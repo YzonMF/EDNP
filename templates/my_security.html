@@ -1,0 +1,71 @@
+{% extends base_template %}
+{% block page_name %}My Security{% endblock %}
+{% block page_name_heading %}My Security{% endblock %}
+
+{% block content %}
+<section class="page active">
+
+<div class="panel" style="max-width:760px">
+  <div class="panel-head"><div><h3><i class="fa-solid fa-mobile-screen"></i> Mobile number</h3><span class="muted">Used to confirm new devices and to reset your password.</span></div></div>
+
+  <p style="margin:0 0 14px">Current number: <b>{{ masked_phone|default:"—" }}</b></p>
+
+  {% if pending_masked %}
+    <p>We sent a 6-digit code to <b>{{ pending_masked }}</b>. It expires in 5 minutes.</p>
+    {% if test_mode %}
+    <div class="alert"><i class="fa-solid fa-flask"></i> Test mode — no text message was sent.{% if test_code %} Your code is: <b style="font-size:18px;letter-spacing:.15em">{{ test_code }}</b>{% endif %}</div>
+    {% endif %}
+    <form method="post" autocomplete="off">{% csrf_token %}
+      <input type="hidden" name="action" value="verify_change_code">
+      <div class="form-grid" style="grid-template-columns:1fr">
+        <div class="field"><label for="code">Verification code</label><input id="code" name="code" inputmode="numeric" pattern="[0-9 ]*" maxlength="8" autocomplete="one-time-code" required autofocus></div>
+      </div>
+      <div class="modal-actions" style="justify-content:flex-start;gap:8px">
+        <button class="btn" type="submit"><i class="fa-solid fa-check"></i> Confirm new number</button>
+      </div>
+    </form>
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <form method="post">{% csrf_token %}<input type="hidden" name="action" value="resend_change"><button class="btn small secondary" type="submit">Send a new code</button></form>
+      <form method="post">{% csrf_token %}<input type="hidden" name="action" value="cancel_change"><button class="btn small secondary" type="submit">Cancel</button></form>
+    </div>
+  {% else %}
+    <form method="post" autocomplete="off">{% csrf_token %}
+      <input type="hidden" name="action" value="send_change_code">
+      <div class="form-grid" style="grid-template-columns:1fr">
+        <div class="field"><label for="phone">New mobile number</label><input id="phone" name="phone" type="tel" inputmode="tel" placeholder="0917 123 4567" required></div>
+        <div class="field"><label for="password">Your password</label><input id="password" name="password" type="password" autocomplete="current-password" required></div>
+      </div>
+      <p class="muted" style="margin:10px 0 0">We'll text a code to the new number. If you no longer have your current phone, visit the registrar in person instead.</p>
+      <div class="modal-actions" style="justify-content:flex-start"><button class="btn" type="submit"><i class="fa-solid fa-paper-plane"></i> Send code to new number</button></div>
+    </form>
+  {% endif %}
+</div>
+
+<div class="panel" style="max-width:760px;margin-top:18px">
+  <div class="panel-head">
+    <div><h3><i class="fa-solid fa-laptop"></i> Trusted devices</h3><span class="muted">Browsers that won't ask for a code when you sign in. Remove any you don't recognise or no longer use.</span></div>
+    {% if other_devices %}
+    <form method="post" onsubmit="return confirm('Remove every trusted device except this one?')">{% csrf_token %}<input type="hidden" name="action" value="revoke_others"><button class="btn small danger" type="submit">Remove all others</button></form>
+    {% endif %}
+  </div>
+  <table>
+    <thead><tr><th>Device</th><th>Added</th><th>Last used</th><th></th></tr></thead>
+    <tbody>
+    {% for row in trusted_devices %}
+    <tr>
+      <td><b>{{ row.device.label|default:"Browser" }}</b>{% if row.is_current %} <span class="badge">This device</span>{% endif %}</td>
+      <td>{{ row.device.created_at|date:"M d, Y" }}</td>
+      <td>{{ row.device.last_seen_at|date:"M d, Y H:i" }}</td>
+      <td>
+        <form method="post" onsubmit="return confirm('Remove this device?')">{% csrf_token %}<input type="hidden" name="action" value="revoke_device"><input type="hidden" name="device_id" value="{{ row.device.pk }}"><button class="btn small secondary" type="submit">Remove</button></form>
+      </td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="4" class="empty">No trusted devices. You'll be asked for a code each time you sign in.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+</section>
+{% endblock %}

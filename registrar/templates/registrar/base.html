@@ -34,6 +34,7 @@
     <a class="{% if active_page == 'account_security' %}active{% endif %}" href="{% url 'registrar:account_security' %}"><i class="fa-solid fa-user-shield"></i> Account Security</a>
     <div class="section-title">Account</div>
     <a class="{% if active_page == 'change_password' %}active{% endif %}" href="{% url 'registrar:change_password' %}"><i class="fa-solid fa-key"></i> Change Password</a>
+    <a class="{% if active_page == 'my_security' %}active{% endif %}" href="{% url 'my_security' %}"><i class="fa-solid fa-shield-halved"></i> My Security</a>
     <a class="nav-logout" href="{% url 'logout' %}"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
   </div>
   <div class="sidebar-foot">Registrar Portal<br>EDNP System v1.0</div>
