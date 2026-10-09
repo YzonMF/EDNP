@@ -1,5 +1,6 @@
 from django.contrib.auth import authenticate, login as auth_login, logout as auth_logout
 from django.shortcuts import redirect, render
+from django.utils import timezone
 
 from accounts.middleware import SIGNED_OUT_PARAM
 
@@ -11,6 +12,16 @@ LAST_USERNAME_MAX_AGE = 60 * 60 * 24 * 90  # 90 days
 
 def _home_url_for(user):
     return 'registrar:dashboard' if user.is_staff else 'clergy:dashboard'
+
+
+def _setup_window_closed(user):
+    """True for an account that was never activated and whose registrar-issued
+    temporary password is past its deadline. Accounts with no security row
+    (created before this feature, or via createsuperuser) have no deadline."""
+    security = getattr(user, 'security', None)
+    if security is None or security.is_activated or security.setup_expires_at is None:
+        return False
+    return security.setup_expires_at <= timezone.now()
 
 
 def index(request):
@@ -29,6 +40,14 @@ def index(request):
             })
 
         user = authenticate(request, username=username, password=password)
+        if user is not None and _setup_window_closed(user):
+            # Right password, but the registrar-issued one has run out. Not a
+            # failed attempt, so it doesn't count toward the lockout.
+            return render(request, 'index.html', {
+                'login_error': True,
+                'login_error_message': 'This temporary password has expired. Please ask the registrar to reset your account.',
+                'username': username,
+            })
         if user is not None:
             login_throttle.clear(username)
             auth_login(request, user)

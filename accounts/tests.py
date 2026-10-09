@@ -24,6 +24,14 @@ class SingleSessionTests(TestCase):
         phone = self._login()
         self.assertNotIn('signed_out', phone.get('/')['Location'])
 
+    def test_signing_in_as_a_different_user_on_an_already_signed_in_browser(self):
+        # Django flushes the old session here, so there is briefly no session
+        # key; the signal must cope instead of failing on a NOT NULL column.
+        other = get_user_model().objects.create_user('other', password='pw12345!x', is_staff=True)
+        c = self._login()
+        c.force_login(other)
+        self.assertEqual(other.active_session.session_key, c.session.session_key)
+
     def test_other_users_unaffected(self):
         get_user_model().objects.create_user('other', password='pw12345!x', is_staff=True)
         phone = self._login()

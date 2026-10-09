@@ -48,14 +48,17 @@ class CreateRecordTests(TestCase):
     def setUp(self):
         self.registrar = User.objects.create_user('reg', password='pw12345!x', is_staff=True)
         self.client.force_login(self.registrar)
-        self.payload = {'name': 'Fr. Test', 'status': 'Active', 'rank': 'priest',
-                        'new_username': 'frtest', 'new_password': 'Str0ng!Passw0rd#1'}
+        self.payload = {'name': 'Fr. Test', 'status': 'Active', 'rank': 'priest'}
 
-    def test_creates_record_user_and_profile_together(self):
-        self.client.post(reverse('registrar:create_record'), self.payload)
+    def test_creates_record_user_and_profile_together_and_returns_the_slip(self):
+        r = self.client.post(reverse('registrar:create_record'), self.payload)
         record = ClergyRecord.objects.get(name='Fr. Test')
         self.assertEqual(record.id, 'CLG-001')
-        self.assertTrue(ClergyProfile.objects.filter(user__username='frtest', record=record).exists())
+        # The username is the record ID, not something the registrar typed.
+        self.assertTrue(ClergyProfile.objects.filter(user__username='CLG-001', record=record).exists())
+        self.assertEqual(r['Content-Type'], 'application/pdf')
+        self.assertTrue(r.content.startswith(b'%PDF'))
+        self.assertEqual(r['Cache-Control'], 'no-store')
 
     def test_failure_midway_leaves_nothing_behind_and_returns_the_id(self):
         with mock.patch.object(User.objects, 'create_user', side_effect=IntegrityError):
@@ -69,7 +72,16 @@ class CreateRecordTests(TestCase):
         with mock.patch.object(User.objects, 'create_user', side_effect=IntegrityError):
             r = self.client.post(reverse('registrar:create_record'), self.payload, follow=True)
         self.assertEqual(r.status_code, 200)
-        self.assertContains(r, 'already taken')
+        self.assertContains(r, 'already in use')
+
+    def test_slip_failure_rolls_everything_back(self):
+        # If the PDF can't be produced, no account may survive whose password
+        # was never printed.
+        with mock.patch('registrar.views.slips.render_slips_pdf', side_effect=RuntimeError('pango missing')):
+            with self.assertRaises(RuntimeError):
+                self.client.post(reverse('registrar:create_record'), self.payload)
+        self.assertFalse(ClergyRecord.objects.exists())
+        self.assertFalse(User.objects.filter(username='CLG-001').exists())
 
 
 class DocumentTests(TestCase):

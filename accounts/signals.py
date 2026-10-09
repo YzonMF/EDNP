@@ -12,4 +12,8 @@ def claim_active_session(sender, request, user, **kwargs):
     and `clearsessions` sweeps any that never come back."""
     if request is None:
         return
+    # Signing in over a session that belonged to a different user makes Django
+    # flush it, which leaves no session_key until the session is next saved.
+    if not request.session.session_key:
+        request.session.save()
     ActiveSession.objects.update_or_create(user=user, defaults={'session_key': request.session.session_key})

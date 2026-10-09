@@ -1,11 +1,11 @@
+import secrets
 from datetime import date, timedelta
 
 from django.contrib import messages
 from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth.models import User
 from django.core.files.base import ContentFile
-from django.db import IntegrityError, transaction
+from django.db import transaction
 from django.db import models as db_models
 from django.http import FileResponse, Http404, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -15,10 +15,11 @@ from django.utils import timezone
 from clergy.models import ClergyProfile
 from ednp.password_helpers import validate_password_or_flag_errors
 
-from . import backups, reports
+from . import backups, bulk, reports, slips
 from .decorators import registrar_required
 from .forms import ClergyRecordForm, DocumentUploadForm, PersonalInfoForm, first_error
 from .models import RANK_CHOICES, BackupArchive, ClergyRecord, Deanery, Document, DocumentType, GeneratedReport, save_document
+from .provisioning import SETUP_WINDOW_DAYS, ProvisionError, account_status, provision_account, reset_credentials
 
 NEAR_EXPIRY_WINDOW_DAYS = 180
 
@@ -65,16 +66,6 @@ def _build_deaneries_map():
     return deaneries_map
 
 
-def _build_account_from_record(record):
-    """Only login details + the record link are set here — every profile
-    field starts blank so the clergy member fills it in themselves on first
-    login via My Profile, including their own name and assignment."""
-    return {
-        'record': record,
-        'verification': 'For Verification',
-    }
-
-
 @registrar_required
 def dashboard(request):
     records = ClergyRecord.objects.all()
@@ -111,12 +102,20 @@ def clergy_records(request):
     for record in records:
         record.doc_summary = record.document_summary()
 
-    linked_ids = set(ClergyProfile.objects.exclude(record=None).values_list('record_id', flat=True))
+    # Portal-account state per record, for the Portal Account column: None if
+    # there is no account yet, otherwise {'state': 'pending'|'expired'|'activated',
+    # 'days_left': int|None}.
+    profiles = ClergyProfile.objects.exclude(record=None).select_related('user__security')
+    account_by_record = {}
+    for profile in profiles:
+        state, days_left = account_status(getattr(profile.user, 'security', None))
+        account_by_record[profile.record_id] = {'state': state, 'days_left': days_left}
+    for record in records:
+        record.account = account_by_record.get(record.id)
 
     return render(request, 'registrar/clergy-records.html', {
         'active_page': 'clergy_records',
         'records': records,
-        'linked_ids': linked_ids,
         'search_query': query,
         'status_filter': status,
         'status_choices': ClergyRecord.STATUS_CHOICES,
@@ -125,41 +124,55 @@ def clergy_records(request):
     })
 
 
+def _portal_url(request):
+    return request.build_absolute_uri('/')
+
+
+def _slip_entry(record, user, password):
+    return {
+        'name': record.name,
+        'username': user.username,
+        'password': password,
+        'expires_on': user.security.setup_expires_at.date(),
+    }
+
+
+def _slips_response(request, entries):
+    """The slips as a PDF shown in the browser, ready to print. no-store keeps
+    the plaintext passwords out of the browser's cache and back/forward
+    history; they exist nowhere else once this response has been sent."""
+    pdf = slips.render_slips_pdf(entries, _portal_url(request))
+    response = HttpResponse(pdf, content_type='application/pdf')
+    response['Content-Disposition'] = 'inline; filename="portal-login-slips.pdf"'
+    response['Cache-Control'] = 'no-store'
+    return response
+
+
 @registrar_required
 def create_record(request):
     if request.method != 'POST':
         return redirect('registrar:clergy_records')
 
     form = ClergyRecordForm(request.POST)
-    username = request.POST.get('new_username', '').strip()
-    password = request.POST.get('new_password', '')
-
-    if User.objects.filter(username__iexact=username).exists():
-        messages.error(request, 'That username is already taken.')
-    elif form.is_valid() and username and password:
-        if not validate_password_or_flag_errors(request, password, user=User(username=username)):
-            return redirect('registrar:clergy_records')
-
-        # Record, login and profile are created together or not at all, and the
-        # ID is allocated inside the same transaction so a failure hands the
-        # number back instead of leaving a gap or a half-built account.
-        try:
-            with transaction.atomic():
-                record = form.save(commit=False)
-                record.id = ClergyRecord.allocate_id()
-                record.save()
-
-                user = User.objects.create_user(username=username, password=password)
-                ClergyProfile.objects.create(user=user, **_build_account_from_record(record))
-        except IntegrityError:
-            # Someone else took the username between the check above and now.
-            messages.error(request, 'That username is already taken.')
-        else:
-            messages.success(request, 'Clergy record created and portal account set up successfully.')
-    else:
+    if not form.is_valid():
         messages.error(request, 'Please fill in all required fields.')
+        return redirect('registrar:clergy_records')
 
-    return redirect('registrar:clergy_records')
+    # Record, login and slip are produced together or not at all — the PDF is
+    # rendered inside the transaction, so if it fails nothing is saved and the
+    # ID goes back, instead of leaving an account whose password was never
+    # printed. The password is generated, not chosen, so there is nothing to
+    # type here.
+    try:
+        with transaction.atomic():
+            record = form.save(commit=False)
+            record.id = ClergyRecord.allocate_id()
+            record.save()
+            user, password = provision_account(record)
+            return _slips_response(request, [_slip_entry(record, user, password)])
+    except ProvisionError as exc:
+        messages.error(request, str(exc))
+        return redirect('registrar:clergy_records')
 
 
 @registrar_required
@@ -169,25 +182,102 @@ def link_account(request, record_id):
     if request.method != 'POST':
         return redirect('registrar:clergy_records')
 
-    username = request.POST.get('username', '').strip()
-    password = request.POST.get('password', '')
+    if ClergyProfile.objects.filter(record=record).exists():
+        messages.error(request, f'{record.name} already has a portal account.')
+        return redirect('registrar:clergy_records')
 
-    if User.objects.filter(username__iexact=username).exists():
-        messages.error(request, 'That username is already taken.')
-    elif username and password:
-        if not validate_password_or_flag_errors(request, password, user=User(username=username)):
-            return redirect('registrar:clergy_records')
+    try:
+        with transaction.atomic():
+            user, password = provision_account(record)
+            return _slips_response(request, [_slip_entry(record, user, password)])
+    except ProvisionError as exc:
+        messages.error(request, str(exc))
+        return redirect('registrar:clergy_records')
+
+
+@registrar_required
+def reset_account(request, record_id):
+    """Lost slip, or a temporary password that ran out before activation: a
+    fresh password and another 30 days, printed on a new slip."""
+    record = get_object_or_404(ClergyRecord, id=record_id)
+
+    if request.method != 'POST':
+        return redirect('registrar:clergy_records')
+
+    profile = ClergyProfile.objects.filter(record=record).select_related('user').first()
+    if profile is None:
+        messages.error(request, f'{record.name} has no portal account to reset.')
+        return redirect('registrar:clergy_records')
+
+    try:
+        with transaction.atomic():
+            password = reset_credentials(profile.user)
+            return _slips_response(request, [_slip_entry(record, profile.user, password)])
+    except ProvisionError as exc:
+        messages.error(request, str(exc))
+        return redirect('registrar:clergy_records')
+
+
+BULK_TOKEN_SESSION_KEY = 'bulk_import_token'
+
+
+@registrar_required
+def bulk_accounts(request):
+    """Create many clergy records + portal accounts from a list of names.
+
+    Two steps so nothing is created blind: 'preview' reads and checks the
+    names and shows what would happen; 'confirm' creates exactly the rows the
+    registrar left ticked and returns the printable slips. The confirm step
+    spends a one-time token, so a double-click or a browser refresh can't
+    create the same people twice (and can't bring the passwords back)."""
+    context = {'active_page': 'clergy_records', 'max_names': bulk.MAX_NAMES}
+
+    if request.method != 'POST':
+        return render(request, 'registrar/bulk-accounts.html', context)
+
+    if request.POST.get('step') == 'confirm':
+        token = request.session.pop(BULK_TOKEN_SESSION_KEY, None)
+        if not token or token != request.POST.get('token'):
+            messages.error(request, 'That import was already submitted or has expired. Start again.')
+            return redirect('registrar:bulk_accounts')
+
+        # Re-checked here, not trusted from the preview: the form fields are
+        # editable by the browser.
+        names = bulk.valid_names(bulk.build_preview(request.POST.getlist('names')))[:bulk.MAX_NAMES]
+        if not names:
+            messages.error(request, 'Nothing selected to create.')
+            return redirect('registrar:bulk_accounts')
 
         try:
             with transaction.atomic():
-                user = User.objects.create_user(username=username, password=password)
-                ClergyProfile.objects.create(user=user, **_build_account_from_record(record))
-        except IntegrityError:
-            messages.error(request, 'That username is already taken.')
-        else:
-            messages.success(request, f'Portal account created for {record.name}.')
+                entries = []
+                for name in names:
+                    record = ClergyRecord(name=name)
+                    record.id = ClergyRecord.allocate_id()
+                    record.save()
+                    user, password = provision_account(record)
+                    entries.append(_slip_entry(record, user, password))
+                return _slips_response(request, entries)
+        except ProvisionError as exc:
+            messages.error(request, f'Nothing was created. {exc}')
+            return redirect('registrar:bulk_accounts')
 
-    return redirect('registrar:clergy_records')
+    try:
+        names = bulk.read_names(text=request.POST.get('names_text', ''), upload=request.FILES.get('names_file'))
+    except bulk.BulkInputError as exc:
+        messages.error(request, str(exc))
+        return render(request, 'registrar/bulk-accounts.html', {**context, 'names_text': request.POST.get('names_text', '')})
+
+    token = secrets.token_urlsafe(16)
+    request.session[BULK_TOKEN_SESSION_KEY] = token
+    rows = bulk.build_preview(names)
+    return render(request, 'registrar/bulk-accounts.html', {
+        **context,
+        'preview_rows': rows,
+        'token': token,
+        'creatable': len(bulk.valid_names(rows)),
+        'setup_window_days': SETUP_WINDOW_DAYS,
+    })
 
 
 @registrar_required
