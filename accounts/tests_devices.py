@@ -52,7 +52,7 @@ class NewDeviceTests(DeviceTestCase):
     def test_the_code_page_shows_a_masked_number(self):
         self.login()
         page = self.client.get(reverse('verify_device'))
-        self.assertContains(page, '0917 ••• 4567')
+        self.assertContains(page, '09•••••••67')
         self.assertNotContains(page, '09171234567')
 
     def test_right_code_signs_in_and_remembers_the_device(self):

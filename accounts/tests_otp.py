@@ -28,7 +28,7 @@ class PhoneTests(SimpleTestCase):
                 normalize_ph_mobile(raw)
 
     def test_mask_and_semaphore_format(self):
-        self.assertEqual(mask('+639171234567'), '0917 ••• 4567')
+        self.assertEqual(mask('+639171234567'), '09•••••••67')
         self.assertEqual(for_semaphore('+639171234567'), '639171234567')
 
 

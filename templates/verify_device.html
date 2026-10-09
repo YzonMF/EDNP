@@ -18,7 +18,7 @@
       .btn.ghost { background:transparent; color:inherit; border:1px solid rgba(125,146,166,.55); }
       .btn.ghost:hover { background:rgba(125,146,166,.15); }
       .row-gap { display:flex; gap:14px; align-items:center; margin-top:12px; flex-wrap:wrap; }
-      .remember { display:flex; gap:8px; align-items:center; font-size:12px; margin:0 0 14px; color:#334155; }
+      .remember { display:flex; gap:8px; align-items:center; font-size:12px; margin:0 0 14px; color:#b8c7d6; }
     </style>
   </head>
   <body>
@@ -49,16 +49,15 @@
 
             <form method="post" autocomplete="off">
               {% csrf_token %}
-              <input type="hidden" name="action" value="verify_code">
+              <button type="submit" class="default-submit" name="action" value="verify_code" tabindex="-1" aria-hidden="true"></button>
               <div class="field">
                 <label><i class="fa-solid fa-key"></i> Verification code</label>
-                <input name="code" inputmode="numeric" pattern="[0-9 ]*" maxlength="8" placeholder="123456" autocomplete="one-time-code" required autofocus>
+                {% include '_code_field.html' with send_value='resend' resend_value='resend' %}
               </div>
               <label class="remember"><input type="checkbox" name="remember" value="1" checked> Remember this device — don't ask again on this browser</label>
-              <button class="btn" type="submit"><i class="fa-solid fa-right-to-bracket"></i> Verify &amp; sign in</button>
+              <button class="btn" type="submit" name="action" value="verify_code"><i class="fa-solid fa-right-to-bracket"></i> Verify &amp; sign in</button>
             </form>
             <div class="row-gap">
-              {% include '_resend.html' with action_value='resend' btn_class='link-btn' %}
               <form method="post" style="display:inline">{% csrf_token %}<input type="hidden" name="action" value="cancel"><button class="link-btn" type="submit">Cancel</button></form>
             </div>
             <p class="muted" style="font-size:11px;margin-top:14px;color:#7d92a6">Lost access to this phone number? Ask the registrar to help.</p>

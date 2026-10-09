@@ -23,10 +23,16 @@ def normalize_ph_mobile(raw):
 
 
 def mask(e164):
-    """+639171234567 -> 0917 ••• 4567, for showing which number a code went to
-    without printing the whole thing on screen."""
+    """+639171234567 -> 09•••••••67: only the first two and last two digits, for
+    saying which number a code went to without printing the whole thing."""
     local = '0' + e164[3:]
-    return f'{local[:4]} ••• {local[-4:]}'
+    return f'{local[:2]}{"•" * (len(local) - 4)}{local[-2:]}'
+
+
+def display(e164):
+    """+639171234567 -> 0917 123 4567, for showing a user the number THEY typed."""
+    local = '0' + e164[3:]
+    return f'{local[:4]} {local[4:7]} {local[7:]}'
 
 
 def for_semaphore(e164):

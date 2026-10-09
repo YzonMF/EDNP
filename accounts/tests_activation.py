@@ -70,7 +70,7 @@ class GateTests(ActivationTestCase):
 class FullFlowTests(ActivationTestCase):
     def test_happy_path_activates_the_account(self):
         page = self.send_code()
-        self.assertContains(page, '0917 ••• 4567')       # shows where the code went, masked
+        self.assertContains(page, '09•••••••67')       # shows where the code went, masked
         self.assertContains(page, self.code())            # test mode shows the code on screen
         self.assertTrue(OtpChallenge.objects.filter(user=self.user, target='+639171234567').exists())
 

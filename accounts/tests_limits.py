@@ -140,9 +140,8 @@ class SetupPageTests(TestCase):
     def test_code_screen_has_back_and_a_greyed_countdown_resend(self):
         page = self.send()
         self.assertContains(page, 'Back')
-        self.assertContains(page, 'id="backForm"')
-        self.assertContains(page, 'resend-btn')
-        self.assertContains(page, 'Send a new code in ')
+        self.assertContains(page, 'code-send')
+        self.assertContains(page, 'Resend in ')
         self.assertContains(page, 'disabled')
         self.assertContains(page, 'data-wait="')
         wait = page.context['resend']['wait']
@@ -153,15 +152,14 @@ class SetupPageTests(TestCase):
         OtpChallenge.objects.update(created_at=timezone.now() - timedelta(seconds=90))
         page = self.client.get(self.url)
         self.assertEqual(page.context['resend']['wait'], 0)
-        self.assertNotContains(page, 'Send a new code in ')
+        self.assertNotRegex(page.content.decode(), r'Resend in \d+s')
 
     def test_back_returns_to_the_number_form_and_a_different_number_can_be_sent_at_once(self):
         self.send()
         page = self.client.post(self.url, {'action': 'change_number'}, follow=True)
-        self.assertContains(page, 'Mobile number')
-        self.assertNotContains(page, 'Enter the code')
+        self.assertContains(page, 'Send a code first')       # back to the unsent state
         page = self.send('0918 222 2222')            # straight away, no 60-second wait
-        self.assertContains(page, 'Enter the code')
+        self.assertContains(page, 'Code sent to')
         self.assertTrue(OtpChallenge.objects.filter(target='+639182222222').exists())
 
     def test_after_three_codes_the_page_says_so_and_offers_no_button(self):
@@ -171,7 +169,7 @@ class SetupPageTests(TestCase):
             self.client.post(self.url, {'action': 'change_number'})
         page = self.client.get(self.url)
         self.assertContains(page, "You've used all 3 codes for today")
-        self.assertContains(page, 'disabled style="opacity:.55')
+        self.assertContains(page, 'No more today')
         blocked = self.send('0917 444 4444')
         self.assertContains(blocked, "all 3 codes for today")
         self.assertFalse(OtpChallenge.objects.filter(target='+639174444444').exists())
@@ -190,7 +188,7 @@ class DevicePageTests(TestCase):
         c = Client()
         c.post('/', {'username': 'fr', 'password': PASSWORD})
         page = c.get(reverse('verify_device'))
-        self.assertContains(page, 'Send a new code in ')
+        self.assertContains(page, 'Resend in ')
         self.assertTrue(55 <= page.context['resend']['wait'] <= 60)
 
 
@@ -198,6 +196,6 @@ class SecurityPageTests(SecurityTestCase):
     def test_changing_the_number_shows_the_countdown_and_uses_the_shared_allowance(self):
         self.send()
         page = self.client.get(CLERGY_SECURITY)
-        self.assertContains(page, 'Send a new code in ')
+        self.assertContains(page, 'Resend in ')
         self.assertTrue(55 <= page.context['resend']['wait'] <= 60)
-        self.assertEqual(page.context['daily']['exhausted'], False)
+        self.assertEqual(page.context['resend']['exhausted'], False)

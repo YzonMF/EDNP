@@ -31,35 +31,25 @@
   <p class="muted" style="margin:0 0 12px">Used to confirm new devices and to reset your password. This is the only place it can be changed.</p>
   <p style="margin:0 0 14px">Current number: <b>{{ masked_phone|default:"—" }}</b></p>
 
-  {% if pending_masked %}
-    <p>We sent a 6-digit code to <b>{{ pending_masked }}</b>. It expires in 5 minutes.</p>
-    {% if test_mode %}
-    <div class="alert"><i class="fa-solid fa-flask"></i> Test mode — no text message was sent.{% if test_code %} Your code is: <b style="font-size:18px;letter-spacing:.15em">{{ test_code }}</b>{% endif %}</div>
-    {% endif %}
-    <form method="post" action="{% url 'my_security' %}" autocomplete="off">{% csrf_token %}
-      <input type="hidden" name="action" value="verify_change_code">
-      <div class="form-grid" style="grid-template-columns:1fr">
-        <div class="field"><label for="sec_code">Verification code</label><input id="sec_code" name="code" inputmode="numeric" pattern="[0-9 ]*" maxlength="8" autocomplete="one-time-code" required autofocus></div>
-      </div>
-      <div class="modal-actions" style="justify-content:flex-start"><button class="btn" type="submit"><i class="fa-solid fa-check"></i> Confirm new number</button></div>
-    </form>
-    <div style="display:flex;gap:8px;margin-top:8px">
-      {% url 'my_security' as security_url %}
-      {% include '_resend.html' with post_url=security_url action_value='resend_change' btn_class='btn small secondary' %}
-      <form method="post" action="{% url 'my_security' %}">{% csrf_token %}<input type="hidden" name="action" value="cancel_change"><button class="btn small secondary" type="submit">Cancel</button></form>
-    </div>
-  {% else %}
-    <form method="post" action="{% url 'my_security' %}" autocomplete="off">{% csrf_token %}
-      <input type="hidden" name="action" value="send_change_code">
-      <div class="form-grid" style="grid-template-columns:1fr 1fr">
-        <div class="field"><label for="sec_phone">New mobile number</label><input id="sec_phone" name="phone" type="tel" inputmode="tel" placeholder="0917 123 4567" required></div>
-        <div class="field"><label for="sec_pw_phone">Current password</label><input id="sec_pw_phone" name="current_password" type="password" autocomplete="current-password" required></div>
-      </div>
-      <p class="muted" style="margin:10px 0 0">We'll text a code to the new number. If you no longer have your current phone, visit the registrar in person instead.</p>
-      {% if daily.exhausted %}<div class="alert" style="margin-top:10px">You've used all {{ daily.daily_cap }} codes for today. You can try again in about {{ daily.retry_text }}.</div>{% endif %}
-      <div class="modal-actions" style="justify-content:flex-start"><button class="btn" type="submit" {% if daily.exhausted %}disabled style="opacity:.55;cursor:not-allowed"{% endif %}><i class="fa-solid fa-paper-plane"></i> Send code to new number</button></div>
-    </form>
+  {% if sent and test_mode %}
+  <div class="alert"><i class="fa-solid fa-flask"></i> Test mode — no text message was sent.{% if test_code %} Your code is: <b style="font-size:18px;letter-spacing:.15em">{{ test_code }}</b>{% endif %}</div>
   {% endif %}
+  <form method="post" action="{% url 'my_security' %}" autocomplete="off">{% csrf_token %}
+    <button type="submit" class="default-submit" name="action" value="{% if sent %}verify_change_code{% else %}send_change_code{% endif %}" tabindex="-1" aria-hidden="true"></button>
+    <div class="form-grid" style="grid-template-columns:1fr 1fr">
+      <div class="field"><label for="sec_phone">New mobile number</label><input id="sec_phone" name="phone" type="tel" inputmode="tel" placeholder="0917 123 4567" value="{{ pending_display }}" required {% if sent %}readonly{% endif %}></div>
+      <div class="field"><label for="sec_pw_phone">Current password</label><input id="sec_pw_phone" name="current_password" type="password" autocomplete="current-password" {% if sent %}disabled placeholder="Confirmed"{% else %}required{% endif %}></div>
+    </div>
+    <div class="field" style="margin-top:12px">
+      <label for="code">Verification code</label>
+      {% include '_code_field.html' with send_value='send_change_code' resend_value='resend_change' %}
+      <p class="muted" style="margin:6px 0 0">{% if sent %}Code sent to <b>{{ pending_masked }}</b>. It expires in 5 minutes.{% else %}We'll text a code to the new number. If you no longer have your current phone, visit the registrar in person instead.{% endif %}</p>
+    </div>
+    <div class="modal-actions" style="justify-content:flex-start;gap:8px">
+      <button class="btn" type="submit" name="action" value="verify_change_code" {% if not sent %}disabled style="opacity:.5;cursor:not-allowed"{% endif %}><i class="fa-solid fa-check"></i> Confirm new number</button>
+      {% if sent %}<button class="btn secondary" type="submit" name="action" value="cancel_change" formnovalidate>Cancel</button>{% endif %}
+    </div>
+  </form>
 </div>
 
 <div class="{{ card_class }}" style="margin-top:18px">

@@ -45,53 +45,39 @@
               {% endif %}
             {% endfor %}
 
-            {% if stage == 'phone' and not pending_phone_masked %}
+            {% if stage == 'phone' %}
               <h2>{% if reverifying %}Verify your number again{% else %}Welcome — set up your account{% endif %}</h2>
               <p class="form-sub">
                 {% if reverifying %}Please confirm your mobile number with a new code.
-                {% else %}Register your mobile number. We'll text you a code to confirm it.{% endif %}
+                {% else %}Confirm your name, then register your mobile number. We'll text you a code to confirm it.{% endif %}
               </p>
               {% include '_setup_steps.html' %}
-              <form method="post" autocomplete="off">
-                {% csrf_token %}
-                <input type="hidden" name="action" value="send_code">
-                <div class="field">
-                  <label><i class="fa-solid fa-id-card"></i> Full name</label>
-                  <input name="name" value="{{ name }}" placeholder="Your full name" autocomplete="name" maxlength="150" required>
-                </div>
-                <div class="field">
-                  <label><i class="fa-solid fa-mobile-screen"></i> Mobile number</label>
-                  <input name="phone" type="tel" value="{{ phone }}" placeholder="0917 123 4567" autocomplete="tel" inputmode="tel" required>
-                </div>
-                <p class="setup-note"><i class="fa-solid fa-circle-info"></i> One number can belong to one account only. It is also used to sign in on new devices and to reset your password.</p>
-                {% if daily.exhausted %}
-                <div class="login-error"><i class="fa-solid fa-triangle-exclamation"></i> You've used all {{ daily.daily_cap }} codes for today. You can try again in about {{ daily.retry_text }}.</div>
-                {% endif %}
-                <button class="btn" type="submit" {% if daily.exhausted %}disabled style="opacity:.55;cursor:not-allowed"{% endif %}><i class="fa-solid fa-paper-plane"></i> Send code</button>
-              </form>
-
-            {% elif stage == 'phone' %}
-              <h2>Enter the code</h2>
-              <p class="form-sub">We sent a 6-digit code to <b>{{ pending_phone_masked }}</b>. It expires in 5 minutes.</p>
-              {% include '_setup_steps.html' %}
-              {% if test_mode %}
+              {% if sent and test_mode %}
               <div class="test-banner"><i class="fa-solid fa-flask"></i> Test mode — no text message was sent.{% if test_code %} Your code is:<b>{{ test_code }}</b>{% endif %}</div>
               {% endif %}
               <form method="post" autocomplete="off">
                 {% csrf_token %}
-                <input type="hidden" name="action" value="verify_code">
+                <button type="submit" class="default-submit" name="action" value="{% if sent %}verify_code{% else %}send_code{% endif %}" tabindex="-1" aria-hidden="true"></button>
+                <div class="field">
+                  <label><i class="fa-solid fa-id-card"></i> Full name</label>
+                  <input name="name" value="{{ name }}" placeholder="Your full name" autocomplete="name" maxlength="150" required {% if sent %}readonly{% endif %}>
+                </div>
+                <div class="field">
+                  <label><i class="fa-solid fa-mobile-screen"></i> Mobile number</label>
+                  <input name="phone" type="tel" value="{{ phone }}" placeholder="0917 123 4567" autocomplete="tel" inputmode="tel" required {% if sent %}readonly{% endif %}>
+                </div>
                 <div class="field">
                   <label><i class="fa-solid fa-key"></i> Verification code</label>
-                  <input name="code" inputmode="numeric" pattern="[0-9 ]*" maxlength="8" placeholder="123456" autocomplete="one-time-code" required autofocus>
+                  {% include '_code_field.html' with send_value='send_code' resend_value='resend' %}
+                  {% if sent %}<span class="muted" style="font-size:11px;color:#7d92a6;display:block;margin-top:6px">Code sent to <b>{{ pending_phone_masked }}</b>. It expires in 5 minutes.</span>{% endif %}
                 </div>
+                <p class="setup-note"><i class="fa-solid fa-circle-info"></i> One number can belong to one account only. It is also used to sign in on new devices and to reset your password.</p>
                 <div class="btn-row">
-                  <button class="btn ghost" type="submit" form="backForm" formnovalidate><i class="fa-solid fa-arrow-left"></i> Back</button>
-                  <button class="btn" type="submit"><i class="fa-solid fa-check"></i> Verify</button>
+                  {% if sent %}<button class="btn ghost" type="submit" name="action" value="change_number" formnovalidate><i class="fa-solid fa-arrow-left"></i> Back</button>{% endif %}
+                  <button class="btn" type="submit" name="action" value="verify_code" {% if not sent %}disabled{% endif %}><i class="fa-solid fa-check"></i> Verify</button>
                 </div>
+                {% if sent %}<p class="muted" style="font-size:11px;margin-top:10px;color:#7d92a6">Wrong number? Press Back to enter a different one.</p>{% endif %}
               </form>
-              <form method="post" id="backForm" style="display:none">{% csrf_token %}<input type="hidden" name="action" value="change_number"></form>
-              <div class="row-gap">{% include '_resend.html' with action_value='resend' btn_class='link-btn' %}</div>
-              <p class="muted" style="font-size:11px;margin-top:10px;color:#7d92a6">Wrong number? Press Back to enter a different one.</p>
 
             {% else %}
               <h2>Choose your own password</h2>

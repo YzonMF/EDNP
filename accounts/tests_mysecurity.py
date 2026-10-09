@@ -48,7 +48,7 @@ class PageTests(SecurityTestCase):
     def test_clergy_sees_it_inside_their_own_portal_with_the_number_masked(self):
         page = self.client.get(CLERGY_SECURITY)
         self.assertContains(page, 'Clergy Portal')
-        self.assertContains(page, '0917 ••• 4567')
+        self.assertContains(page, '09•••••••67')
         self.assertNotContains(page, '09171234567')
         self.assertContains(page, 'Fr. Juan')   # the clergy sidebar needs the profile
 

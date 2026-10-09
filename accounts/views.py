@@ -14,7 +14,7 @@ from ednp.password_helpers import validate_password_or_flag_errors
 
 from . import audit, devices, otp, setup, sms
 from .models import TrustedDevice, UserSecurity
-from .phone import mask, normalize_ph_mobile
+from .phone import display, mask, normalize_ph_mobile
 from .session_utils import keep_signed_in_after_password_change
 
 # Held in the session between "send code" and "verify code" so the number and
@@ -80,8 +80,9 @@ def activate(request):
             except ValueError as exc:
                 messages.error(request, str(exc))
                 return redirect('activate')
-            if UserSecurity.objects.filter(phone=e164).exclude(user=user).exists():
-                messages.error(request, 'That number is already registered to another account.')
+            unavailable = otp.number_unavailable(user, e164)
+            if unavailable:
+                messages.error(request, unavailable)
                 return redirect('activate')
             if _send_code(request, user, e164):
                 request.session[PENDING_KEY] = {'phone': e164, 'name': name}
@@ -94,6 +95,11 @@ def activate(request):
         if stage == setup.PHONE and action == 'change_number':
             request.session.pop(PENDING_KEY, None)
             request.session.pop(TEST_CODE_KEY, None)
+            otp.release_pending(user, ('phone_verify',))
+            return redirect('activate')
+
+        if stage == setup.PHONE and action == 'verify_code' and not pending:
+            messages.error(request, 'Press Send code first, then enter the code we text you.')
             return redirect('activate')
 
         if stage == setup.PHONE and action == 'verify_code' and pending:
@@ -165,13 +171,13 @@ def activate(request):
         'step': 3 if stage == setup.PASSWORD else (2 if pending else 1),
         'name': (pending or {}).get('name') or (record.name if record else user.get_full_name()),
         'phone': prefill_phone(pending, security),
+        'sent': bool(pending),
         'pending_phone_masked': mask(pending['phone']) if pending else None,
         'test_code': request.session.get(TEST_CODE_KEY) if sms.is_test_backend() else None,
         'test_mode': sms.is_test_backend(),
         'reverifying': security is not None and bool(security.phone) and stage == setup.PHONE,
-        # Countdown for the resend button, and whether today's codes are used up.
-        'resend': otp.resend_status(user, 'phone_verify', pending['phone']) if pending else None,
-        'daily': otp.resend_status(user, 'phone_verify', ''),
+        # Drives the Send/Resend button: its countdown, and whether today's codes are used up.
+        'resend': otp.resend_status(user, 'phone_verify', pending['phone'] if pending else ''),
     }
     return render(request, 'activate.html', context)
 
@@ -180,9 +186,9 @@ def prefill_phone(pending, security):
     """What to prefill the phone box with: the number just typed, else the one
     already on file (when re-verifying), else nothing."""
     if pending:
-        return pending['phone']
+        return display(pending['phone'])
     if security is not None and security.phone:
-        return '0' + security.phone[3:]
+        return display(security.phone)
     return ''
 
 
@@ -218,9 +224,10 @@ def security_context(request):
     return {
         'card_class': 'panel' if user.is_staff else 'section-card',
         'masked_phone': mask(security.phone) if security.phone else None,
+        'sent': bool(pending),
         'pending_masked': mask(pending['phone']) if pending else None,
-        'resend': otp.resend_status(user, 'phone_change', pending['phone']) if pending else None,
-        'daily': otp.resend_status(user, 'phone_change', ''),
+        'pending_display': display(pending['phone']) if pending else '',
+        'resend': otp.resend_status(user, 'phone_change', pending['phone'] if pending else ''),
         'test_mode': sms.is_test_backend(),
         'test_code': request.session.get(CHANGE_TEST_CODE_KEY) if sms.is_test_backend() else None,
         'trusted_devices': [{'device': d, 'is_current': current is not None and d.pk == current.pk} for d in trusted],
@@ -251,10 +258,11 @@ def _send_number_code(request, security):
     except ValueError as exc:
         messages.error(request, str(exc))
         return
+    unavailable = otp.number_unavailable(user, e164)
     if e164 == security.phone:
         messages.error(request, 'That is already your number.')
-    elif UserSecurity.objects.filter(phone=e164).exclude(user=user).exists():
-        messages.error(request, 'That number is already registered to another account.')
+    elif unavailable:
+        messages.error(request, unavailable)
     else:
         try:
             test_code = otp.issue(user, 'phone_change', e164)
@@ -387,6 +395,9 @@ def my_security(request):
             messages.success(request, 'A new code is on its way.')
     elif action == 'cancel_change':
         _clear_change(request)
+        otp.release_pending(user, ('phone_change',))
+    elif action == 'verify_change_code' and not pending:
+        messages.error(request, 'Press Send code first, then enter the code we text you.')
     elif action == 'verify_change_code' and pending:
         _confirm_number_change(request, security, pending)
     elif action == 'change_username':

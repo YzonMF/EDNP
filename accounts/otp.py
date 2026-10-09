@@ -65,6 +65,35 @@ def _hours_text(seconds):
     return f'{hours} hour{"" if hours == 1 else "s"}'
 
 
+_NUMBER_PURPOSES = ('phone_verify', 'phone_change')
+
+
+def number_unavailable(user, e164):
+    """Why `user` can't claim this number right now, or None if they can.
+
+    Taken: it's already verified on another account. Held: another account has a
+    live code out for it (they're registering it this very minute) — refused
+    up front so a second person isn't texted, and doesn't spend a day's allowance,
+    only to be told at the very end that someone else got there first."""
+    from .models import UserSecurity
+    if UserSecurity.objects.filter(phone=e164).exclude(user=user).exists():
+        return 'That number is already registered to another account.'
+    held = OtpChallenge.objects.filter(
+        target=e164, purpose__in=_NUMBER_PURPOSES, consumed_at__isnull=True,
+        expires_at__gt=timezone.now(), attempts__lt=settings.OTP_MAX_ATTEMPTS,
+    ).exclude(user=user).exists()
+    if held:
+        return ('That number is being set up on another account right now. '
+                "If it's yours, please try again in a few minutes.")
+    return None
+
+
+def release_pending(user, purposes=_NUMBER_PURPOSES):
+    """The user backed out of a number: its live codes die so the number is free
+    for others straight away (the sent codes still count toward the daily three)."""
+    OtpChallenge.objects.filter(user=user, purpose__in=purposes, consumed_at__isnull=True).update(consumed_at=timezone.now())
+
+
 def resend_status(user, purpose, target):
     """What the code-entry page needs to draw its resend button: how many
     seconds until another code may be requested for this number, and whether
