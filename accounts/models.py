@@ -30,6 +30,9 @@ class UserSecurity(models.Model):
     # has been activated by then. Null once activated (it no longer applies).
     setup_expires_at = models.DateTimeField(blank=True, null=True)
     activated_at = models.DateTimeField(blank=True, null=True)
+    # Set when the user replaces the registrar-issued (or pre-feature) password
+    # with one of their own. Activation needs both this and a verified phone.
+    password_changed_at = models.DateTimeField(blank=True, null=True)
 
     # Stored normalized as +639XXXXXXXXX. Unique so one number can never
     # belong to two accounts (a shared number would let one person reset
@@ -47,3 +50,48 @@ class UserSecurity(models.Model):
     @property
     def is_activated(self):
         return self.activated_at is not None
+
+
+class OtpChallenge(models.Model):
+    """One text-message code sent to one phone number for one purpose. Only a
+    keyed hash of the code is stored, so a database leak doesn't hand out
+    live codes. A code stops working when it expires, when it is used, when a
+    newer one replaces it, or after too many wrong guesses."""
+
+    PURPOSE_CHOICES = [
+        ('phone_verify', 'Verify phone number'),
+        ('device', 'Sign in on a new device'),
+        ('password_reset', 'Reset password'),
+    ]
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='otp_challenges')
+    purpose = models.CharField(max_length=20, choices=PURPOSE_CHOICES)
+    target = models.CharField(max_length=13)  # the +639… number the code was sent to
+    code_hash = models.CharField(max_length=64)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+    attempts = models.PositiveSmallIntegerField(default=0)
+    consumed_at = models.DateTimeField(blank=True, null=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['user', 'purpose', 'created_at']),
+            models.Index(fields=['target', 'created_at']),
+        ]
+
+
+class TrustedDevice(models.Model):
+    """A browser the user has already proven they control (by receiving a code
+    on their phone), so it isn't asked again on each sign-in. The browser holds
+    a random token in a cookie; only its hash is stored here. Revoking a device
+    is deleting its row."""
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='trusted_devices')
+    token_hash = models.CharField(max_length=64, unique=True)
+    label = models.CharField(max_length=100, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    last_seen_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+
+    class Meta:
+        ordering = ['-last_seen_at']

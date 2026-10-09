@@ -27,7 +27,7 @@
     <div class="edit-field"><label>Gender</label><select name="gender"><option value="">Select</option><option {% if record.gender == 'Male' %}selected{% endif %}>Male</option><option {% if record.gender == 'Female' %}selected{% endif %}>Female</option></select></div>
     <div class="edit-field"><label>Date of Baptism</label><input name="baptism_date" type="date" value="{{ record.baptism_date|date:'Y-m-d' }}"></div>
     <div class="edit-field"><label>Date of Confirmation</label><input name="confirmation_date" type="date" value="{{ record.confirmation_date|date:'Y-m-d' }}"></div>
-    <div class="edit-field"><label>Contact Number</label><input name="phone" type="tel" value="{{ record.phone }}"></div>
+    <div class="edit-field"><label>Contact Number</label><input type="tel" value="{{ record.phone|default:'' }}" readonly title="Verified by the clergy member. Only they can change it."></div>
     <div class="edit-field"><label>Email Address</label><input name="email" type="email" value="{{ record.email }}"></div>
     <div class="edit-field full"><label>Residential Address</label><div class="input-with-action"><input name="address" id="addressInput" value="{{ record.address }}"><button type="button" class="ph-picker-btn" data-ph-picker-target="addressInput" title="Choose from province / city / barangay list"><i class="fa-solid fa-location-dot"></i></button></div></div>
   </div>

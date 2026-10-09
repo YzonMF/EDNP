@@ -30,8 +30,10 @@ class ClergyRecordSelfServiceForm(forms.ModelForm):
 
     class Meta:
         model = ClergyRecord
+        # No 'phone': the contact number is the verified one on the account and
+        # only changes through a code sent to the new number.
         fields = ['name', 'gender', 'date_of_birth', 'baptism_date', 'confirmation_date',
-                  'phone', 'email', 'address']
+                  'email', 'address']
         widgets = {
             'date_of_birth': forms.DateInput(attrs={'type': 'date'}),
             'baptism_date': forms.DateInput(attrs={'type': 'date'}),

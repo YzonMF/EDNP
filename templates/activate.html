@@ -1,0 +1,116 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EDNP — Set Up Your Account</title>
+    <link rel="stylesheet" href="{% static 'index.css' %}">
+    <link rel="stylesheet" href="{% static 'theme.css' %}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer">
+    <style>
+      .setup-steps { display:flex; gap:8px; margin:0 0 18px; font-size:12px; color:#7d92a6; }
+      .setup-steps span { padding:4px 10px; border-radius:999px; background:#eef1f5; }
+      .setup-steps span.on { background:#2f6fed; color:#fff; font-weight:700; }
+      .setup-steps span.done { background:#e3f6ea; color:#1d7a46; }
+      .setup-note { background:#eef4ff; color:#244a8f; border-radius:9px; padding:10px 12px; font-size:12px; margin:0 0 14px; }
+      .setup-ok { background:#e3f6ea; color:#1d7a46; border-radius:9px; padding:10px 12px; font-size:12px; margin:0 0 14px; }
+      .test-banner { background:#fff6e3; color:#865e00; border:1px dashed #d9a400; border-radius:9px; padding:10px 12px; font-size:12px; margin:0 0 14px; }
+      .test-banner b { font-size:20px; letter-spacing:.2em; display:block; margin-top:4px; }
+      .link-btn { background:none; border:0; padding:0; color:#2f6fed; cursor:pointer; font:inherit; font-size:12px; text-decoration:underline; }
+      .row-gap { display:flex; gap:14px; align-items:center; margin-top:12px; flex-wrap:wrap; }
+    </style>
+  </head>
+  <body>
+    <div class="login-screen">
+      <div class="login-container">
+        <div class="brand-panel">
+          <div class="brand-panel-inner">
+            <img src="{% static 'ednp_logo.png' %}" alt="EDNP Logo" class="brand-logo">
+            <p>Clergy Record-Keeping and Document Tracking System</p>
+          </div>
+        </div>
+        <div class="form-panel">
+          <div class="form-panel-inner">
+
+            <div class="setup-steps" aria-label="Setup progress">
+              <span class="{% if stage == 'phone' %}on{% else %}done{% endif %}">1 · Your number</span>
+              <span class="{% if stage == 'password' %}on{% endif %}">2 · New password</span>
+            </div>
+
+            {% for message in messages %}
+              {% if message.level_tag == 'error' %}
+              <div class="login-error"><i class="fa-solid fa-triangle-exclamation"></i> {{ message }}</div>
+              {% else %}
+              <div class="setup-ok"><i class="fa-solid fa-circle-check"></i> {{ message }}</div>
+              {% endif %}
+            {% endfor %}
+
+            {% if stage == 'phone' and not pending_phone_masked %}
+              <h2>{% if reverifying %}Verify your number again{% else %}Welcome — set up your account{% endif %}</h2>
+              <p class="form-sub">
+                {% if reverifying %}Please confirm your mobile number with a new code.
+                {% else %}Register your mobile number. We'll text you a code to confirm it.{% endif %}
+              </p>
+              <form method="post" autocomplete="off">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="send_code">
+                {% if name_required %}
+                <div class="field">
+                  <label><i class="fa-solid fa-id-card"></i> Full name</label>
+                  <input name="name" value="{{ name }}" placeholder="Your full name" autocomplete="name" maxlength="150" required>
+                </div>
+                {% endif %}
+                <div class="field">
+                  <label><i class="fa-solid fa-mobile-screen"></i> Mobile number</label>
+                  <input name="phone" type="tel" value="{{ phone }}" placeholder="0917 123 4567" autocomplete="tel" inputmode="tel" required {% if not name_required %}autofocus{% endif %}>
+                </div>
+                <p class="setup-note"><i class="fa-solid fa-circle-info"></i> One number can belong to one account only. It is also used to sign in on new devices and to reset your password.</p>
+                <button class="btn" type="submit"><i class="fa-solid fa-paper-plane"></i> Send code</button>
+              </form>
+
+            {% elif stage == 'phone' %}
+              <h2>Enter the code</h2>
+              <p class="form-sub">We sent a 6-digit code to <b>{{ pending_phone_masked }}</b>. It expires in 5 minutes.</p>
+              {% if test_mode %}
+              <div class="test-banner"><i class="fa-solid fa-flask"></i> Test mode — no text message was sent.{% if test_code %} Your code is:<b>{{ test_code }}</b>{% endif %}</div>
+              {% endif %}
+              <form method="post" autocomplete="off">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="verify_code">
+                <div class="field">
+                  <label><i class="fa-solid fa-key"></i> Verification code</label>
+                  <input name="code" inputmode="numeric" pattern="[0-9 ]*" maxlength="8" placeholder="123456" autocomplete="one-time-code" required autofocus>
+                </div>
+                <button class="btn" type="submit"><i class="fa-solid fa-check"></i> Verify</button>
+              </form>
+              <div class="row-gap">
+                <form method="post" style="display:inline">{% csrf_token %}<input type="hidden" name="action" value="resend"><button class="link-btn" type="submit">Send a new code</button></form>
+                <form method="post" style="display:inline">{% csrf_token %}<input type="hidden" name="action" value="change_number"><button class="link-btn" type="submit">Use a different number</button></form>
+              </div>
+
+            {% else %}
+              <h2>Choose your own password</h2>
+              <p class="form-sub">The password you signed in with was issued by the registrar. Replace it with one only you know.</p>
+              <form method="post" autocomplete="off">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="set_password">
+                <div class="field">
+                  <label><i class="fa-solid fa-lock"></i> New password</label>
+                  <input name="new_password" type="password" autocomplete="new-password" required autofocus>
+                </div>
+                <div class="field">
+                  <label><i class="fa-solid fa-lock"></i> Confirm new password</label>
+                  <input name="confirm_password" type="password" autocomplete="new-password" required>
+                </div>
+                <button class="btn" type="submit"><i class="fa-solid fa-circle-check"></i> Activate account</button>
+              </form>
+            {% endif %}
+
+            <div class="row-gap"><a class="link-btn" href="{% url 'logout' %}">Sign out</a></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

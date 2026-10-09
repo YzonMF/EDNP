@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/6.1/ref/settings/
 """
 
 import os
+import sys
 from pathlib import Path
 
 from django.core.exceptions import ImproperlyConfigured
@@ -67,6 +68,7 @@ MIDDLEWARE = [
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'accounts.middleware.SingleSessionMiddleware',
+    'accounts.middleware.ActivationGateMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
@@ -165,6 +167,38 @@ MEDIA_URL = 'media/'
 MEDIA_ROOT = Path(os.environ.get('MEDIA_ROOT', BASE_DIR / 'media'))
 
 LOGIN_URL = 'index'
+
+
+# SMS one-time codes (phone verification and new-device sign-in).
+#
+# SMS_BACKEND is 'semaphore' (real texts, costs credits) or 'test' (nothing is
+# sent; the code is shown on screen so the flow can be tried without a phone).
+# When unset it fails closed: real SMS in production (DEBUG off), test mode
+# only on a developer machine (DEBUG on) — so forgetting the variable on the
+# server can never silently turn the on-screen code into a way past the
+# verification. The test suite always uses 'test' so it can never send a text.
+TESTING = len(sys.argv) > 1 and sys.argv[1] == 'test'
+SMS_BACKEND = 'test' if TESTING else (os.environ.get('SMS_BACKEND') or ('test' if DEBUG else 'semaphore'))
+if SMS_BACKEND not in ('semaphore', 'test'):
+    raise ImproperlyConfigured(f"SMS_BACKEND must be 'semaphore' or 'test', not {SMS_BACKEND!r}.")
+
+SEMAPHORE_API_KEY = os.environ.get('SEMAPHORE_API_KEY') or os.environ.get('API_Key', '')
+# Optional; Semaphore falls back to the account's default sender name.
+SEMAPHORE_SENDER_NAME = os.environ.get('SEMAPHORE_SENDER_NAME', '')
+
+if SMS_BACKEND == 'semaphore' and not SEMAPHORE_API_KEY and not TESTING:
+    raise ImproperlyConfigured(
+        'SMS_BACKEND is "semaphore" but no API key was found. Set SEMAPHORE_API_KEY '
+        '(or API_Key) in .env, or set SMS_BACKEND=test for local development.'
+    )
+
+OTP_LENGTH = 6
+OTP_TTL_SECONDS = 5 * 60
+OTP_MAX_ATTEMPTS = 5           # wrong guesses per code before it is dead
+OTP_RESEND_COOLDOWN_SECONDS = 60
+OTP_MAX_SENDS_PER_HOUR = 5     # per account, and separately per phone number (each send costs credits)
+
+TRUSTED_DEVICE_DAYS = 60       # a device that signs in again within this window stays trusted
 
 FILE_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024  # 10 MB
 

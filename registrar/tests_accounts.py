@@ -9,6 +9,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from accounts.models import UserSecurity
+from accounts.testing import activate
 from clergy.models import ClergyProfile
 
 from . import bulk, slips
@@ -138,7 +139,7 @@ class SlipLayoutTests(TestCase):
 
 class BulkViewTests(TestCase):
     def setUp(self):
-        self.client.force_login(User.objects.create_user('reg', password='pw12345!x', is_staff=True))
+        self.client.force_login(activate(User.objects.create_user('reg', password='pw12345!x', is_staff=True)))
         self.url = reverse('registrar:bulk_accounts')
 
     def _preview(self, text):
@@ -157,7 +158,7 @@ class BulkViewTests(TestCase):
         self.assertTrue(r.content.startswith(b'%PDF'))
         self.assertEqual(list(ClergyRecord.objects.order_by('id').values_list('id', 'name')),
                          [('CLG-001', 'Juan Cruz'), ('CLG-002', 'Maria Santos')])
-        self.assertEqual(UserSecurity.objects.count(), 2)
+        self.assertEqual(UserSecurity.objects.filter(user__username__startswith='CLG').count(), 2)
 
     def test_only_ticked_names_are_created(self):
         token = self._preview('Juan Cruz\nMaria Santos').context['token']
@@ -189,7 +190,7 @@ class BulkViewTests(TestCase):
         self.assertFalse(ClergyRecord.objects.exists())
 
     def test_clergy_cannot_use_it(self):
-        clergy = User.objects.create_user('c', password='pw12345!x')
+        clergy = activate(User.objects.create_user('c', password='pw12345!x'))
         self.client.force_login(clergy)
         r = self.client.post(self.url, {'step': 'preview', 'names_text': 'Juan Cruz'})
         self.assertEqual(r.status_code, 302)
@@ -200,7 +201,7 @@ class ResetAndLoginExpiryTests(TestCase):
     def setUp(self):
         self.record = ClergyRecord.objects.create(id='CLG-001', name='Fr. A')
         self.user, self.password = provision_account(self.record)
-        self.registrar = User.objects.create_user('reg', password='pw12345!x', is_staff=True)
+        self.registrar = activate(User.objects.create_user('reg', password='pw12345!x', is_staff=True))
 
     def _login(self, password):
         return self.client.post('/', {'username': 'CLG-001', 'password': password})

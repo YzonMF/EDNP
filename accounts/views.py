@@ -1,0 +1,168 @@
+import re
+
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from django.db import IntegrityError, transaction
+from django.shortcuts import redirect, render
+from django.utils import timezone
+
+from ednp.password_helpers import validate_password_or_flag_errors
+
+from . import otp, setup, sms
+from .session_utils import keep_signed_in_after_password_change
+from .models import UserSecurity
+from .phone import mask, normalize_ph_mobile
+
+# Held in the session between "send code" and "verify code" so the number and
+# name being verified are exactly what the code was sent for — never trusted
+# from the verify form itself.
+PENDING_KEY = 'setup_pending'
+TEST_CODE_KEY = 'setup_test_code'
+
+NAME_MAX_LENGTH = 150
+
+
+def _record_for(user):
+    profile = getattr(user, 'clergy_profile', None)
+    return profile.record if profile is not None else None
+
+
+def _home_url_name(user):
+    return 'registrar:dashboard' if user.is_staff else 'clergy:dashboard'
+
+
+def _clean_name(raw):
+    name = re.sub(r'\s+', ' ', raw or '').strip()
+    if not name:
+        raise ValueError('Please enter your full name.')
+    if len(name) > NAME_MAX_LENGTH:
+        raise ValueError(f'Your name is too long (the limit is {NAME_MAX_LENGTH} characters).')
+    if not re.search(r'[^\W\d_]', name):
+        raise ValueError('Please enter your real, full name.')
+    return name
+
+
+def _send_code(request, user, e164):
+    """Texts a code for `e164`; on success remembers it as the pending number.
+    Returns True if sent, otherwise flashes why and returns False."""
+    try:
+        test_code = otp.issue(user, 'phone_verify', e164)
+    except otp.OtpError as exc:
+        messages.error(request, str(exc))
+        return False
+    if test_code:
+        request.session[TEST_CODE_KEY] = test_code
+    return True
+
+
+@login_required(login_url='index')
+def activate(request):
+    user = request.user
+    stage = setup.pending_stage(user)
+    if stage is None:
+        return redirect(_home_url_name(user))
+
+    record = _record_for(user)
+    security = UserSecurity.objects.filter(user=user).first()
+    pending = request.session.get(PENDING_KEY)
+
+    if request.method == 'POST':
+        action = request.POST.get('action')
+
+        if stage == setup.PHONE and action == 'send_code':
+            try:
+                name = _clean_name(request.POST.get('name')) if record is not None else None
+                e164 = normalize_ph_mobile(request.POST.get('phone'))
+            except ValueError as exc:
+                messages.error(request, str(exc))
+                return redirect('activate')
+            if UserSecurity.objects.filter(phone=e164).exclude(user=user).exists():
+                messages.error(request, 'That number is already registered to another account.')
+                return redirect('activate')
+            if _send_code(request, user, e164):
+                request.session[PENDING_KEY] = {'phone': e164, 'name': name}
+            return redirect('activate')
+
+        if stage == setup.PHONE and action == 'resend' and pending:
+            _send_code(request, user, pending['phone'])
+            return redirect('activate')
+
+        if stage == setup.PHONE and action == 'change_number':
+            request.session.pop(PENDING_KEY, None)
+            request.session.pop(TEST_CODE_KEY, None)
+            return redirect('activate')
+
+        if stage == setup.PHONE and action == 'verify_code' and pending:
+            try:
+                otp.verify(user, 'phone_verify', pending['phone'], request.POST.get('code'))
+            except otp.OtpError as exc:
+                messages.error(request, str(exc))
+                return redirect('activate')
+            try:
+                with transaction.atomic():
+                    if record is not None and pending.get('name'):
+                        record.name = pending['name']
+                        record.phone = pending['phone']
+                        record.save(update_fields=['name', 'phone'])
+                    security, _ = UserSecurity.objects.get_or_create(user=user)
+                    security.phone = pending['phone']
+                    security.phone_verified_at = timezone.now()
+                    security.phone_verified_via = 'test' if sms.is_test_backend() else 'sms'
+                    security.save(update_fields=['phone', 'phone_verified_at', 'phone_verified_via'])
+            except IntegrityError:
+                # Someone else verified this number between our check and now.
+                messages.error(request, 'That number is already registered to another account.')
+                request.session.pop(PENDING_KEY, None)
+                return redirect('activate')
+            request.session.pop(PENDING_KEY, None)
+            request.session.pop(TEST_CODE_KEY, None)
+            if setup.pending_stage(user) is None:
+                messages.success(request, 'Your number is verified.')
+                return redirect(_home_url_name(user))
+            messages.success(request, 'Your number is verified. One last step: choose your own password.')
+            return redirect('activate')
+
+        if stage == setup.PASSWORD and action == 'set_password':
+            new = request.POST.get('new_password', '')
+            confirm = request.POST.get('confirm_password', '')
+            if new != confirm:
+                messages.error(request, 'The two passwords do not match.')
+            elif user.check_password(new):
+                messages.error(request, 'Choose a different password from the one you were given.')
+            elif validate_password_or_flag_errors(request, new, user=user):
+                now = timezone.now()
+                user.set_password(new)
+                user.save(update_fields=['password'])
+                keep_signed_in_after_password_change(request, user)
+                security.password_changed_at = now
+                if security.activated_at is None:
+                    security.activated_at = now
+                security.setup_expires_at = None
+                security.save(update_fields=['password_changed_at', 'activated_at', 'setup_expires_at'])
+                messages.success(request, 'Account activated. Welcome!')
+                return redirect(_home_url_name(user))
+            return redirect('activate')
+
+        return redirect('activate')
+
+    context = {
+        'stage': stage,
+        'name_required': record is not None,
+        'name': (pending or {}).get('name') or (record.name if record else ''),
+        'phone': prefill_phone(pending, security),
+        'pending_phone_masked': mask(pending['phone']) if pending else None,
+        'test_code': request.session.get(TEST_CODE_KEY) if sms.is_test_backend() else None,
+        'test_mode': sms.is_test_backend(),
+        'reverifying': security is not None and bool(security.phone) and stage == setup.PHONE,
+    }
+    return render(request, 'activate.html', context)
+
+
+def prefill_phone(pending, security):
+    """What to prefill the phone box with: the number just typed, else the one
+    already on file (when re-verifying), else nothing."""
+    if pending:
+        return pending['phone']
+    if security is not None and security.phone:
+        return '0' + security.phone[3:]
+    return ''

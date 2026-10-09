@@ -10,6 +10,7 @@ from django.db import close_old_connections, transaction
 from django.test import TestCase, TransactionTestCase, override_settings, skipUnlessDBFeature
 from django.urls import reverse
 
+from accounts.testing import activate
 from clergy.models import ClergyProfile
 
 from .forms import DocumentUploadForm
@@ -46,7 +47,7 @@ class RecordIdTests(TestCase):
 
 class CreateRecordTests(TestCase):
     def setUp(self):
-        self.registrar = User.objects.create_user('reg', password='pw12345!x', is_staff=True)
+        self.registrar = activate(User.objects.create_user('reg', password='pw12345!x', is_staff=True))
         self.client.force_login(self.registrar)
         self.payload = {'name': 'Fr. Test', 'status': 'Active', 'rank': 'priest'}
 
@@ -167,13 +168,13 @@ class UploadFeedbackTests(TestCase):
         self.bad = {'document_type': self.doc_type.pk, 'file': SimpleUploadedFile('x.html', b'<b>hi</b>')}
 
     def test_clergy_sees_rejection_toast(self):
-        user = User.objects.create_user('c', password='pw12345!x')
+        user = activate(User.objects.create_user('c', password='pw12345!x'))
         ClergyProfile.objects.create(user=user, record=self.record)
         self.client.force_login(user)
         r = self.client.post(reverse('clergy:my_requirements'), self.bad, follow=True)
         self.assertContains(r, "showToast('Only PDF, JPG and PNG files are allowed.', 'error')")
 
     def test_registrar_sees_rejection_toast(self):
-        self.client.force_login(User.objects.create_user('r', password='pw12345!x', is_staff=True))
+        self.client.force_login(activate(User.objects.create_user('r', password='pw12345!x', is_staff=True)))
         r = self.client.post(reverse('registrar:record_detail', args=[self.record.id]), self.bad, follow=True)
         self.assertContains(r, "showToast('Only PDF, JPG and PNG files are allowed.', 'error')")

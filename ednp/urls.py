@@ -17,6 +17,8 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import include, path
 
+from accounts import views as account_views
+
 from . import views
 
 # No blanket static()/MEDIA_URL serving here on purpose — every uploaded file
@@ -29,6 +31,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('', views.index, name='index'),
     path('logout/', views.logout_view, name='logout'),
+    path('activate/', account_views.activate, name='activate'),
     path('registrar/', include('registrar.urls')),
     path('clergy/', include('clergy.urls')),
 ]

@@ -19,8 +19,10 @@ class ClergyRecordForm(forms.ModelForm):
 class PersonalInfoForm(forms.ModelForm):
     class Meta:
         model = ClergyRecord
+        # No 'phone': it is the number the clergy member verified by text code,
+        # so the registrar can't overwrite it from here.
         fields = ['name', 'date_of_birth', 'gender', 'baptism_date', 'confirmation_date',
-                  'phone', 'email', 'address', 'deanery', 'assignment', 'status', 'leave_reason', 'rank',
+                  'email', 'address', 'deanery', 'assignment', 'status', 'leave_reason', 'rank',
                   'contract_end', 'retirement_date',
                   'diaconate_date', 'ordination_date', 'holy_orders_date', 'ordination_place',
                   'bishop_name', 'consecration_date', 'previous_assignment', 'service_history']

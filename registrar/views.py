@@ -2,7 +2,6 @@ import secrets
 from datetime import date, timedelta
 
 from django.contrib import messages
-from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth.decorators import login_required
 from django.core.files.base import ContentFile
 from django.db import transaction
@@ -12,6 +11,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
 
+from accounts.session_utils import keep_signed_in_after_password_change
 from clergy.models import ClergyProfile
 from ednp.password_helpers import validate_password_or_flag_errors
 
@@ -467,7 +467,7 @@ def change_password(request):
         elif validate_password_or_flag_errors(request, new, user=request.user):
             request.user.set_password(new)
             request.user.save()
-            update_session_auth_hash(request, request.user)
+            keep_signed_in_after_password_change(request, request.user)
             messages.success(request, 'Password changed successfully.')
             return redirect('registrar:change_password')
     return render(request, 'registrar/change-password.html', {'active_page': 'change_password'})

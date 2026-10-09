@@ -1,13 +1,13 @@
 from datetime import date
 
 from django.contrib import messages
-from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth.models import User
 from django.http import HttpResponse
 from django.shortcuts import redirect, render
 from django.template.loader import render_to_string
 from django.urls import reverse
 
+from accounts.session_utils import keep_signed_in_after_password_change
 from ednp.password_helpers import validate_password_or_flag_errors
 from registrar.forms import DocumentUploadForm, first_error
 from registrar.models import save_document
@@ -79,7 +79,7 @@ def my_profile(request):
             if new_password:
                 request.user.set_password(new_password)
             request.user.save()
-            update_session_auth_hash(request, request.user)
+            keep_signed_in_after_password_change(request, request.user)
             messages.success(request, 'Profile updated successfully.')
             return redirect('clergy:my_profile')
         else:
