@@ -50,6 +50,7 @@ class SemaphoreBackendTests(SimpleTestCase):
             finally:
                 self.urlopen = urlopen
 
+    @override_settings(SEMAPHORE_ROUTE='otp')
     def test_posts_our_code_to_the_otp_route(self):
         self._send(_response(self.OK))
         request = self.urlopen.call_args.args[0]
@@ -62,6 +63,27 @@ class SemaphoreBackendTests(SimpleTestCase):
         self.assertIn('{otp}', sent['message'][0])
         self.assertFalse(sent['message'][0].upper().startswith('TEST'))  # Semaphore silently drops these
         self.assertNotIn('sendername', sent)
+
+    def test_the_default_is_the_one_credit_regular_route_with_the_code_in_the_text(self):
+        self._send(_response(self.OK))
+        request = self.urlopen.call_args.args[0]
+        self.assertEqual(request.full_url, 'https://api.semaphore.co/api/v4/messages')
+        sent = urllib.parse.parse_qs(request.data.decode())
+        self.assertEqual(sent['number'], ['639171234567'])
+        self.assertEqual(sent['apikey'], ['secret-key'])
+        self.assertIn('123456', sent['message'][0])           # the regular route only sends what it is given
+        self.assertNotIn('{otp}', sent['message'][0])
+        self.assertNotIn('code', sent)
+        self.assertFalse(sent['message'][0].upper().startswith('TEST'))
+        self.assertLessEqual(len(sent['message'][0]), 160)    # longer than this would be a second text
+        self.assertNotIn('sendername', sent)
+
+    @override_settings(SEMAPHORE_ROUTE='otp')
+    def test_the_otp_route_still_sends_our_own_code(self):
+        self._send(_response(self.OK))
+        sent = urllib.parse.parse_qs(self.urlopen.call_args.args[0].data.decode())
+        self.assertEqual(sent['code'], ['123456'])
+        self.assertIn('{otp}', sent['message'][0])
 
     @override_settings(SEMAPHORE_SENDER_NAME='EDNP')
     def test_sender_name_is_sent_when_configured(self):

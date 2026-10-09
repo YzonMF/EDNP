@@ -186,6 +186,12 @@ SEMAPHORE_API_KEY = os.environ.get('SEMAPHORE_API_KEY') or os.environ.get('API_K
 # Optional; Semaphore falls back to the account's default sender name.
 SEMAPHORE_SENDER_NAME = os.environ.get('SEMAPHORE_SENDER_NAME', '')
 
+# Which Semaphore route carries the code: 'standard' (1 credit per text) or 'otp' (2 credits, their
+# priority lane, which may arrive faster). Switch with SEMAPHORE_ROUTE in .env, no code change.
+SEMAPHORE_ROUTE = os.environ.get('SEMAPHORE_ROUTE') or 'standard'
+if SEMAPHORE_ROUTE not in ('standard', 'otp'):
+    raise ImproperlyConfigured(f"SEMAPHORE_ROUTE must be 'standard' or 'otp', not {SEMAPHORE_ROUTE!r}.")
+
 if SMS_BACKEND == 'semaphore' and not SEMAPHORE_API_KEY and not TESTING:
     raise ImproperlyConfigured(
         'SMS_BACKEND is "semaphore" but no API key was found. Set SEMAPHORE_API_KEY '
