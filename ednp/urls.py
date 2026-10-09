@@ -37,6 +37,7 @@ urlpatterns = [
     path('', views.index, name='index'),
     path('logout/', views.logout_view, name='logout'),
     path('verify-device/', views.verify_device, name='verify_device'),
+    path('forgot-password/', account_views.forgot_password, name='forgot_password'),
     path('activate/', account_views.activate, name='activate'),
     path('my-security/', account_views.my_security, name='my_security'),
     path('registrar/', include('registrar.urls')),

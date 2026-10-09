@@ -1,5 +1,5 @@
 <div class="setup-steps" aria-label="Setup progress">
-  <span class="{% if step == 1 %}on{% elif step > 1 %}done{% endif %}">1 · Details</span>
+  <span class="{% if step == 1 %}on{% elif step > 1 %}done{% endif %}">1 · {{ first_label|default:'Details' }}</span>
   <span class="{% if step == 2 %}on{% elif step > 2 %}done{% endif %}">2 · Verify code</span>
   <span class="{% if step == 3 %}on{% endif %}">3 · New password</span>
 </div>

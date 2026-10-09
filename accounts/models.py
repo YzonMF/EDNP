@@ -110,6 +110,7 @@ class AccountAuditLog(models.Model):
         ('phone_changed', 'Mobile number changed'),
         ('username_changed', 'Username changed'),
         ('name_changed', 'Name changed'),
+        ('password_reset', 'Password reset (forgot password)'),
     ]
 
     actor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, blank=True, null=True, related_name='+')
@@ -122,3 +123,15 @@ class AccountAuditLog(models.Model):
 
     class Meta:
         ordering = ['-created_at', '-id']
+
+
+class ResetRequest(models.Model):
+    """One Forgot-password request, for rate-limiting only. Written for every
+    number typed, registered or not, so that a limit looks the same either way;
+    only a hash of the number is kept."""
+
+    number_hash = models.CharField(max_length=64)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [models.Index(fields=['number_hash', 'created_at']), models.Index(fields=['created_at'])]

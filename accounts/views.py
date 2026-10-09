@@ -1,7 +1,9 @@
+import logging
 import re
 
 from django.contrib import messages
 from django.contrib.auth import get_user_model
+from django.contrib.auth import login as auth_login
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
@@ -12,8 +14,8 @@ from django.utils import timezone
 from ednp import login_throttle
 from ednp.password_helpers import validate_password_or_flag_errors
 
-from . import audit, devices, otp, setup, sms
-from .models import TrustedDevice, UserSecurity
+from . import audit, devices, forgot, otp, setup, sms
+from .models import OtpChallenge, TrustedDevice, UserSecurity
 from .phone import display, mask, normalize_ph_mobile
 from .session_utils import keep_signed_in_after_password_change
 
@@ -419,3 +421,164 @@ def my_security(request):
         count, _ = TrustedDevice.objects.filter(user=user).exclude(pk=current.pk if current else None).delete()
         messages.success(request, f'Removed {count} other device{"" if count == 1 else "s"}.')
     return back
+
+
+# --- Forgot password ------------------------------------------------------
+#
+# Three screens on one URL, driven by what the session holds: enter the number
+# and a code, then choose a new password. Nothing a visitor sees depends on
+# whether the number belongs to an account (see accounts.forgot), so this page
+# can't be used to find out who is registered.
+
+logger = logging.getLogger(__name__)
+
+FORGOT_KEY = 'forgot_pending'               # {'phone', 'wrong'}: a code was requested for this number
+FORGOT_TEST_CODE_KEY = 'forgot_test_code'
+FORGOT_OK_KEY = 'forgot_verified'           # {'user_id', 'phone', 'at'}: the code was right
+FORGOT_VERIFIED_MAX_AGE_SECONDS = 10 * 60
+FORGOT_MAX_WRONG = 3
+MODEL_BACKEND = 'django.contrib.auth.backends.ModelBackend'
+
+
+def _forgot_clear(request):
+    for key in (FORGOT_KEY, FORGOT_TEST_CODE_KEY, FORGOT_OK_KEY):
+        request.session.pop(key, None)
+
+
+def _forgot_send(request, e164):
+    """Counts the request, and texts a code if the number belongs to an account that
+    may reset this way. True unless a limit stopped it. A code that couldn't be
+    issued for a real account (SMS down, a cap) is logged, not shown: saying so would
+    tell the visitor the number is registered."""
+    try:
+        forgot.record_request(e164)
+    except forgot.ForgotLimit as exc:
+        messages.error(request, str(exc))
+        return False
+    request.session.pop(FORGOT_TEST_CODE_KEY, None)
+    user = forgot.eligible_user(e164)
+    if user is not None:
+        try:
+            test_code = otp.issue(user, 'password_reset', e164)
+        except otp.OtpError as exc:
+            logger.warning('Forgot-password code not sent for user %s: %s', user.pk, exc)
+        else:
+            if test_code:
+                request.session[FORGOT_TEST_CODE_KEY] = test_code
+    return True
+
+
+def _forgot_verified_user(request):
+    """The account whose code was just accepted, while that approval is fresh."""
+    ok = request.session.get(FORGOT_OK_KEY)
+    if not ok or timezone.now().timestamp() - ok['at'] > FORGOT_VERIFIED_MAX_AGE_SECONDS:
+        return None
+    user = forgot.eligible_user(ok['phone'])
+    return user if user is not None and user.pk == ok['user_id'] else None
+
+
+def _forgot_check_code(request, pending):
+    """Right or wrong, and the visitor is told only that — never how many guesses the
+    real code has left, which would differ for a number with no account."""
+    user = forgot.eligible_user(pending['phone'])
+    if user is not None:
+        try:
+            otp.verify(user, 'password_reset', pending['phone'], request.POST.get('code'))
+        except otp.OtpError:
+            pass
+        else:
+            request.session[FORGOT_OK_KEY] = {'user_id': user.pk, 'phone': pending['phone'], 'at': timezone.now().timestamp()}
+            request.session.pop(FORGOT_KEY, None)
+            request.session.pop(FORGOT_TEST_CODE_KEY, None)
+            return
+    pending['wrong'] = pending.get('wrong', 0) + 1
+    if pending['wrong'] >= FORGOT_MAX_WRONG:
+        _forgot_clear(request)
+        messages.error(request, 'Too many wrong codes. Please start again.')
+    else:
+        request.session[FORGOT_KEY] = pending
+        messages.error(request, "That code isn't right, or it has expired. Check it and try again.")
+
+
+def _forgot_set_password(request, user):
+    new = request.POST.get('new_password', '')
+    if new != request.POST.get('confirm_password', ''):
+        messages.error(request, 'The two passwords do not match.')
+        return None
+    if user.check_password(new):
+        messages.error(request, 'Choose a different password from your current one.')
+        return None
+    if not validate_password_or_flag_errors(request, new, user=user):
+        return None
+
+    now = timezone.now()
+    with transaction.atomic():
+        user.set_password(new)
+        user.save(update_fields=['password'])
+        UserSecurity.objects.filter(user=user).update(password_changed_at=now)
+        # Whoever else may have had this account — any other browser, any code still
+        # out — is shut out; this browser is the one the owner just proved with their phone.
+        TrustedDevice.objects.filter(user=user).delete()
+        OtpChallenge.objects.filter(user=user, consumed_at__isnull=True).update(consumed_at=now)
+        audit.record(user, user, 'password_reset', 'via mobile number')
+    login_throttle.clear(user.username)   # a forgotten password usually means failed attempts first
+    _forgot_clear(request)
+
+    user.backend = MODEL_BACKEND
+    auth_login(request, user)
+    messages.success(request, 'Your password has been changed and you are signed in.')
+    response = redirect(_home_url_name(user))
+    devices.trust(response, request, user)
+    return response
+
+
+def forgot_password(request):
+    if request.user.is_authenticated:
+        return redirect(_home_url_name(request.user))
+
+    verified_user = _forgot_verified_user(request)
+    pending = request.session.get(FORGOT_KEY)
+    if verified_user is None:
+        request.session.pop(FORGOT_OK_KEY, None)   # expired or no longer valid
+
+    if request.method == 'POST':
+        action = request.POST.get('action')
+
+        if verified_user is not None:
+            if action == 'set_password':
+                response = _forgot_set_password(request, verified_user)
+                if response is not None:
+                    return response
+            elif action == 'cancel':
+                _forgot_clear(request)
+        elif action == 'send_code' and not pending:
+            try:
+                e164 = normalize_ph_mobile(request.POST.get('phone'))
+            except ValueError as exc:
+                messages.error(request, str(exc))
+            else:
+                if _forgot_send(request, e164):
+                    request.session[FORGOT_KEY] = {'phone': e164, 'wrong': 0}
+        elif action == 'resend' and pending:
+            if _forgot_send(request, pending['phone']):
+                request.session[FORGOT_KEY] = {'phone': pending['phone'], 'wrong': 0}
+        elif action == 'change_number':
+            _forgot_clear(request)
+        elif action == 'verify_code':
+            if pending:
+                _forgot_check_code(request, pending)
+            else:
+                messages.error(request, 'Press Send code first, then enter the code we text you.')
+        return redirect('forgot_password')
+
+    stage = 'password' if verified_user is not None else ('code' if pending else 'number')
+    return render(request, 'forgot_password.html', {
+        'stage': stage,
+        'step': {'number': 1, 'code': 2, 'password': 3}[stage],
+        'sent': bool(pending),
+        'phone': display(pending['phone']) if pending else '',
+        'pending_masked': mask(pending['phone']) if pending else None,
+        'resend': forgot.status(pending['phone'] if pending else ''),
+        'test_mode': sms.is_test_backend(),
+        'test_code': request.session.get(FORGOT_TEST_CODE_KEY) if sms.is_test_backend() else None,
+    })

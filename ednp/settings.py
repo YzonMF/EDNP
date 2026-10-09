@@ -200,6 +200,8 @@ OTP_MAX_SENDS_PER_HOUR = 5     # per account, and separately per phone number (e
 # Registering or changing a number: this many codes per account per rolling 24 hours, then it
 # opens again the next day. Sign-in codes for a new device aren't held to this (see otp.py).
 OTP_MAX_SENDS_PER_DAY = 3
+FORGOT_MAX_SENDS_PER_DAY = 3                 # forgot-password codes per phone number per rolling 24 hours
+FORGOT_MAX_SENDS_PER_HOUR_SITEWIDE = 60      # ceiling across the whole site, a guard on SMS credits
 
 TRUSTED_DEVICE_DAYS = 60       # a device that signs in again within this window stays trusted
 
