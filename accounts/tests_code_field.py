@@ -209,3 +209,31 @@ class ChangeNumberScreenTests(SecurityTestCase):
     def test_confirming_before_sending_says_to_send_first(self):
         page = self.client.post(reverse('my_security'), {'action': 'verify_change_code', 'code': '123456'}, follow=True)
         self.assertIn('Press Send code first, then enter the code we text you.', messages_of(page))
+
+
+class VerifyAgainScreenTests(TestCase):
+    """Someone who has to verify again (e.g. their number was only 'verified' in test
+    mode) must type the number in. It is never pre-filled, because pre-filling meant a
+    single press of Send texted a number nobody had confirmed, and burned an attempt."""
+
+    def setUp(self):
+        cache.clear()
+        self.user = activate(User.objects.create_user('reg', password=PASSWORD, is_staff=True), phone='+639171234567')
+        UserSecurity.objects.filter(user=self.user).update(activated_at=None, password_changed_at=None, phone_verified_at=None)
+        self.client = Client()
+        self.client.force_login(self.user)
+
+    def test_the_number_saved_earlier_is_not_pre_filled(self):
+        page = self.client.get(reverse('activate'))
+        self.assertTrue(page.context['reverifying'])
+        self.assertEqual(page.context['phone'], '')
+        self.assertRegex(page.content.decode(), r'name="phone"[^>]*value=""')      # the box really is empty
+        self.assertNotContains(page, '09171234567')
+
+    def test_nothing_is_sent_until_a_number_is_typed_and_sent(self):
+        self.client.get(reverse('activate'))
+        self.assertFalse(OtpChallenge.objects.exists())
+
+    def test_the_number_just_typed_is_shown_back_once_a_code_is_out(self):
+        page = send(self.client, '0918 765 4321', name='Rev. Reg')
+        self.assertEqual(page.context['phone'], '0918 765 4321')

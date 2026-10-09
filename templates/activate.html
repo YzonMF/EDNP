@@ -48,7 +48,7 @@
             {% if stage == 'phone' %}
               <h2>{% if reverifying %}Verify your number again{% else %}Welcome — set up your account{% endif %}</h2>
               <p class="form-sub">
-                {% if reverifying %}Please confirm your mobile number with a new code.
+                {% if reverifying %}We need to confirm your mobile number again. Type it in below and we'll text you a code.
                 {% else %}Confirm your name, then register your mobile number. We'll text you a code to confirm it.{% endif %}
               </p>
               {% include '_setup_steps.html' %}

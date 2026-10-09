@@ -172,7 +172,7 @@ def activate(request):
         'stage': stage,
         'step': 3 if stage == setup.PASSWORD else (2 if pending else 1),
         'name': (pending or {}).get('name') or (record.name if record else user.get_full_name()),
-        'phone': prefill_phone(pending, security),
+        'phone': prefill_phone(pending),
         'sent': bool(pending),
         'pending_phone_masked': mask(pending['phone']) if pending else None,
         'test_code': request.session.get(TEST_CODE_KEY) if sms.is_test_backend() else None,
@@ -184,14 +184,13 @@ def activate(request):
     return render(request, 'activate.html', context)
 
 
-def prefill_phone(pending, security):
-    """What to prefill the phone box with: the number just typed, else the one
-    already on file (when re-verifying), else nothing."""
-    if pending:
-        return display(pending['phone'])
-    if security is not None and security.phone:
-        return display(security.phone)
-    return ''
+def prefill_phone(pending):
+    """The number the code was just sent to, shown back to them. Never the number
+    saved earlier: when someone has to verify again, that number was never
+    confirmed (it may have been typed in test mode, or wrongly), and pre-filling it
+    meant one press of Send texted it, and used up an attempt, without the person
+    ever re-entering anything."""
+    return display(pending['phone']) if pending else ''
 
 
 # --- Security: username, password, number, trusted devices ----------------
