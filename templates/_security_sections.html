@@ -1,0 +1,90 @@
+{# Shared by the registrar's My Profile page and the clergy Security tab. Every form posts to accounts.views.my_security. #}
+
+<div class="{{ card_class }}" style="margin-top:18px">
+  <h3><i class="fa-solid fa-lock"></i> Username &amp; Password</h3>
+  <p class="muted" style="margin:0 0 12px">You'll be asked for your current password to change either one.</p>
+
+  <form method="post" action="{% url 'my_security' %}" autocomplete="off">{% csrf_token %}
+    <input type="hidden" name="action" value="change_username">
+    <div class="form-grid" style="grid-template-columns:1fr 1fr">
+      <div class="field"><label for="sec_username">Username</label><input id="sec_username" name="username" value="{{ request.user.username }}" autocomplete="username" required></div>
+      <div class="field"><label for="sec_pw_user">Current password</label><input id="sec_pw_user" name="current_password" type="password" autocomplete="current-password" required></div>
+    </div>
+    <div class="modal-actions" style="justify-content:flex-start"><button class="btn" type="submit"><i class="fa-solid fa-floppy-disk"></i> Change username</button></div>
+  </form>
+
+  <hr style="border:0;border-top:1px solid #e3e8ef;margin:18px 0">
+
+  <form method="post" action="{% url 'my_security' %}" autocomplete="off">{% csrf_token %}
+    <input type="hidden" name="action" value="change_password">
+    <div class="form-grid" style="grid-template-columns:1fr 1fr 1fr">
+      <div class="field"><label for="sec_pw_cur">Current password</label><input id="sec_pw_cur" name="current_password" type="password" autocomplete="current-password" required></div>
+      <div class="field"><label for="sec_pw_new">New password</label><input id="sec_pw_new" name="new_password" type="password" autocomplete="new-password" required></div>
+      <div class="field"><label for="sec_pw_conf">Confirm new password</label><input id="sec_pw_conf" name="confirm_password" type="password" autocomplete="new-password" required></div>
+    </div>
+    <div class="modal-actions" style="justify-content:flex-start"><button class="btn" type="submit"><i class="fa-solid fa-key"></i> Change password</button></div>
+  </form>
+</div>
+
+<div class="{{ card_class }}" style="margin-top:18px">
+  <h3><i class="fa-solid fa-mobile-screen"></i> Mobile number</h3>
+  <p class="muted" style="margin:0 0 12px">Used to confirm new devices and to reset your password. This is the only place it can be changed.</p>
+  <p style="margin:0 0 14px">Current number: <b>{{ masked_phone|default:"—" }}</b></p>
+
+  {% if pending_masked %}
+    <p>We sent a 6-digit code to <b>{{ pending_masked }}</b>. It expires in 5 minutes.</p>
+    {% if test_mode %}
+    <div class="alert"><i class="fa-solid fa-flask"></i> Test mode — no text message was sent.{% if test_code %} Your code is: <b style="font-size:18px;letter-spacing:.15em">{{ test_code }}</b>{% endif %}</div>
+    {% endif %}
+    <form method="post" action="{% url 'my_security' %}" autocomplete="off">{% csrf_token %}
+      <input type="hidden" name="action" value="verify_change_code">
+      <div class="form-grid" style="grid-template-columns:1fr">
+        <div class="field"><label for="sec_code">Verification code</label><input id="sec_code" name="code" inputmode="numeric" pattern="[0-9 ]*" maxlength="8" autocomplete="one-time-code" required autofocus></div>
+      </div>
+      <div class="modal-actions" style="justify-content:flex-start"><button class="btn" type="submit"><i class="fa-solid fa-check"></i> Confirm new number</button></div>
+    </form>
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <form method="post" action="{% url 'my_security' %}">{% csrf_token %}<input type="hidden" name="action" value="resend_change"><button class="btn small secondary" type="submit">Send a new code</button></form>
+      <form method="post" action="{% url 'my_security' %}">{% csrf_token %}<input type="hidden" name="action" value="cancel_change"><button class="btn small secondary" type="submit">Cancel</button></form>
+    </div>
+  {% else %}
+    <form method="post" action="{% url 'my_security' %}" autocomplete="off">{% csrf_token %}
+      <input type="hidden" name="action" value="send_change_code">
+      <div class="form-grid" style="grid-template-columns:1fr 1fr">
+        <div class="field"><label for="sec_phone">New mobile number</label><input id="sec_phone" name="phone" type="tel" inputmode="tel" placeholder="0917 123 4567" required></div>
+        <div class="field"><label for="sec_pw_phone">Current password</label><input id="sec_pw_phone" name="current_password" type="password" autocomplete="current-password" required></div>
+      </div>
+      <p class="muted" style="margin:10px 0 0">We'll text a code to the new number. If you no longer have your current phone, visit the registrar in person instead.</p>
+      <div class="modal-actions" style="justify-content:flex-start"><button class="btn" type="submit"><i class="fa-solid fa-paper-plane"></i> Send code to new number</button></div>
+    </form>
+  {% endif %}
+</div>
+
+<div class="{{ card_class }}" style="margin-top:18px">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap">
+    <div>
+      <h3><i class="fa-solid fa-laptop"></i> Trusted devices</h3>
+      <p class="muted" style="margin:0 0 12px">Browsers that won't ask for a code when you sign in. Remove any you don't recognise or no longer use.</p>
+    </div>
+    {% if other_devices %}
+    <form method="post" action="{% url 'my_security' %}" onsubmit="return confirm('Remove every trusted device except this one?')">{% csrf_token %}<input type="hidden" name="action" value="revoke_others"><button class="btn small danger" type="submit">Remove all others</button></form>
+    {% endif %}
+  </div>
+  <table>
+    <thead><tr><th>Device</th><th>Added</th><th>Last used</th><th></th></tr></thead>
+    <tbody>
+    {% for row in trusted_devices %}
+    <tr>
+      <td><b>{{ row.device.label|default:"Browser" }}</b>{% if row.is_current %} <span class="badge">This device</span>{% endif %}</td>
+      <td>{{ row.device.created_at|date:"M d, Y" }}</td>
+      <td>{{ row.device.last_seen_at|date:"M d, Y H:i" }}</td>
+      <td>
+        <form method="post" action="{% url 'my_security' %}" onsubmit="return confirm('Remove this device?')">{% csrf_token %}<input type="hidden" name="action" value="revoke_device"><input type="hidden" name="device_id" value="{{ row.device.pk }}"><button class="btn small secondary" type="submit">Remove</button></form>
+      </td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="4" class="empty">No trusted devices. You'll be asked for a code each time you sign in.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>

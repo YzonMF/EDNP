@@ -23,6 +23,7 @@ urlpatterns = [
     path('generate-report/<int:report_id>/download/', views.download_generated_report, name='download_generated_report'),
     path('account-security/', views.account_security, name='account_security'),
     path('account-security/<int:user_id>/reset/', views.reset_staff_account, name='reset_staff_account'),
+    path('my-profile/', views.my_profile, name='my_profile'),
     path('change-password/', views.change_password, name='change_password'),
     path('backup-records/', views.backup_records, name='backup_records'),
     path('backup-records/database/', views.download_database_backup, name='download_database_backup'),

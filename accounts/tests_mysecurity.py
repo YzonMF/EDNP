@@ -18,6 +18,7 @@ OLD = '+639171234567'
 NEW = '+639189876543'
 PASSWORD = 'pw12345!x'
 URL = reverse('my_security')
+CLERGY_SECURITY = reverse('clergy:my_profile') + '?tab=security'
 
 
 class SecurityTestCase(TestCase):
@@ -34,7 +35,7 @@ class SecurityTestCase(TestCase):
         return self.client.post(URL, data, follow=True)
 
     def send(self, phone='0918 987 6543', password=PASSWORD):
-        return self.post(action='send_change_code', phone=phone, password=password)
+        return self.post(action='send_change_code', phone=phone, current_password=password)
 
     def code(self):
         return self.client.session['phone_change_test_code']
@@ -45,7 +46,7 @@ class SecurityTestCase(TestCase):
 
 class PageTests(SecurityTestCase):
     def test_clergy_sees_it_inside_their_own_portal_with_the_number_masked(self):
-        page = self.client.get(URL)
+        page = self.client.get(CLERGY_SECURITY)
         self.assertContains(page, 'Clergy Portal')
         self.assertContains(page, '0917 ••• 4567')
         self.assertNotContains(page, '09171234567')
@@ -55,7 +56,9 @@ class PageTests(SecurityTestCase):
         reg = activate(User.objects.create_user('reg', password=PASSWORD, is_staff=True))
         c = trust_device(Client(), reg)
         c.post('/', {'username': 'reg', 'password': PASSWORD})
-        self.assertContains(c.get(URL), 'Registrar Portal')
+        page = c.get(reverse('registrar:my_profile'))
+        self.assertContains(page, 'Registrar Portal')
+        self.assertContains(page, 'Mobile number')
 
     def test_it_needs_a_signed_in_activated_user(self):
         self.assertEqual(Client().get(URL).status_code, 302)
@@ -67,7 +70,7 @@ class PageTests(SecurityTestCase):
     def test_current_device_is_marked_and_expired_ones_are_hidden(self):
         TrustedDevice.objects.create(user=self.user, token_hash='e' * 64, label='Old Firefox',
                                      expires_at=timezone.now() - timedelta(days=1))
-        page = self.client.get(URL)
+        page = self.client.get(CLERGY_SECURITY)
         self.assertContains(page, 'This device')
         self.assertNotContains(page, 'Old Firefox')
 

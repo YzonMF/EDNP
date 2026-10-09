@@ -159,6 +159,9 @@ textarea{
   box-sizing:border-box;
 }
 
+.page-tabs{display:flex;gap:6px;margin:0 0 16px;border-bottom:1px solid #e3e8ef}
+.page-tabs a{padding:9px 14px;font-size:12px;font-weight:700;color:#526273;text-decoration:none;border-bottom:2px solid transparent;margin-bottom:-1px}
+.page-tabs a.active{color:#2f6fed;border-bottom-color:#2f6fed}
 .btn.secondary{
   background:#edf1f5;
   color:#334155;

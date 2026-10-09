@@ -14,9 +14,8 @@ from django.utils import timezone
 
 from accounts import audit
 from accounts.models import AccountAuditLog
-from accounts.session_utils import keep_signed_in_after_password_change
+from accounts.views import security_context
 from clergy.models import ClergyProfile
-from ednp.password_helpers import validate_password_or_flag_errors
 
 from . import backups, bulk, reports, slips
 from .decorators import registrar_required
@@ -249,6 +248,7 @@ def account_security(request):
     return render(request, 'registrar/account-security.html', {
         'active_page': 'account_security',
         'rows': rows,
+        'show_registrars': len(rows) > 1,   # a lone registrar has nobody else to recover
         'activity': AccountAuditLog.objects.all()[:50],
     })
 
@@ -507,21 +507,13 @@ def download_backup_archive(request, archive_id):
 
 
 @registrar_required
+def my_profile(request):
+    """The registrar's own name, username, number, password and trusted devices,
+    in one place. The actions themselves live in accounts.views.my_security."""
+    return render(request, 'registrar/my-profile.html', {'active_page': 'my_profile', **security_context(request)})
+
+
+@registrar_required
 def change_password(request):
-    if request.method == 'POST':
-        current = request.POST.get('current_password', '')
-        new = request.POST.get('new_password', '')
-        confirm = request.POST.get('confirm_password', '')
-        if not request.user.check_password(current):
-            messages.error(request, 'Current password is incorrect.')
-        elif new != confirm:
-            messages.error(request, 'New passwords do not match.')
-        elif new == current:
-            messages.error(request, 'New password must be different from the current one.')
-        elif validate_password_or_flag_errors(request, new, user=request.user):
-            request.user.set_password(new)
-            request.user.save()
-            keep_signed_in_after_password_change(request, request.user)
-            messages.success(request, 'Password changed successfully.')
-            return redirect('registrar:change_password')
-    return render(request, 'registrar/change-password.html', {'active_page': 'change_password'})
+    """Old address of the Change Password page, now part of My Profile."""
+    return redirect('registrar:my_profile')

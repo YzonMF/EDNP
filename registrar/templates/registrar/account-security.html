@@ -5,6 +5,7 @@
 
 {% block content %}
 <section class="page active">
+{% if show_registrars %}
 <div class="panel">
   <div class="panel-head"><div><h3><i class="fa-solid fa-user-shield"></i> Registrar Accounts</h3><span class="muted">If a registrar loses their phone or password, another registrar can reset it after confirming who they are in person. A new slip is printed and every reset is recorded below.</span></div></div>
   <table><thead><tr><th>Name</th><th>Username</th><th>Status</th><th>Reset</th></tr></thead>
@@ -35,9 +36,10 @@
   {% endfor %}
   </tbody></table>
 </div>
+{% endif %}
 
-<div class="panel" style="margin-top:18px">
-  <div class="panel-head"><div><h3><i class="fa-solid fa-clock-rotate-left"></i> Recent Account Activity</h3><span class="muted">Accounts created, and resets after a lost phone or slip. The 50 most recent.</span></div></div>
+<div class="panel"{% if show_registrars %} style="margin-top:18px"{% endif %}>
+  <div class="panel-head"><div><h3><i class="fa-solid fa-clock-rotate-left"></i> Recent Account Activity</h3><span class="muted">Accounts created, resets after a lost phone or slip, and changes to names, usernames and numbers. The 50 most recent.</span></div></div>
   <table><thead><tr><th>When</th><th>Who</th><th>Action</th><th>Account</th><th>Note</th></tr></thead>
   <tbody>
   {% for entry in activity %}

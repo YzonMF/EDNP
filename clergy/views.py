@@ -1,14 +1,12 @@
 from datetime import date
 
 from django.contrib import messages
-from django.contrib.auth.models import User
 from django.http import HttpResponse
 from django.shortcuts import redirect, render
 from django.template.loader import render_to_string
 from django.urls import reverse
 
-from accounts.session_utils import keep_signed_in_after_password_change
-from ednp.password_helpers import validate_password_or_flag_errors
+from accounts.views import security_context
 from registrar.forms import DocumentUploadForm, first_error
 from registrar.models import save_document
 
@@ -59,43 +57,35 @@ def my_profile(request):
         if c['document_type'].name in MEDICAL_PSYCH_DOCUMENT_NAMES
     ]
 
+    # Username, password, mobile number and trusted devices are on the Security
+    # tab; their actions live in accounts.views.my_security.
+    active_tab = 'security' if request.GET.get('tab') == 'security' else 'personal'
+
     if request.method == 'POST':
         form = ClergyProfileForm(request.POST, instance=profile)
         record_form = ClergyRecordSelfServiceForm(request.POST, instance=profile.record)
-        new_username = request.POST.get('username', '').strip()
-        new_password = request.POST.get('password', '')
-
-        password_ok = not new_password or validate_password_or_flag_errors(request, new_password, user=request.user)
-
-        if not password_ok:
-            pass  # validate_password_or_flag_errors() already queued the error messages
-        elif (new_username != request.user.username
-              and User.objects.filter(username__iexact=new_username).exclude(pk=request.user.pk).exists()):
-            messages.error(request, 'That username is already taken.')
-        elif form.is_valid() and record_form.is_valid():
+        if form.is_valid() and record_form.is_valid():
             form.save()
             record_form.save()
-            request.user.username = new_username
-            if new_password:
-                request.user.set_password(new_password)
-            request.user.save()
-            keep_signed_in_after_password_change(request, request.user)
             messages.success(request, 'Profile updated successfully.')
             return redirect('clergy:my_profile')
-        else:
-            messages.error(request, 'Please check the form and try again.')
+        messages.error(request, 'Please check the form and try again.')
     else:
         form = ClergyProfileForm(instance=profile)
         record_form = ClergyRecordSelfServiceForm(instance=profile.record)
 
-    return render(request, 'clergy/my-profile.html', {
+    context = {
         'active_page': 'my_profile',
+        'active_tab': active_tab,
         'profile': profile,
         'form': form,
         'record_form': record_form,
         'days_left': days_left,
         'medical_psych': medical_psych,
-    })
+    }
+    if active_tab == 'security':
+        context.update(security_context(request))
+    return render(request, 'clergy/my-profile.html', context)
 
 
 @clergy_required

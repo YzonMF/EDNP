@@ -108,6 +108,8 @@ class AccountAuditLog(models.Model):
         ('password_reprinted', 'Temporary password reissued'),
         ('lost_phone_reset', 'Account reset (lost phone)'),
         ('phone_changed', 'Mobile number changed'),
+        ('username_changed', 'Username changed'),
+        ('name_changed', 'Name changed'),
     ]
 
     actor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, blank=True, null=True, related_name='+')

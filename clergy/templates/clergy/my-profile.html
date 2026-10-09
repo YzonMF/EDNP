@@ -15,7 +15,17 @@
 
   <div class="panel">
 
-    <p class="muted" style="margin:0 0 14px">Your own record is available for viewing. Personal information and credentials may be updated by you; official clergy information remains controlled by the Registrar.</p>
+    <div class="page-tabs">
+      <a class="{% if active_tab == 'personal' %}active{% endif %}" href="{% url 'clergy:my_profile' %}"><i class="fa-solid fa-user"></i> Personal Information</a>
+      <a class="{% if active_tab == 'security' %}active{% endif %}" href="{% url 'clergy:my_profile' %}?tab=security"><i class="fa-solid fa-shield-halved"></i> Security</a>
+    </div>
+
+    {% if active_tab == 'security' %}
+    <p class="muted" style="margin:0 0 14px">Your sign-in details, mobile number and the devices you've trusted. Your number is shown on Personal Information too, but it can only be changed here.</p>
+    {% include '_security_sections.html' %}
+    {% else %}
+
+    <p class="muted" style="margin:0 0 14px">Your own record is available for viewing. Personal information may be updated by you; official clergy information remains controlled by the Registrar.</p>
 
     <div class="notice">
       You can access only your own clergy record. Your Clergy ID, official status, deployment,
@@ -116,7 +126,7 @@
           <div class="field">
             <label>Contact Number <span class="req-mark">*</span></label>
             <input type="tel" value="{{ profile.record.phone|default:'' }}" readonly title="Verified by text message. It can only be changed with a code sent to the new number.">
-            <span class="muted"><a href="{% url 'my_security' %}">Change my number</a></span>
+            <span class="muted"><a href="{% url 'clergy:my_profile' %}?tab=security">Change my number (Security tab)</a></span>
           </div>
 
           <div class="field">
@@ -210,30 +220,13 @@
         </div>
       </div>
 
-      <div class="section-card">
-        <h3><i class="fa-solid fa-lock"></i> Account &amp; Credentials</h3>
-
-        <div class="form-grid">
-
-          <div class="field">
-            <label>Username <span class="req-mark">*</span></label>
-            <input name="username" value="{{ request.user.username }}" autocomplete="username" required>
-          </div>
-
-          <div class="field">
-            <label>New Password</label>
-            <input name="password" type="password" minlength="8" autocomplete="new-password" placeholder="Leave blank to keep current password (min. 8 characters)">
-          </div>
-
-        </div>
-      </div>
-
       <div class="actions">
         <a class="btn secondary" href="{% url 'clergy:my_profile' %}"><i class="fa-solid fa-xmark"></i> Cancel Changes</a>
         <button type="submit" class="btn green save-profile-btn"><i class="fa-solid fa-floppy-disk"></i> Save Profile</button>
       </div>
 
     </form>
+    {% endif %}
 
   </div>
 

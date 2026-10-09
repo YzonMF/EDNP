@@ -1,9 +1,12 @@
 import re
 
 from django.contrib import messages
+from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
+from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 from django.shortcuts import redirect, render
+from django.urls import reverse
 from django.utils import timezone
 
 from ednp import login_throttle
@@ -180,10 +183,21 @@ def prefill_phone(pending, security):
     return ''
 
 
-# --- My Security: change number, trusted devices -------------------------
+# --- Security: username, password, number, trusted devices ----------------
+#
+# One set of actions behind both portals. The registrar's "My Profile" page and
+# the clergy member's "Security" tab show the same sections (security_context)
+# and post here; every action ends back on that page.
 
 CHANGE_PENDING_KEY = 'phone_change_pending'
 CHANGE_TEST_CODE_KEY = 'phone_change_test_code'
+
+
+def profile_security_url(user):
+    """Where this user's security settings live."""
+    if user.is_staff:
+        return reverse('registrar:my_profile')
+    return reverse('clergy:my_profile') + '?tab=security'
 
 
 def _clear_change(request):
@@ -191,116 +205,15 @@ def _clear_change(request):
     request.session.pop(CHANGE_TEST_CODE_KEY, None)
 
 
-@login_required(login_url='index')
-def my_security(request):
-    """The signed-in user's own number and trusted devices, in either portal.
-
-    Changing the number needs the account password (so a hijacked session alone
-    can't redirect the verification codes to someone else's phone) AND a code
-    sent to the NEW number (so it can't be set to a number nobody holds). When
-    the old number is lost, there is no self-service path: that is the
-    registrar's in-person reset."""
+def security_context(request):
+    """What the shared security sections need to render."""
     user = request.user
     security = UserSecurity.objects.get(user=user)
     pending = request.session.get(CHANGE_PENDING_KEY)
-
-    if request.method == 'POST':
-        action = request.POST.get('action')
-
-        if action == 'send_change_code':
-            if login_throttle.is_locked_out(user.username):
-                messages.error(request, login_throttle.LOCKOUT_MESSAGE)
-                return redirect('my_security')
-            if not user.check_password(request.POST.get('password', '')):
-                login_throttle.register_failure(user.username)  # same lockout as the sign-in page
-                messages.error(request, 'Your password is incorrect.')
-                return redirect('my_security')
-            login_throttle.clear(user.username)
-            try:
-                e164 = normalize_ph_mobile(request.POST.get('phone'))
-            except ValueError as exc:
-                messages.error(request, str(exc))
-                return redirect('my_security')
-            if e164 == security.phone:
-                messages.error(request, 'That is already your number.')
-            elif UserSecurity.objects.filter(phone=e164).exclude(user=user).exists():
-                messages.error(request, 'That number is already registered to another account.')
-            else:
-                try:
-                    test_code = otp.issue(user, 'phone_change', e164)
-                except otp.OtpError as exc:
-                    messages.error(request, str(exc))
-                else:
-                    request.session[CHANGE_PENDING_KEY] = {'phone': e164}
-                    if test_code:
-                        request.session[CHANGE_TEST_CODE_KEY] = test_code
-            return redirect('my_security')
-
-        if action == 'resend_change' and pending:
-            try:
-                test_code = otp.issue(user, 'phone_change', pending['phone'])
-            except otp.OtpError as exc:
-                messages.error(request, str(exc))
-            else:
-                if test_code:
-                    request.session[CHANGE_TEST_CODE_KEY] = test_code
-                messages.success(request, 'A new code is on its way.')
-            return redirect('my_security')
-
-        if action == 'cancel_change':
-            _clear_change(request)
-            return redirect('my_security')
-
-        if action == 'verify_change_code' and pending:
-            try:
-                otp.verify(user, 'phone_change', pending['phone'], request.POST.get('code'))
-            except otp.OtpError as exc:
-                messages.error(request, str(exc))
-                return redirect('my_security')
-            try:
-                with transaction.atomic():
-                    security.phone = pending['phone']
-                    security.phone_verified_at = timezone.now()
-                    security.phone_verified_via = 'test' if sms.is_test_backend() else 'sms'
-                    security.save(update_fields=['phone', 'phone_verified_at', 'phone_verified_via'])
-                    record = _record_for(user)
-                    if record is not None:
-                        record.phone = pending['phone']
-                        record.save(update_fields=['phone'])
-                    # Browsers trusted under the old number no longer vouch for
-                    # whoever holds the new one; keep only the one in use now.
-                    current = devices.current_device(request, user)
-                    TrustedDevice.objects.filter(user=user).exclude(pk=current.pk if current else None).delete()
-                    audit.record(user, user, 'phone_changed', target_name=record.name if record else None)
-            except IntegrityError:
-                messages.error(request, 'That number is already registered to another account.')
-            else:
-                messages.success(request, 'Your mobile number has been changed. Other devices will ask for a code next time.')
-            _clear_change(request)
-            return redirect('my_security')
-
-        if action == 'revoke_device':
-            device_id = request.POST.get('device_id', '')
-            deleted = 0
-            if device_id.isdigit():  # a tampered, non-numeric id is just "not found"
-                deleted, _ = TrustedDevice.objects.filter(user=user, pk=int(device_id)).delete()
-            messages.success(request, 'Device removed. It will ask for a code the next time it signs in.' if deleted else 'That device was already removed.')
-            return redirect('my_security')
-
-        if action == 'revoke_others':
-            current = devices.current_device(request, user)
-            count, _ = TrustedDevice.objects.filter(user=user).exclude(pk=current.pk if current else None).delete()
-            messages.success(request, f'Removed {count} other device{"" if count == 1 else "s"}.')
-            return redirect('my_security')
-
-        return redirect('my_security')
-
     current = devices.current_device(request, user)
     trusted = TrustedDevice.objects.filter(user=user, expires_at__gt=timezone.now())
-    context = {
-        'base_template': 'registrar/base.html' if user.is_staff else 'clergy/base.html',
-        'profile': getattr(user, 'clergy_profile', None),   # the clergy sidebar shows the member's name
-        'active_page': 'my_security',
+    return {
+        'card_class': 'panel' if user.is_staff else 'section-card',
         'masked_phone': mask(security.phone) if security.phone else None,
         'pending_masked': mask(pending['phone']) if pending else None,
         'test_mode': sms.is_test_backend(),
@@ -308,4 +221,185 @@ def my_security(request):
         'trusted_devices': [{'device': d, 'is_current': current is not None and d.pk == current.pk} for d in trusted],
         'other_devices': trusted.exclude(pk=current.pk if current else None).exists(),
     }
-    return render(request, 'my_security.html', context)
+
+
+def _password_confirmed(request):
+    """Gate for changes that could lock the owner out or redirect their codes: the
+    current password must be re-entered, so a hijacked session alone isn't enough.
+    Wrong guesses count toward the same lockout as the sign-in page."""
+    user = request.user
+    if login_throttle.is_locked_out(user.username):
+        messages.error(request, login_throttle.LOCKOUT_MESSAGE)
+        return False
+    if not user.check_password(request.POST.get('current_password', '')):
+        login_throttle.register_failure(user.username)
+        messages.error(request, 'Your current password is incorrect.')
+        return False
+    login_throttle.clear(user.username)
+    return True
+
+
+def _send_number_code(request, security):
+    user = request.user
+    try:
+        e164 = normalize_ph_mobile(request.POST.get('phone'))
+    except ValueError as exc:
+        messages.error(request, str(exc))
+        return
+    if e164 == security.phone:
+        messages.error(request, 'That is already your number.')
+    elif UserSecurity.objects.filter(phone=e164).exclude(user=user).exists():
+        messages.error(request, 'That number is already registered to another account.')
+    else:
+        try:
+            test_code = otp.issue(user, 'phone_change', e164)
+        except otp.OtpError as exc:
+            messages.error(request, str(exc))
+        else:
+            request.session[CHANGE_PENDING_KEY] = {'phone': e164}
+            if test_code:
+                request.session[CHANGE_TEST_CODE_KEY] = test_code
+
+
+def _confirm_number_change(request, security, pending):
+    user = request.user
+    try:
+        otp.verify(user, 'phone_change', pending['phone'], request.POST.get('code'))
+    except otp.OtpError as exc:
+        messages.error(request, str(exc))
+        return
+    try:
+        with transaction.atomic():
+            security.phone = pending['phone']
+            security.phone_verified_at = timezone.now()
+            security.phone_verified_via = 'test' if sms.is_test_backend() else 'sms'
+            security.save(update_fields=['phone', 'phone_verified_at', 'phone_verified_via'])
+            record = _record_for(user)
+            if record is not None:
+                record.phone = pending['phone']
+                record.save(update_fields=['phone'])
+            # Browsers trusted under the old number no longer vouch for
+            # whoever holds the new one; keep only the one in use now.
+            current = devices.current_device(request, user)
+            TrustedDevice.objects.filter(user=user).exclude(pk=current.pk if current else None).delete()
+            audit.record(user, user, 'phone_changed')
+    except IntegrityError:
+        messages.error(request, 'That number is already registered to another account.')
+    else:
+        messages.success(request, 'Your mobile number has been changed. Other devices will ask for a code next time.')
+    _clear_change(request)
+
+
+def _change_username(request):
+    user = request.user
+    new = (request.POST.get('username') or '').strip()
+    try:
+        if not new:
+            raise ValidationError('Please enter a username.')
+        if len(new) > user._meta.get_field('username').max_length:
+            raise ValidationError('That username is too long.')
+        user.username_validator(new)
+    except ValidationError as exc:
+        messages.error(request, ' '.join(exc.messages) or 'That username is not allowed.')
+        return
+    if new == user.username:
+        messages.error(request, 'That is already your username.')
+    elif get_user_model().objects.filter(username__iexact=new).exclude(pk=user.pk).exists():
+        messages.error(request, 'That username is already taken.')
+    else:
+        old, user.username = user.username, new
+        try:
+            with transaction.atomic():
+                user.save(update_fields=['username'])
+                audit.record(user, user, 'username_changed', f'{old} → {new}')
+        except IntegrityError:
+            user.username = old
+            messages.error(request, 'That username is already taken.')
+        else:
+            messages.success(request, 'Your username has been changed.')
+
+
+def _change_password(request):
+    user = request.user
+    new = request.POST.get('new_password', '')
+    if new != request.POST.get('confirm_password', ''):
+        messages.error(request, 'The two new passwords do not match.')
+    elif user.check_password(new):
+        messages.error(request, 'Choose a different password from your current one.')
+    elif validate_password_or_flag_errors(request, new, user=user):
+        user.set_password(new)
+        user.save(update_fields=['password'])
+        keep_signed_in_after_password_change(request, user)
+        UserSecurity.objects.filter(user=user).update(password_changed_at=timezone.now())
+        messages.success(request, 'Your password has been changed.')
+
+
+def _update_name(request):
+    """Registrar staff only — clergy edit their name on their record. The name is
+    what reports are 'Generated by', so a change is logged with the old name."""
+    user = request.user
+    try:
+        new = _clean_name(request.POST.get('name'))
+    except ValueError as exc:
+        messages.error(request, str(exc))
+        return
+    old = user.get_full_name().strip()
+    if new == old:
+        return
+    user.first_name, user.last_name = new, ''
+    with transaction.atomic():
+        user.save(update_fields=['first_name', 'last_name'])
+        audit.record(user, user, 'name_changed', f'{old or user.username} → {new}')
+    messages.success(request, 'Your name has been updated.')
+
+
+@login_required(login_url='index')
+def my_security(request):
+    """Endpoint for every security action. Changing the number needs the account
+    password AND a code texted to the NEW number (so neither a hijacked session
+    nor a number nobody holds is enough). When the old phone is lost there is no
+    self-service path: that is the registrar's in-person reset."""
+    user = request.user
+    back = redirect(profile_security_url(user))
+    if request.method != 'POST':
+        return back
+
+    security = UserSecurity.objects.get(user=user)
+    pending = request.session.get(CHANGE_PENDING_KEY)
+    action = request.POST.get('action')
+
+    if action == 'send_change_code':
+        if _password_confirmed(request):
+            _send_number_code(request, security)
+    elif action == 'resend_change' and pending:
+        try:
+            test_code = otp.issue(user, 'phone_change', pending['phone'])
+        except otp.OtpError as exc:
+            messages.error(request, str(exc))
+        else:
+            if test_code:
+                request.session[CHANGE_TEST_CODE_KEY] = test_code
+            messages.success(request, 'A new code is on its way.')
+    elif action == 'cancel_change':
+        _clear_change(request)
+    elif action == 'verify_change_code' and pending:
+        _confirm_number_change(request, security, pending)
+    elif action == 'change_username':
+        if _password_confirmed(request):
+            _change_username(request)
+    elif action == 'change_password':
+        if _password_confirmed(request):
+            _change_password(request)
+    elif action == 'update_name' and user.is_staff and _record_for(user) is None:
+        _update_name(request)
+    elif action == 'revoke_device':
+        device_id = request.POST.get('device_id', '')
+        deleted = 0
+        if device_id.isdigit():  # a tampered, non-numeric id is just "not found"
+            deleted, _ = TrustedDevice.objects.filter(user=user, pk=int(device_id)).delete()
+        messages.success(request, 'Device removed. It will ask for a code the next time it signs in.' if deleted else 'That device was already removed.')
+    elif action == 'revoke_others':
+        current = devices.current_device(request, user)
+        count, _ = TrustedDevice.objects.filter(user=user).exclude(pk=current.pk if current else None).delete()
+        messages.success(request, f'Removed {count} other device{"" if count == 1 else "s"}.')
+    return back
