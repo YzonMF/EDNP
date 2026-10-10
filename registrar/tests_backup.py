@@ -141,6 +141,21 @@ class DocumentsArchiveTests(BackupTestCase):
                          ('archive_downloaded', 'Rev. Ana Reyes', None, ''))
         self.assertTrue(entry.note.startswith('documents_archive_'))
 
+    def test_an_archive_whose_file_is_gone_is_listed_as_missing_not_a_server_error(self):
+        # What a redeploy leaves when uploads aren't on a persistent volume: the row, no file.
+        self.client.post(PAGE)
+        archive = BackupArchive.objects.get()
+        archive.file.storage.delete(archive.file.name)
+
+        page = self.client.get(PAGE)
+        self.assertEqual(page.status_code, 200)
+        self.assertContains(page, 'File missing')
+        self.assertNotContains(page, reverse('registrar:download_backup_archive', args=[archive.id]))
+
+        response = self.client.get(reverse('registrar:download_backup_archive', args=[archive.id]), follow=True)
+        self.assertContains(response, 'no longer on the server')
+        self.assertFalse(AccountAuditLog.objects.exists())   # nothing was downloaded, so nothing is recorded
+
 
 class AuditHelperTests(TestCase):
     def test_an_entry_can_have_no_target_account(self):

@@ -1,6 +1,7 @@
 import shutil
 import tempfile
 import threading
+from datetime import date
 from unittest import mock
 
 from django.contrib.auth import get_user_model
@@ -14,7 +15,7 @@ from accounts.testing import activate
 from clergy.models import ClergyProfile
 
 from .forms import DocumentUploadForm
-from .models import ClergyRecord, Document, DocumentType, IdCounter, save_document
+from .models import ClergyRecord, Document, DocumentType, GeneratedReport, IdCounter, save_document
 
 User = get_user_model()
 
@@ -123,6 +124,19 @@ class DocumentTests(TestCase):
 
     def test_rejects_files_over_10mb(self):
         self.assertFalse(self._form('big.pdf', PDF + b'0' * (10 * 1024 * 1024)).is_valid())
+
+    def test_a_file_gone_from_the_server_is_a_404_not_a_server_error(self):
+        # What a redeploy leaves when uploads aren't on a persistent volume: the rows, no files.
+        self.client.force_login(activate(User.objects.create_user('reg', password='pw12345!x', is_staff=True)))
+        document = Document.objects.create(record=self.record, document_type=self.doc_type,
+                                           file='clergy_documents/CLG-001/gone.pdf', submitted_date=date.today())
+        report = GeneratedReport.objects.create(report_type='status_report', title='Status Report',
+                                                file='generated_reports/gone.pdf')
+        for url in (reverse('registrar:view_document', args=[document.id]),
+                    reverse('registrar:download_document', args=[document.id]),
+                    reverse('registrar:view_generated_report', args=[report.id]),
+                    reverse('registrar:download_generated_report', args=[report.id])):
+            self.assertEqual(self.client.get(url).status_code, 404, url)
 
 
 @skipUnlessDBFeature('has_select_for_update')

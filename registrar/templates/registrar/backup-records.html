@@ -31,8 +31,13 @@
 <tr>
   <td>{{ archive.created_at|date:"F d, Y g:i A" }}</td>
   <td>{{ archive.created_by.first_name|default:archive.created_by.username|default:"—" }}</td>
-  <td>{{ archive.file.size|filesizeformat }}</td>
+  {% if archive.stored_size is None %}
+  <td><span class="badge inactive-b" title="The file is no longer on the server, usually because a redeploy replaced its disk.">File missing</span></td>
+  <td><span class="muted">—</span></td>
+  {% else %}
+  <td>{{ archive.stored_size|filesizeformat }}</td>
   <td><a class="btn small" href="{% url 'registrar:download_backup_archive' archive.id %}" download><i class="fa-solid fa-download"></i> Download</a></td>
+  {% endif %}
 </tr>
 {% empty %}
 <tr><td colspan="4" class="empty">No documents archives yet.</td></tr>

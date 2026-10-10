@@ -39,13 +39,32 @@ def _can_access_document(user, document):
     return profile is not None and profile.record_id == document.record_id
 
 
+# A stored file can be gone while its database row remains: a redeploy replaces the
+# server's disk, and keeps uploads only if MEDIA_ROOT is on a persistent volume. That is
+# shown as missing (or a 404), not a server error.
+
+def _open_stored(field_file):
+    try:
+        return field_file.open('rb')
+    except FileNotFoundError:
+        raise Http404('That file is no longer on the server.')
+
+
+def _stored_size(field_file):
+    """Size in bytes, or None if the file is no longer on the server."""
+    try:
+        return field_file.size
+    except FileNotFoundError:
+        return None
+
+
 @login_required(login_url='index')
 def view_document(request, document_id):
     document = get_object_or_404(Document, id=document_id)
     if not _can_access_document(request.user, document):
         raise Http404
     filename = document.file.name.rsplit('/', 1)[-1]
-    return FileResponse(document.file.open('rb'), as_attachment=False, filename=filename)
+    return FileResponse(_open_stored(document.file), as_attachment=False, filename=filename)
 
 
 @login_required(login_url='index')
@@ -54,7 +73,7 @@ def download_document(request, document_id):
     if not _can_access_document(request.user, document):
         raise Http404
     filename = document.file.name.rsplit('/', 1)[-1]
-    return FileResponse(document.file.open('rb'), as_attachment=True, filename=filename)
+    return FileResponse(_open_stored(document.file), as_attachment=True, filename=filename)
 
 
 def _build_deaneries_map():
@@ -452,7 +471,7 @@ def generate_report(request):
 def view_generated_report(request, report_id):
     generated = get_object_or_404(GeneratedReport, id=report_id)
     filename = generated.file.name.rsplit('/', 1)[-1]
-    return FileResponse(generated.file.open('rb'), as_attachment=False, filename=filename, content_type='application/pdf')
+    return FileResponse(_open_stored(generated.file), as_attachment=False, filename=filename, content_type='application/pdf')
 
 
 @registrar_required
@@ -476,7 +495,7 @@ def preview_generated_report(request, report_id):
 def download_generated_report(request, report_id):
     generated = get_object_or_404(GeneratedReport, id=report_id)
     filename = generated.file.name.rsplit('/', 1)[-1]
-    return FileResponse(generated.file.open('rb'), as_attachment=True, filename=filename, content_type='application/pdf')
+    return FileResponse(_open_stored(generated.file), as_attachment=True, filename=filename, content_type='application/pdf')
 
 
 @registrar_required
@@ -490,9 +509,12 @@ def backup_records(request):
         messages.success(request, 'Documents archive created.')
         return redirect('registrar:backup_records')
 
+    archives = list(BackupArchive.objects.select_related('created_by'))
+    for archive in archives:
+        archive.stored_size = _stored_size(archive.file)
     return render(request, 'registrar/backup-records.html', {
         'active_page': 'backup_records',
-        'archives': BackupArchive.objects.select_related('created_by').all(),
+        'archives': archives,
         'encryption_on': encryption.configured(),
     })
 
@@ -520,7 +542,11 @@ def download_database_backup(request):
 def download_backup_archive(request, archive_id):
     archive = get_object_or_404(BackupArchive, id=archive_id)
     filename = archive.file.name.rsplit('/', 1)[-1]
-    handle = archive.file.open('rb')
+    try:
+        handle = archive.file.open('rb')
+    except FileNotFoundError:
+        messages.error(request, "That archive's file is no longer on the server. Press Archive Documents Now to make a new one.")
+        return redirect('registrar:backup_records')
     audit.record(request.user, None, 'archive_downloaded', note=filename)
     security_log.export(request, request.user, 'documents archive downloaded')
     return FileResponse(handle, as_attachment=True, filename=filename, content_type='application/zip')
