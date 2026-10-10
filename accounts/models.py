@@ -101,7 +101,8 @@ class TrustedDevice(models.Model):
 class AccountAuditLog(models.Model):
     """Who did what to whose account, for accountability. Names are copied in
     at the time (and the user links are SET_NULL) so an entry stays readable
-    and truthful even if either account is later renamed or deleted."""
+    and truthful even if either account is later renamed or deleted. Taking a
+    backup isn't done to any account, so those entries have no target."""
 
     ACTION_CHOICES = [
         ('account_created', 'Account created'),
@@ -111,6 +112,8 @@ class AccountAuditLog(models.Model):
         ('username_changed', 'Username changed'),
         ('name_changed', 'Name changed'),
         ('password_reset', 'Password reset (forgot password)'),
+        ('database_backup', 'Database backup downloaded'),
+        ('archive_downloaded', 'Documents archive downloaded'),
     ]
 
     actor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, blank=True, null=True, related_name='+')
@@ -135,3 +138,19 @@ class ResetRequest(models.Model):
 
     class Meta:
         indexes = [models.Index(fields=['number_hash', 'created_at']), models.Index(fields=['created_at'])]
+
+
+class LoginThrottle(models.Model):
+    """The wrong-password count behind the sign-in lockout (ednp/login_throttle.py):
+    one row per account, or per unknown name, being counted. In the database rather
+    than the cache so every gunicorn worker sees the same count and a restart doesn't
+    wipe it. Only a keyed hash of what is being counted is kept, so this table is not
+    a list of the usernames people have typed (some type their password there)."""
+
+    key_hash = models.CharField(max_length=64, unique=True)
+    failures = models.PositiveIntegerField(default=0)
+    # The latest wrong password. The count is forgotten once LOCKOUT_SECONDS have passed since it.
+    updated_at = models.DateTimeField()
+
+    class Meta:
+        indexes = [models.Index(fields=['updated_at'])]

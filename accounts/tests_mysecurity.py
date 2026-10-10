@@ -23,7 +23,7 @@ CLERGY_SECURITY = reverse('clergy:my_profile') + '?tab=security'
 
 class SecurityTestCase(TestCase):
     def setUp(self):
-        cache.clear()   # the sign-in lockout counter lives in the cache and would leak between tests
+        cache.clear()   # (the lockout counter is in the database now, which each test rolls back)
         self.record = ClergyRecord.objects.create(id='CLG-001', name='Fr. Juan', phone=OLD)
         self.user = User.objects.create_user('fr', password=PASSWORD)
         ClergyProfile.objects.create(user=self.user, record=self.record)

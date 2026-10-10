@@ -16,9 +16,11 @@ def record(actor, target, action, note='', target_name=None):
     """Writes one audit entry. `actor` is the signed-in user doing it, or None
     for something run from the server command line. `target_name` overrides how
     the person is shown (clergy accounts are named by their record, not their
-    username)."""
+    username). `target` is None for something done to no account in particular,
+    such as downloading a backup."""
+    target_name = target_name or (display_name(target) if target is not None else '')
     return AccountAuditLog.objects.create(
         actor=actor, actor_name=display_name(actor) if actor else SERVER_ACTOR,
-        target=target, target_name=target_name or display_name(target),
+        target=target, target_name=target_name,
         action=action, note=(note or '').strip()[:255],
     )

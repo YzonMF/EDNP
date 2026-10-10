@@ -8,7 +8,7 @@ from accounts.middleware import SIGNED_OUT_PARAM
 from accounts.models import UserSecurity
 from accounts.phone import mask
 
-from . import login_throttle
+from . import login_throttle, security_log
 
 LAST_USERNAME_COOKIE = 'last_username'
 LAST_USERNAME_MAX_AGE = 60 * 60 * 24 * 90  # 90 days
@@ -165,7 +165,8 @@ def index(request):
             auth_login(request, user)
             return _signed_in_response(user, username)
 
-        login_throttle.register_failure(username)
+        account, failures = login_throttle.register_failure(username)
+        security_log.sign_in_failed(request, account, failures, locked=failures >= login_throttle.MAX_ATTEMPTS)
         return render(request, 'index.html', {
             'login_error': True,
             'login_error_message': 'Invalid username or password.',

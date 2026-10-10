@@ -230,3 +230,43 @@ CSRF_COOKIE_HTTPONLY = True
 CSRF_TRUSTED_ORIGINS = [o.strip() for o in os.environ.get('CSRF_TRUSTED_ORIGINS', '').split(',') if o.strip()]
 if os.environ.get('BEHIND_PROXY', 'False') == 'True':
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+
+# Logging. With DEBUG off, Django's default configuration writes nothing anywhere, so a
+# server error (a 500) left no trace at all. This prints Django's own warnings and errors,
+# and the app's security events (the 'ednp.security' logger: wrong passwords, lockouts,
+# backups taken), to stdout, which is where the host collects them. The test suite gets a
+# handler that discards everything, so its output stays readable.
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'filters': {
+        'require_debug_false': {'()': 'django.utils.log.RequireDebugFalse'},
+    },
+    'formatters': {
+        'plain': {'format': '{asctime} {levelname} {name}: {message}', 'style': '{'},
+        # Django's own default for `runserver`'s request lines, restored below.
+        'django.server': {'()': 'django.utils.log.ServerFormatter', 'format': '[{server_time}] {message}', 'style': '{'},
+    },
+    'handlers': {
+        'console': (
+            {'class': 'logging.NullHandler'} if TESTING else
+            {'class': 'logging.StreamHandler', 'stream': 'ext://sys.stdout', 'formatter': 'plain'}
+        ),
+        # Django's own default, kept: emails ADMINS about errors once any are set (none are today).
+        'mail_admins': {
+            'level': 'ERROR',
+            'filters': ['require_debug_false'],
+            'class': 'django.utils.log.AdminEmailHandler',
+        },
+        'django.server': {'level': 'INFO', 'class': 'logging.StreamHandler', 'formatter': 'django.server'},
+    },
+    'loggers': {
+        'django': {'handlers': ['console', 'mail_admins'], 'level': 'INFO', 'propagate': False},
+        # Configuring 'django' above resets its children; this puts runserver's request lines back as they were.
+        'django.server': {'handlers': ['django.server'], 'level': 'INFO', 'propagate': False},
+        'ednp.security': {'handlers': ['console'], 'level': 'INFO', 'propagate': False},
+    },
+    # Everything else (the SMS client's errors, for one) is printed once, here.
+    'root': {'handlers': ['console'], 'level': 'WARNING'},
+}

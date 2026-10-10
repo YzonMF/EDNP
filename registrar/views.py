@@ -14,8 +14,9 @@ from django.utils import timezone
 
 from accounts import audit
 from accounts.models import AccountAuditLog
-from accounts.views import security_context
+from accounts.views import password_confirmed, security_context
 from clergy.models import ClergyProfile
+from ednp import security_log
 
 from . import backups, bulk, reports, slips
 from .decorators import registrar_required
@@ -481,6 +482,7 @@ def backup_records(request):
         filename = f"documents_archive_{timezone.now().strftime('%Y%m%d_%H%M%S')}.zip"
         archive = BackupArchive(created_by=request.user)
         archive.file.save(filename, ContentFile(zip_bytes), save=True)
+        security_log.export(request, request.user, 'documents archive created')
         messages.success(request, 'Documents archive created.')
         return redirect('registrar:backup_records')
 
@@ -492,10 +494,20 @@ def backup_records(request):
 
 @registrar_required
 def download_database_backup(request):
+    """The whole database as one file: every clergy member's personal details and
+    government ID numbers in one go. So it takes a POST with the registrar's password
+    re-entered (a session left open or stolen isn't enough, and wrong guesses count
+    toward the sign-in lockout), and every download is written to the activity log."""
+    if request.method != 'POST' or not password_confirmed(request):
+        return redirect('registrar:backup_records')
+
     dump_bytes = backups.build_database_dump()
+    audit.record(request.user, None, 'database_backup')
+    security_log.export(request, request.user, 'database backup downloaded')
     filename = f"database_backup_{timezone.now().strftime('%Y%m%d_%H%M%S')}.json"
     response = HttpResponse(dump_bytes, content_type='application/json')
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    response['Cache-Control'] = 'no-store'
     return response
 
 
@@ -503,7 +515,10 @@ def download_database_backup(request):
 def download_backup_archive(request, archive_id):
     archive = get_object_or_404(BackupArchive, id=archive_id)
     filename = archive.file.name.rsplit('/', 1)[-1]
-    return FileResponse(archive.file.open('rb'), as_attachment=True, filename=filename, content_type='application/zip')
+    handle = archive.file.open('rb')
+    audit.record(request.user, None, 'archive_downloaded', note=filename)
+    security_log.export(request, request.user, 'documents archive downloaded')
+    return FileResponse(handle, as_attachment=True, filename=filename, content_type='application/zip')
 
 
 @registrar_required

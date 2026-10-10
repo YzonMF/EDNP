@@ -39,15 +39,15 @@
 {% endif %}
 
 <div class="panel"{% if show_registrars %} style="margin-top:18px"{% endif %}>
-  <div class="panel-head"><div><h3><i class="fa-solid fa-clock-rotate-left"></i> Recent Account Activity</h3><span class="muted">Accounts created, resets after a lost phone or slip, and changes to names, usernames and numbers. The 50 most recent.</span></div></div>
+  <div class="panel-head"><div><h3><i class="fa-solid fa-clock-rotate-left"></i> Recent Account Activity</h3><span class="muted">Accounts created, resets after a lost phone or slip, changes to names, usernames and numbers, and backups downloaded. The 50 most recent.</span></div></div>
   <table><thead><tr><th>When</th><th>Who</th><th>Action</th><th>Account</th><th>Note</th></tr></thead>
   <tbody>
   {% for entry in activity %}
   <tr>
     <td>{{ entry.created_at|date:"M d, Y H:i" }}</td>
     <td>{{ entry.actor_name }}</td>
-    <td><span class="badge {% if entry.action == 'lost_phone_reset' %}inactive-b{% elif entry.action == 'password_reprinted' %}pending-b{% else %}active-b{% endif %}">{{ entry.get_action_display }}</span></td>
-    <td>{{ entry.target_name }}</td>
+    <td><span class="badge {% if entry.action == 'lost_phone_reset' %}inactive-b{% elif entry.action == 'password_reprinted' or entry.action == 'database_backup' or entry.action == 'archive_downloaded' %}pending-b{% else %}active-b{% endif %}">{{ entry.get_action_display }}</span></td>
+    <td>{{ entry.target_name|default:"—" }}</td>
     <td>{{ entry.note|default:"—" }}</td>
   </tr>
   {% empty %}

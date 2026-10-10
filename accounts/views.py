@@ -11,7 +11,7 @@ from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.utils import timezone
 
-from ednp import login_throttle
+from ednp import login_throttle, security_log
 from ednp.password_helpers import validate_password_or_flag_errors
 
 from . import audit, devices, forgot, otp, setup, sms
@@ -236,16 +236,18 @@ def security_context(request):
     }
 
 
-def _password_confirmed(request):
-    """Gate for changes that could lock the owner out or redirect their codes: the
-    current password must be re-entered, so a hijacked session alone isn't enough.
+def password_confirmed(request):
+    """Gate for changes that could lock the owner out or redirect their codes, and
+    for taking a backup out of the system: the current password (the POST field
+    `current_password`) must be re-entered, so a hijacked session alone isn't enough.
     Wrong guesses count toward the same lockout as the sign-in page."""
     user = request.user
     if login_throttle.is_locked_out(user.username):
         messages.error(request, login_throttle.LOCKOUT_MESSAGE)
         return False
     if not user.check_password(request.POST.get('current_password', '')):
-        login_throttle.register_failure(user.username)
+        _, failures = login_throttle.register_failure(user.username)
+        security_log.password_check_failed(request, user.username, failures, locked=failures >= login_throttle.MAX_ATTEMPTS)
         messages.error(request, 'Your current password is incorrect.')
         return False
     login_throttle.clear(user.username)
@@ -383,7 +385,7 @@ def my_security(request):
     action = request.POST.get('action')
 
     if action == 'send_change_code':
-        if _password_confirmed(request):
+        if password_confirmed(request):
             _send_number_code(request, security)
     elif action == 'resend_change' and pending:
         try:
@@ -402,10 +404,10 @@ def my_security(request):
     elif action == 'verify_change_code' and pending:
         _confirm_number_change(request, security, pending)
     elif action == 'change_username':
-        if _password_confirmed(request):
+        if password_confirmed(request):
             _change_username(request)
     elif action == 'change_password':
-        if _password_confirmed(request):
+        if password_confirmed(request):
             _change_password(request)
     elif action == 'update_name' and user.is_staff and _record_for(user) is None:
         _update_name(request)
