@@ -12,8 +12,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-# SECRET_KEY is required at import time; this throwaway value is only for the build step.
-RUN SECRET_KEY=build-only python manage.py collectstatic --noinput
+# Settings won't load without a SECRET_KEY, or with real SMS and no API key, and Railway's
+# variables don't reach build steps. These throwaway values apply to this one command; the
+# running container gets the real variables, so SMS there is still real.
+RUN SECRET_KEY=build-only SMS_BACKEND=test python manage.py collectstatic --noinput
 
 RUN mkdir -p /data/media
 ENV MEDIA_ROOT=/data/media
