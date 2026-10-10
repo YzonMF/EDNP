@@ -31,7 +31,7 @@
       <a class="{% if active_page == 'dashboard' %}active{% endif %}" href="{% url 'clergy:dashboard' %}"><i class="fa-solid fa-house"></i> Dashboard</a>
       <a class="{% if active_page == 'my_profile' %}active{% endif %}" href="{% url 'clergy:my_profile' %}"><i class="fa-solid fa-id-card"></i> My Record &amp; Profile</a>
       <a class="{% if active_page == 'my_requirements' %}active{% endif %}" href="{% url 'clergy:my_requirements' %}"><i class="fa-solid fa-file-lines"></i> My Requirements &amp; Attachments {% if nav_documents_total %}<span class="badge blue{% if nav_documents_submitted == nav_documents_total %} complete{% endif %}">{{ nav_documents_submitted }}/{{ nav_documents_total }}</span>{% endif %}</a>
-      <a class="{% if active_page == 'notifications' %}active{% endif %}" href="{% url 'clergy:notifications' %}"><i class="fa-solid fa-bell"></i> Notifications</a>
+      <a class="{% if active_page == 'notifications' %}active{% endif %}" href="{% url 'clergy:notifications' %}"><i class="fa-solid fa-bell"></i> Notifications {% if nav_notifications_unread %}<span class="badge red" title="{{ nav_notifications_unread }} unread">{% if nav_notifications_unread > 99 %}99+{% else %}{{ nav_notifications_unread }}{% endif %}</span>{% endif %}</a>
       <a class="nav-logout" href="{% url 'logout' %}"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
     </div>
 

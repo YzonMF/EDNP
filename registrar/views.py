@@ -15,6 +15,7 @@ from django.utils import timezone
 from accounts import audit
 from accounts.models import AccountAuditLog
 from accounts.views import password_confirmed, security_context
+from clergy import notifications
 from clergy.models import ClergyProfile
 from ednp import encryption, security_log
 
@@ -229,6 +230,7 @@ def reset_account(request, record_id):
             else:
                 password, action = reset_credentials(profile.user), 'password_reprinted'
             audit.record(request.user, profile.user, action, request.POST.get('note', ''), target_name=record.name)
+            notifications.account_reset(profile.user, action, request.user)
             return _slips_response(request, [_slip_entry(record.name, profile.user, password)])
     except ProvisionError as exc:
         messages.error(request, str(exc))
@@ -347,12 +349,13 @@ def record_detail(request, record_id):
     if request.method == 'POST' and 'document_type' in request.POST:
         doc_form = DocumentUploadForm(request.POST, request.FILES)
         if doc_form.is_valid():
-            save_document(
+            document = save_document(
                 record,
                 doc_form.cleaned_data['document_type'],
                 doc_form.cleaned_data['file'],
                 doc_form.cleaned_data['notes'],
             )
+            notifications.document_uploaded(document, registrar=request.user)
             messages.success(request, f"{doc_form.cleaned_data['document_type'].name} uploaded for {record.name}.")
         else:
             messages.error(request, first_error(doc_form) or 'Please choose a document type and a file.')
@@ -362,6 +365,7 @@ def record_detail(request, record_id):
         form = PersonalInfoForm(request.POST, instance=record)
         if form.is_valid():
             form.save()
+            notifications.record_updated(record, request.user, form)
             messages.success(request, 'Personal Information updated successfully.')
         else:
             messages.error(request, 'Please check the form and try again.')

@@ -11,6 +11,7 @@ from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.utils import timezone
 
+from clergy import notifications
 from ednp import login_throttle, security_log
 from ednp.password_helpers import validate_password_or_flag_errors
 
@@ -160,6 +161,7 @@ def activate(request):
                     security.activated_at = now
                 security.setup_expires_at = None
                 security.save(update_fields=['password_changed_at', 'activated_at', 'setup_expires_at'])
+                notifications.account_activated(user)
                 messages.success(request, 'Account activated. Welcome!')
                 response = redirect(_home_url_name(user))
                 devices.trust(response, request, user)  # they just proved this browser with their phone
@@ -247,7 +249,10 @@ def password_confirmed(request):
         return False
     if not user.check_password(request.POST.get('current_password', '')):
         _, failures = login_throttle.register_failure(user.username)
-        security_log.password_check_failed(request, user.username, failures, locked=failures >= login_throttle.MAX_ATTEMPTS)
+        locked = failures >= login_throttle.MAX_ATTEMPTS
+        security_log.password_check_failed(request, user.username, failures, locked=locked)
+        if locked:
+            notifications.sign_in_locked(request, user)
         messages.error(request, 'Your current password is incorrect.')
         return False
     login_throttle.clear(user.username)
@@ -299,6 +304,7 @@ def _confirm_number_change(request, security, pending):
             current = devices.current_device(request, user)
             TrustedDevice.objects.filter(user=user).exclude(pk=current.pk if current else None).delete()
             audit.record(user, user, 'phone_changed')
+            notifications.phone_changed(user, pending['phone'])
     except IntegrityError:
         messages.error(request, 'That number is already registered to another account.')
     else:
@@ -328,6 +334,7 @@ def _change_username(request):
             with transaction.atomic():
                 user.save(update_fields=['username'])
                 audit.record(user, user, 'username_changed', f'{old} → {new}')
+                notifications.username_changed(user, old, new)
         except IntegrityError:
             user.username = old
             messages.error(request, 'That username is already taken.')
@@ -347,6 +354,7 @@ def _change_password(request):
         user.save(update_fields=['password'])
         keep_signed_in_after_password_change(request, user)
         UserSecurity.objects.filter(user=user).update(password_changed_at=timezone.now())
+        notifications.password_changed(request, user)
         messages.success(request, 'Your password has been changed.')
 
 
@@ -413,13 +421,18 @@ def my_security(request):
         _update_name(request)
     elif action == 'revoke_device':
         device_id = request.POST.get('device_id', '')
-        deleted = 0
+        device = None
         if device_id.isdigit():  # a tampered, non-numeric id is just "not found"
-            deleted, _ = TrustedDevice.objects.filter(user=user, pk=int(device_id)).delete()
-        messages.success(request, 'Device removed. It will ask for a code the next time it signs in.' if deleted else 'That device was already removed.')
+            device = TrustedDevice.objects.filter(user=user, pk=int(device_id)).first()
+        if device is not None:
+            device.delete()
+            notifications.device_removed(user, device.label)
+        messages.success(request, 'Device removed. It will ask for a code the next time it signs in.' if device else 'That device was already removed.')
     elif action == 'revoke_others':
         current = devices.current_device(request, user)
         count, _ = TrustedDevice.objects.filter(user=user).exclude(pk=current.pk if current else None).delete()
+        if count:
+            notifications.other_devices_removed(user, count)
         messages.success(request, f'Removed {count} other device{"" if count == 1 else "s"}.')
     return back
 
@@ -522,6 +535,7 @@ def _forgot_set_password(request, user):
         TrustedDevice.objects.filter(user=user).delete()
         OtpChallenge.objects.filter(user=user, consumed_at__isnull=True).update(consumed_at=now)
         audit.record(user, user, 'password_reset', 'via mobile number')
+        notifications.password_reset(request, user)
     login_throttle.clear(user.username)   # a forgotten password usually means failed attempts first
     _forgot_clear(request)
 

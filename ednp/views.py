@@ -7,6 +7,7 @@ from accounts import devices, otp, setup, sms
 from accounts.middleware import SIGNED_OUT_PARAM
 from accounts.models import UserSecurity
 from accounts.phone import mask
+from clergy import notifications
 
 from . import login_throttle, security_log
 
@@ -116,8 +117,10 @@ def verify_device(request):
             user.backend = MODEL_BACKEND  # we authenticated it ourselves, in two steps
             auth_login(request, user)
             response = _signed_in_response(user, username)
-            if request.POST.get('remember'):
+            remember = bool(request.POST.get('remember'))
+            if remember:
                 devices.trust(response, request, user)
+            notifications.new_sign_in(request, user, security.phone, remember)
             return response
 
         return redirect('verify_device')
@@ -166,7 +169,13 @@ def index(request):
             return _signed_in_response(user, username)
 
         account, failures = login_throttle.register_failure(username)
-        security_log.sign_in_failed(request, account, failures, locked=failures >= login_throttle.MAX_ATTEMPTS)
+        locked = failures >= login_throttle.MAX_ATTEMPTS
+        security_log.sign_in_failed(request, account, failures, locked=locked)
+        if locked and account is not None:
+            # Only a real account has an owner to tell. The few milliseconds this adds can't
+            # usefully show which names are real: each try costs five wrong passwords and
+            # locks that account for 15 minutes.
+            notifications.sign_in_locked(request, get_user_model().objects.filter(username=account).first())
         return render(request, 'index.html', {
             'login_error': True,
             'login_error_message': 'Invalid username or password.',

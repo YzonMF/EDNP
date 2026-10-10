@@ -87,6 +87,7 @@ TEMPLATES = [
                 'django.contrib.messages.context_processors.messages',
                 'registrar.context_processors.document_stats',
                 'clergy.context_processors.document_stats',
+                'clergy.context_processors.notification_stats',
             ],
         },
     },

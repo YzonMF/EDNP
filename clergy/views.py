@@ -1,10 +1,12 @@
 from datetime import date
 
 from django.contrib import messages
+from django.core.paginator import Paginator
 from django.http import HttpResponse
 from django.shortcuts import redirect, render
 from django.template.loader import render_to_string
 from django.urls import reverse
+from django.utils import timezone
 
 from accounts.views import security_context
 from registrar.forms import DocumentUploadForm, first_error
@@ -12,7 +14,9 @@ from registrar.models import save_document
 
 from .decorators import clergy_required
 from .forms import ClergyProfileForm, ClergyRecordSelfServiceForm
-from .models import ClergyProfile
+from .models import ClergyProfile, Notification
+from .notifications import (ago, attention, document_uploaded, mark_all_read, mark_read, profile_updated,
+                            sync_reminders)
 
 
 def _get_or_create_profile(user):
@@ -23,6 +27,7 @@ def _get_or_create_profile(user):
 @clergy_required
 def dashboard(request):
     profile = _get_or_create_profile(request.user)
+    sync_reminders(request.user, profile.record)   # every sign-in lands here
     days_left = None
     if profile.record and profile.record.contract_end:
         days_left = (profile.record.contract_end - date.today()).days
@@ -67,6 +72,7 @@ def my_profile(request):
         if form.is_valid() and record_form.is_valid():
             form.save()
             record_form.save()
+            profile_updated(request.user, (record_form, form))
             messages.success(request, 'Profile updated successfully.')
             return redirect('clergy:my_profile')
         messages.error(request, 'Please check the form and try again.')
@@ -130,10 +136,53 @@ def download_own_record(request):
     return response
 
 
+NOTIFICATION_TABS = [('all', 'All'), ('security', 'Security'), ('record', 'Record'), ('documents', 'Documents')]
+NOTIFICATIONS_PER_PAGE = 20
+
+
 @clergy_required
 def notifications(request):
+    """What needs attention right now (worked out fresh each time) above everything that
+    has happened to the account and record (stored as it happened), newest first. Opening
+    a page of notifications marks those as read; the ones that were new say so this once."""
+    if request.method == 'POST':
+        if request.POST.get('action') == 'mark_all_read':
+            mark_all_read(request.user)
+        return redirect('clergy:notifications')
+
     profile = _get_or_create_profile(request.user)
-    return render(request, 'clergy/notifications.html', {'active_page': 'notifications', 'profile': profile})
+    sync_reminders(request.user, profile.record)
+
+    tab = request.GET.get('tab')
+    if tab not in dict(NOTIFICATION_TABS):
+        tab = 'all'
+    entries = Notification.objects.filter(user=request.user)
+    if tab != 'all':
+        entries = entries.filter(kind__in=Notification.kinds_under(tab))
+    page = Paginator(entries, NOTIFICATIONS_PER_PAGE).get_page(request.GET.get('page'))
+
+    links = {
+        'security': (reverse('clergy:my_profile') + '?tab=security', 'Security settings'),
+        'record': (reverse('clergy:my_profile'), 'My record'),
+        'documents': (reverse('clergy:my_requirements'), 'My requirements'),
+    }
+    now = timezone.now()
+    items = list(page.object_list)
+    for item in items:
+        item.is_new = item.read_at is None
+        item.ago = ago(item.created_at, now)
+        item.link, item.link_text = links[item.tab]
+    mark_read(items)
+
+    return render(request, 'clergy/notifications.html', {
+        'active_page': 'notifications',
+        'profile': profile,
+        'attention': attention(profile.record),
+        'tabs': NOTIFICATION_TABS,
+        'tab': tab,
+        'items': items,
+        'page': page,
+    })
 
 
 @clergy_required
@@ -149,12 +198,13 @@ def my_requirements(request):
         if form.is_valid() and form.cleaned_data['document_type'].uploaded_by == 'registrar':
             messages.error(request, 'That document is provided by the Registrar — you cannot upload it yourself.')
         elif form.is_valid():
-            save_document(
+            document = save_document(
                 profile.record,
                 form.cleaned_data['document_type'],
                 form.cleaned_data['file'],
                 form.cleaned_data['notes'],
             )
+            document_uploaded(document)
             messages.success(request, f"{form.cleaned_data['document_type'].name} uploaded successfully.")
             return redirect('clergy:my_requirements')
         else:

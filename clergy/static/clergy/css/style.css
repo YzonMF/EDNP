@@ -621,6 +621,153 @@ main{
   color:#236f49;
 }
 
+.notice.danger{
+  background:var(--redbg);
+  color:#9b2f2b;
+}
+
+.notice.info{
+  background:#eaf1ff;
+  color:#24539f;
+}
+
+.notice a{
+  color:inherit;
+  font-weight:700;
+}
+
+.notice-row{
+  display:flex;
+  gap:10px;
+  align-items:flex-start;
+  line-height:1.45;
+}
+
+.notice-row > i{
+  flex-shrink:0;
+  width:14px;
+  margin-top:3px;
+  text-align:center;
+}
+
+
+/* =========================
+   NOTIFICATIONS
+========================= */
+
+.notif-panel{
+  margin-top:13px;
+}
+
+.notif-list{
+  list-style:none;
+  margin:0;
+  padding:0;
+}
+
+.notif{
+  display:flex;
+  gap:12px;
+  align-items:flex-start;
+  padding:13px 10px;
+  border-bottom:1px solid #edf0f3;
+}
+
+.notif:last-child{
+  border-bottom:0;
+}
+
+.notif.is-new{
+  background:#f5f9ff;
+  box-shadow:inset 3px 0 0 var(--blue);
+}
+
+.notif-icon{
+  flex:0 0 34px;
+  height:34px;
+  border-radius:50%;
+  display:grid;
+  place-items:center;
+  font-size:14px;
+}
+
+.notif-body{
+  flex:1;
+  min-width:0;
+}
+
+.notif-head{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  flex-wrap:wrap;
+}
+
+.notif-head b{
+  font-size:14px;
+}
+
+.notif-head .badge{
+  padding:2px 7px;
+  font-size:10px;
+}
+
+.notif-body p{
+  margin:3px 0 0;
+  font-size:13px;
+  line-height:1.45;
+  color:#425466;
+  overflow-wrap:anywhere;
+}
+
+.notif-meta{
+  margin-top:5px;
+  font-size:12px;
+  color:var(--muted);
+}
+
+.notif-meta a{
+  color:var(--blue);
+  font-weight:600;
+  text-decoration:none;
+}
+
+.notif-meta a:hover{
+  text-decoration:underline;
+}
+
+.notif-empty{
+  padding:30px 10px;
+  text-align:center;
+  color:var(--muted);
+  font-size:13px;
+}
+
+.notif-empty i{
+  display:block;
+  margin-bottom:8px;
+  font-size:22px;
+  color:#b6c2cf;
+}
+
+.pager{
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  gap:12px;
+  margin-top:14px;
+  font-size:12px;
+  color:var(--muted);
+}
+
+.privacy-note{
+  margin:14px 2px 0;
+}
+
+.privacy-note i{
+  margin-right:5px;
+}
+
 
 /* =========================
    TABLE

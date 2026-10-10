@@ -3,30 +3,111 @@
 {% block page_name %}My Notifications{% endblock %}
 {% block page_name_heading %}My Notifications{% endblock %}
 
+{% block top_actions %}
+{% if nav_notifications_unread %}
+<form method="post" class="actions top-actions">
+  {% csrf_token %}
+  <button type="submit" class="btn secondary" name="action" value="mark_all_read"><i class="fa-solid fa-check-double"></i> Mark all as read</button>
+</form>
+{% endif %}
+{% endblock %}
+
 {% block content %}
 <section class="page active">
 
   <div class="panel">
-
     <div class="panel-head">
       <div>
-        <h3><i class="fa-solid fa-bell"></i> My Notifications</h3>
-        <span class="muted">System notices related to your own account.</span>
+        <h3><i class="fa-solid fa-circle-exclamation"></i> Needs Your Attention</h3>
+        <span class="muted">Checked against your record each time you open this page.</span>
       </div>
     </div>
 
-    <div class="notice success">
-      <b><i class="fa-solid fa-circle-check"></i> Account verified.</b><br>
-      Your clergy record is currently verified and active.
+    {% for item in attention %}
+    <div class="notice {{ item.tone }} notice-row">
+      <i class="fa-solid {{ item.icon }}"></i>
+      <div>{{ item.text }}{% if item.link %} <a href="{{ item.link }}">{{ item.link_text }} &rarr;</a>{% endif %}</div>
     </div>
-
-    <div class="notice">
-      <b><i class="fa-solid fa-shield-halved"></i> Privacy restriction.</b><br>
-      You can only access and edit your own profile information. Official clergy
-      records remain controlled by the Registrar.
+    {% empty %}
+    <div class="notice success notice-row">
+      <i class="fa-solid fa-circle-check"></i>
+      <div>You're all caught up. Nothing needs your attention right now.</div>
     </div>
+    {% endfor %}
 
+    {% if profile.record %}
+    {% if profile.verification == 'Verified' %}
+    <div class="notice success notice-row">
+      <i class="fa-solid fa-shield-halved"></i>
+      <div><b>Record verified.</b> Your clergy record has been verified by the Registrar.</div>
+    </div>
+    {% else %}
+    <div class="notice info notice-row">
+      <i class="fa-solid fa-hourglass-half"></i>
+      <div><b>Awaiting verification.</b> The Registrar hasn't marked your record as verified yet.</div>
+    </div>
+    {% endif %}
+    {% endif %}
   </div>
 
+  <div class="panel notif-panel">
+    <div class="panel-head">
+      <div>
+        <h3><i class="fa-solid fa-bell"></i> Activity &amp; Reminders</h3>
+        <span class="muted">Sign-ins from new devices, changes to your account and record, documents added, and reminders before something expires.</span>
+      </div>
+    </div>
+
+    <div class="page-tabs">
+      {% for value, label in tabs %}
+      <a class="{% if tab == value %}active{% endif %}" href="?tab={{ value }}">{{ label }}</a>
+      {% endfor %}
+    </div>
+
+    <ul class="notif-list">
+      {% for item in items %}
+      <li class="notif{% if item.is_new %} is-new{% endif %}">
+        <span class="notif-icon {{ item.tone }}"><i class="fa-solid {{ item.icon }}"></i></span>
+        <div class="notif-body">
+          <div class="notif-head">
+            <b>{{ item.title }}</b>
+            {% if item.is_new %}<span class="badge blue">New</span>{% endif %}
+          </div>
+          {% if item.message %}<p>{{ item.message }}</p>{% endif %}
+          <div class="notif-meta">
+            <time datetime="{{ item.created_at|date:'c' }}" data-epoch="{{ item.created_at|date:'U' }}">{{ item.ago }}</time>
+            &middot; <a href="{{ item.link }}">{{ item.link_text }}</a>
+          </div>
+        </div>
+      </li>
+      {% empty %}
+      <li class="notif-empty">
+        <i class="fa-solid fa-bell-slash"></i>
+        {% if tab == 'all' %}No notifications yet. Changes to your account and record, and reminders about your documents, will appear here.{% else %}Nothing here yet.{% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+
+    {% if page.has_other_pages %}
+    <div class="pager">
+      {% if page.has_previous %}<a class="btn secondary small" href="?tab={{ tab }}&amp;page={{ page.previous_page_number }}"><i class="fa-solid fa-arrow-left"></i> Newer</a>{% endif %}
+      <span>Page {{ page.number }} of {{ page.paginator.num_pages }}</span>
+      {% if page.has_next %}<a class="btn secondary small" href="?tab={{ tab }}&amp;page={{ page.next_page_number }}">Older <i class="fa-solid fa-arrow-right"></i></a>{% endif %}
+    </div>
+    {% endif %}
+  </div>
+
+  <p class="muted privacy-note"><i class="fa-solid fa-shield-halved"></i> You can only see and edit your own information. Official clergy records remain controlled by the Registrar.</p>
+
 </section>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+/* Hovering a notification's "2 hours ago" shows the exact time, in the reader's own time zone. */
+document.querySelectorAll('.notif-meta time[data-epoch]').forEach(function (el) {
+  var when = new Date(Number(el.dataset.epoch) * 1000);
+  if (!isNaN(when)) el.title = when.toLocaleString();
+});
+</script>
 {% endblock %}
