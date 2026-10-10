@@ -166,6 +166,25 @@ MEDIA_URL = 'media/'
 # outlive redeploys).
 MEDIA_ROOT = Path(os.environ.get('MEDIA_ROOT', BASE_DIR / 'media'))
 
+# Every stored file (documents, reports, backup archives) goes through this storage, which
+# encrypts it when DATA_ENCRYPTION_KEY is set and is Django's ordinary file storage when not.
+STORAGES = {
+    'default': {'BACKEND': 'ednp.storage.EncryptedFileSystemStorage'},
+    'staticfiles': {'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage'},
+}
+
+# Encryption at rest (ednp/encryption.py) for uploaded documents and government ID numbers.
+# DATA_ENCRYPTION_KEY is one or more keys, comma-separated: the FIRST encrypts new data and every
+# one of them can decrypt, which is how a key is replaced without losing anything. Unset (the
+# default) means nothing is encrypted, exactly as before. Make a key with
+#     python manage.py generate_data_key
+# and keep a copy somewhere safe that is NOT this server: without it the data cannot be recovered.
+DATA_ENCRYPTION_KEYS = [key.strip() for key in os.environ.get('DATA_ENCRYPTION_KEY', '').split(',') if key.strip()]
+# Turn this on once `python manage.py encrypt_existing_data` has run and nothing plaintext is
+# left: from then on a plaintext file or value is refused, and a missing key stops the site
+# starting, instead of either being quietly accepted.
+DATA_ENCRYPTION_REQUIRED = os.environ.get('DATA_ENCRYPTION_REQUIRED', 'False') == 'True'
+
 LOGIN_URL = 'index'
 
 

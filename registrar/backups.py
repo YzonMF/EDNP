@@ -23,7 +23,10 @@ def build_database_dump():
     account in the system. A restore from this dump still recreates accounts
     with their usernames/flags intact; passwords would need to be reset
     afterward, which is an acceptable trade for not shipping hashes in a
-    backup file that could end up in email or a shared drive."""
+    backup file that could end up in email or a shared drive.
+
+    While DATA_ENCRYPTION_KEY is set, government ID numbers appear in the file in their
+    encrypted form (see ednp/fields.py), and loading the file back needs the same key."""
     buffer = io.StringIO()
     call_command(
         'dumpdata', 'auth.user', 'clergy', 'registrar',
@@ -37,6 +40,9 @@ def build_database_dump():
 
 
 def build_documents_zip():
+    """Every uploaded document, copied exactly as stored. While DATA_ENCRYPTION_KEY is set they
+    are stored encrypted, so they stay encrypted inside the archive (which is itself stored
+    encrypted); restoring them means copying them back and needs the same key."""
     documents_root = os.path.join(settings.MEDIA_ROOT, 'clergy_documents')
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, 'w', zipfile.ZIP_DEFLATED) as zf:

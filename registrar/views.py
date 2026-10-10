@@ -16,7 +16,7 @@ from accounts import audit
 from accounts.models import AccountAuditLog
 from accounts.views import password_confirmed, security_context
 from clergy.models import ClergyProfile
-from ednp import security_log
+from ednp import encryption, security_log
 
 from . import backups, bulk, reports, slips
 from .decorators import registrar_required
@@ -489,6 +489,7 @@ def backup_records(request):
     return render(request, 'registrar/backup-records.html', {
         'active_page': 'backup_records',
         'archives': BackupArchive.objects.select_related('created_by').all(),
+        'encryption_on': encryption.configured(),
     })
 
 

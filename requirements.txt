@@ -12,3 +12,7 @@ segno==1.6.6
 
 gunicorn==23.0.0
 whitenoise==6.9.0
+
+# Encrypts uploaded documents and government ID numbers at rest (ednp/encryption.py). Only used once
+# DATA_ENCRYPTION_KEY is set; kept installed so switching it on is a setting, not a new deploy.
+cryptography==50.0.2

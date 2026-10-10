@@ -1,6 +1,7 @@
 from django.conf import settings
 from django.db import models
 
+from ednp.fields import EncryptedCharField
 from registrar.models import ClergyRecord
 
 
@@ -37,9 +38,10 @@ class ClergyProfile(models.Model):
     spouse_name = models.CharField(max_length=150, blank=True)
     children_names = models.TextField(blank=True)
 
-    sss_number = models.CharField('SSS Number', max_length=30, blank=True)
-    philhealth_number = models.CharField('PhilHealth Number', max_length=30, blank=True)
-    pagibig_number = models.CharField('Pag-IBIG Number', max_length=30, blank=True)
+    # Government ID numbers: stored encrypted once DATA_ENCRYPTION_KEY is set (ednp/fields.py).
+    sss_number = EncryptedCharField('SSS Number', plain_max_length=30, blank=True)
+    philhealth_number = EncryptedCharField('PhilHealth Number', plain_max_length=30, blank=True)
+    pagibig_number = EncryptedCharField('Pag-IBIG Number', plain_max_length=30, blank=True)
 
     diocese = models.CharField(max_length=150, blank=True, default='Episcopal Diocese of Northern Philippines')
     verification = models.CharField(max_length=20, choices=VERIFICATION_CHOICES, default='For Verification')
