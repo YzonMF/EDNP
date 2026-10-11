@@ -7,7 +7,19 @@
 {% block content %}
 <section class="page active">
 <div class="panel">
-<div class="panel-head"><div><h3><i class="fa-solid fa-user-tie"></i> {{ record.name }}</h3><span class="muted">{{ record.id }} — {{ record.get_rank_display }} — {{ record.get_status_display }}</span></div><a class="btn secondary" href="{% url 'registrar:clergy_records' %}"><i class="fa-solid fa-arrow-left"></i> Back to Clergy Records</a></div>
+<div class="panel-head"><div><h3><i class="fa-solid fa-user-tie"></i> {{ record.name }}</h3><span class="muted">{{ record.id }} — {{ record.get_rank_display }} — {{ record.get_status_display }}{% if record.is_archived %} — Archived{% endif %}</span></div>
+<div>
+  {% if record.is_archived %}
+  <form method="post" action="{% url 'registrar:restore_record' record.id %}" style="display:inline">{% csrf_token %}<input type="hidden" name="next" value="record"><button class="btn secondary" type="submit"><i class="fa-solid fa-rotate-left"></i> Restore from Archive</button></form>
+  {% elif record.status == archivable_status %}
+  <form method="post" action="{% url 'registrar:archive_record' record.id %}" style="display:inline" onsubmit="return confirm('Archive {{ record.name|escapejs }}? The record leaves the working lists but is kept, and can be restored any time.')">{% csrf_token %}<input type="hidden" name="next" value="record"><button class="btn secondary" type="submit"><i class="fa-solid fa-box-archive"></i> Archive</button></form>
+  {% endif %}
+  <a class="btn secondary" href="{{ records_list_url }}"><i class="fa-solid fa-arrow-left"></i> Back to {% if record.is_archived %}Archived Records{% else %}Clergy Records{% endif %}</a>
+</div></div>
+
+{% if record.is_archived %}
+<div class="notice">Archived on {{ record.archived_at|date:"M d, Y" }}{% if record.archived_by %} by {{ record.archived_by.first_name|default:record.archived_by.username }}{% endif %}. Archived records are never deleted: this one keeps its documents and portal account and still appears in reports. Its status stays Retired until you restore it.</div>
+{% endif %}
 
 <div class="page-tabs">
   <button type="button" id="tabBtnPersonal" onclick="selectTab('personal')"><i class="fa-solid fa-user"></i> Personal Information</button>

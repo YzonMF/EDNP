@@ -8,7 +8,15 @@
 <section class="page active">
 <div class="panel">
 <div class="panel-head"><div><h3><i class="fa-solid fa-address-book"></i> Clergy Records</h3><span class="muted">Create, search, retrieve and update stored clergy information</span></div><div><a class="btn secondary" href="{% url 'registrar:bulk_accounts' %}"><i class="fa-solid fa-users-gear"></i> Bulk Create Accounts</a> <button class="btn" onclick="openNewRecordModal()"><i class="fa-solid fa-plus"></i> New Record</button></div></div>
+<div class="page-tabs">
+  <a class="{% if not showing_archived %}active{% endif %}" href="{% url 'registrar:clergy_records' %}"><i class="fa-solid fa-address-book"></i> Clergy Records</a>
+  <a class="{% if showing_archived %}active{% endif %}" href="{% url 'registrar:clergy_records' %}?view=archived"><i class="fa-solid fa-box-archive"></i> Archived ({{ archived_count }})</a>
+</div>
+{% if showing_archived %}
+<div class="notice">Archived records are retired clergy filed away. They are never deleted, keep their documents and portal account, still appear in reports, and can be restored at any time.</div>
+{% endif %}
 <form class="toolbar" method="get">
+  {% if showing_archived %}<input type="hidden" name="view" value="archived">{% endif %}
   <input name="q" class="search" placeholder="Search by clergy name, assignment or ID..." value="{{ search_query }}">
   <select name="status" class="select" onchange="this.form.submit()">
     <option value="">All Status</option>
@@ -23,7 +31,7 @@
 {% for record in records %}
 <tr>
   <td>{{ record.id }}</td>
-  <td><b>{{ record.name }}</b></td>
+  <td><b>{{ record.name }}</b>{% if record.is_archived %}<br><span class="muted">Archived {{ record.archived_at|date:"M d, Y" }}</span>{% endif %}</td>
   <td>{{ record.assignment|default:"—" }}</td>
   <td><span class="badge {{ record.status|status_badge_class }}">{{ record.status }}</span></td>
   <td>{{ record.contract_end|default:"—" }}</td>
@@ -44,10 +52,15 @@
     <a class="btn small secondary" href="{% url 'registrar:record_detail' record.id %}"><i class="fa-solid fa-id-card"></i> Personal Information</a>
     <a class="btn small secondary" href="{% url 'registrar:record_detail' record.id %}?tab=documents"><i class="fa-solid fa-folder-open"></i> Documents</a>
     <span class="badge {{ record.doc_summary|document_badge_class }}">{{ record.doc_summary.submitted }}/{{ record.doc_summary.total }}</span>
+    {% if record.is_archived %}
+    <form method="post" action="{% url 'registrar:restore_record' record.id %}" style="display:inline">{% csrf_token %}<button class="btn small secondary" type="submit"><i class="fa-solid fa-rotate-left"></i> Restore</button></form>
+    {% elif record.status == archivable_status %}
+    <form method="post" action="{% url 'registrar:archive_record' record.id %}" style="display:inline" onsubmit="return confirm('Archive {{ record.name|escapejs }}? The record leaves the working lists but is kept, and can be restored any time.')">{% csrf_token %}<button class="btn small secondary" type="submit"><i class="fa-solid fa-box-archive"></i> Archive</button></form>
+    {% endif %}
   </td>
 </tr>
 {% empty %}
-<tr><td colspan="7" class="empty">No records found.</td></tr>
+<tr><td colspan="7" class="empty">{% if showing_archived %}No archived records. Only retired clergy can be archived.{% else %}No records found.{% endif %}</td></tr>
 {% endfor %}
 </tbody></table>
 </div>

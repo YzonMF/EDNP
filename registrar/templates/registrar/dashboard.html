@@ -7,7 +7,7 @@
 {% block content %}
 <section class="page active">
   <div class="cards cards-2">
-    <div class="stat"><small><i class="fa-solid fa-users"></i> Total Clergy Records</small><h2>{{ stats.total }}</h2><div class="note">Stored records</div></div>
+    <div class="stat"><small><i class="fa-solid fa-users"></i> Total Clergy Records</small><h2>{{ stats.total }}</h2><div class="note">{% if stats.archived %}Stored records, not counting {{ stats.archived }} archived{% else %}Stored records{% endif %}</div></div>
     <div class="stat"><small><i class="fa-solid fa-user-check"></i> Active Clergy</small><h2>{{ stats.active }}</h2><div class="note">Current status</div></div>
   </div>
   <div class="grid2">

@@ -162,3 +162,6 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 .brand-icon,.brand-icon img{width:44px;height:44px}
 .nav-toggle{width:46px;height:46px;font-size:22px;border-radius:12px}
 }
+/* Tab-style links (Clergy Records / Archived), matching the record page's tab buttons. */
+.page-tabs a{border:1px solid var(--border);background:#fff;border-radius:8px;padding:9px 14px;font-size:12px;font-weight:700;color:#334155;text-decoration:none}.page-tabs a.active{background:var(--blue);color:#fff;border-color:var(--blue)}
+@media(max-width:800px){.page-tabs a{flex:1 1 auto;text-align:center}}

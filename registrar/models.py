@@ -1,5 +1,5 @@
 import calendar
-from datetime import date
+from datetime import date, timedelta
 
 from django.conf import settings
 from django.db import models, transaction
@@ -52,6 +52,15 @@ class IdCounter(models.Model):
         db_table = 'id_counters'
 
 
+class ClergyRecordQuerySet(models.QuerySet):
+    def current(self):
+        """Records on the registrar's working lists: everything not archived."""
+        return self.filter(archived_at__isnull=True)
+
+    def archived(self):
+        return self.filter(archived_at__isnull=False)
+
+
 class ClergyRecord(models.Model):
     GENDER_CHOICES = [('Male', 'Male'), ('Female', 'Female')]
     STATUS_CHOICES = [
@@ -93,12 +102,24 @@ class ClergyRecord(models.Model):
 
     created_at = models.DateTimeField(auto_now_add=True)
 
+    # A retired clergy member's record can be archived: it leaves the registrar's working
+    # lists but is never deleted (see registrar/archive.py). Set together, cleared together.
+    archived_at = models.DateTimeField(blank=True, null=True)
+    archived_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+                                    blank=True, null=True, related_name='+')
+
+    objects = ClergyRecordQuerySet.as_manager()
+
     class Meta:
         db_table = 'clergy_records'
         ordering = ['id']
 
     def __str__(self):
         return f"{self.id} - {self.name}"
+
+    @property
+    def is_archived(self):
+        return self.archived_at is not None
 
     def years_of_service(self):
         """Computed from ordination to today (or to retirement, if retired)
@@ -252,16 +273,26 @@ class Document(models.Model):
         return expiry is not None and expiry < date.today()
 
 
+REPORT_ARCHIVE_DAYS = 30
+
+
 class GeneratedReport(models.Model):
     """A saved snapshot of a Generate Report run — the PDF is stored as-is
     so re-downloading it later returns exactly what was generated, even if
-    the underlying clergy data has since changed."""
+    the underlying clergy data has since changed.
+
+    An archived report can still be downloaded and printed, and is deleted for
+    good REPORT_ARCHIVE_DAYS after it was archived unless it is restored first
+    (see registrar/archive.py)."""
 
     report_type = models.CharField(max_length=40)
     title = models.CharField(max_length=200)
     file = models.FileField(upload_to='generated_reports/')
     generated_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, blank=True, null=True)
     generated_at = models.DateTimeField(auto_now_add=True)
+    archived_at = models.DateTimeField(blank=True, null=True)
+    archived_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+                                    blank=True, null=True, related_name='+')
 
     class Meta:
         db_table = 'generated_reports'
@@ -269,6 +300,12 @@ class GeneratedReport(models.Model):
 
     def __str__(self):
         return f"{self.title} ({self.generated_at:%Y-%m-%d %H:%M})"
+
+    def deletes_at(self):
+        """When an archived report is deleted for good; None while it isn't archived."""
+        if self.archived_at is None:
+            return None
+        return self.archived_at + timedelta(days=REPORT_ARCHIVE_DAYS)
 
 
 class BackupArchive(models.Model):

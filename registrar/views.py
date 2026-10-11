@@ -19,10 +19,11 @@ from clergy import notifications
 from clergy.models import ClergyProfile
 from ednp import encryption, security_log
 
-from . import backups, bulk, reports, slips
+from . import archive, backups, bulk, reports, slips
 from .decorators import registrar_required
 from .forms import ClergyRecordForm, DocumentUploadForm, PersonalInfoForm, first_error
-from .models import RANK_CHOICES, BackupArchive, ClergyRecord, Deanery, Document, DocumentType, GeneratedReport, save_document
+from .models import (RANK_CHOICES, REPORT_ARCHIVE_DAYS, BackupArchive, ClergyRecord, Deanery, Document, DocumentType,
+                     GeneratedReport, save_document)
 from .provisioning import (SETUP_WINDOW_DAYS, ProvisionError, account_status, provision_account, reset_credentials,
                            reset_lost_phone)
 
@@ -92,12 +93,13 @@ def _build_deaneries_map():
 
 @registrar_required
 def dashboard(request):
-    records = ClergyRecord.objects.all()
+    records = ClergyRecord.objects.current()
     near_expiry_cutoff = date.today() + timedelta(days=NEAR_EXPIRY_WINDOW_DAYS)
     stats = {
         'total': records.count(),
         'active': records.filter(status='Active').count(),
         'expiry': records.filter(contract_end__isnull=False, contract_end__lt=near_expiry_cutoff).count(),
+        'archived': ClergyRecord.objects.archived().count(),
     }
     recent_records = records.order_by('-created_at')[:5]
     return render(request, 'registrar/dashboard.html', {
@@ -109,10 +111,14 @@ def dashboard(request):
 
 @registrar_required
 def clergy_records(request):
+    """The working list, or with `?view=archived` the archived records (retired
+    clergy filed away; see registrar/archive.py). Search and the status filter
+    work within whichever list is showing."""
     query = request.GET.get('q', '').strip()
     status = request.GET.get('status', '').strip()
+    showing_archived = request.GET.get('view') == 'archived'
 
-    records = ClergyRecord.objects.all()
+    records = ClergyRecord.objects.archived() if showing_archived else ClergyRecord.objects.current()
     if query:
         records = records.filter(
             db_models.Q(name__icontains=query)
@@ -143,9 +149,42 @@ def clergy_records(request):
         'search_query': query,
         'status_filter': status,
         'status_choices': ClergyRecord.STATUS_CHOICES,
+        'showing_archived': showing_archived,
+        'archived_count': ClergyRecord.objects.archived().count(),
+        'archivable_status': archive.ARCHIVABLE_STATUS,
         'next_id': ClergyRecord.next_id(),
         'deaneries_map': _build_deaneries_map(),
     })
+
+
+ARCHIVED_RECORDS_URL_QUERY = '?view=archived'
+
+
+def _back_from_archiving(request, record, list_url):
+    """Archive and Restore are on both the list and the record's own page; go back to whichever."""
+    if request.POST.get('next') == 'record':
+        return redirect('registrar:record_detail', record.id)
+    return redirect(list_url)
+
+
+@registrar_required
+def archive_record(request, record_id):
+    record = get_object_or_404(ClergyRecord, id=record_id)
+    if request.method == 'POST':
+        try:
+            if archive.archive_record(record, request.user):
+                messages.success(request, f'{record.name} was moved to the archive. The record is kept and can be restored any time.')
+        except archive.ArchiveError as exc:
+            messages.error(request, str(exc))
+    return _back_from_archiving(request, record, reverse('registrar:clergy_records'))
+
+
+@registrar_required
+def restore_record(request, record_id):
+    record = get_object_or_404(ClergyRecord, id=record_id)
+    if request.method == 'POST' and archive.restore_record(record, request.user):
+        messages.success(request, f'{record.name} is back on the Clergy Records list.')
+    return _back_from_archiving(request, record, reverse('registrar:clergy_records') + ARCHIVED_RECORDS_URL_QUERY)
 
 
 def _portal_url(request):
@@ -381,15 +420,20 @@ def record_detail(request, record_id):
         return redirect(f"{request.path}?tab=documents")
 
     if request.method == 'POST':
+        was_archived = record.is_archived
         form = PersonalInfoForm(request.POST, instance=record)
-        if form.is_valid():
+        if not form.is_valid():
+            messages.error(request, 'Please check the form and try again.')
+        elif was_archived and form.cleaned_data['status'] != archive.ARCHIVABLE_STATUS:
+            # Only retired clergy are archived, so the status can't move while it is.
+            messages.error(request, 'This record is archived. Restore it before changing its status.')
+        else:
             form.save()
             notifications.record_updated(record, request.user, form)
             messages.success(request, 'Personal Information updated successfully.')
-        else:
-            messages.error(request, 'Please check the form and try again.')
         return redirect(f"{request.path}?tab=personal")
 
+    records_list_url = reverse('registrar:clergy_records')
     return render(request, 'registrar/record-detail.html', {
         'active_page': 'clergy_records',
         'record': record,
@@ -397,12 +441,14 @@ def record_detail(request, record_id):
         'active_tab': request.GET.get('tab', 'personal'),
         'deaneries_map': _build_deaneries_map(),
         'record_data': {'deanery_id': record.deanery_id, 'assignment': record.assignment or ''},
+        'archivable_status': archive.ARCHIVABLE_STATUS,
+        'records_list_url': records_list_url + ARCHIVED_RECORDS_URL_QUERY if record.is_archived else records_list_url,
     })
 
 
 @registrar_required
 def documents_overview(request):
-    records = ClergyRecord.objects.all()
+    records = ClergyRecord.objects.current()
     rows = [{'record': r, 'summary': r.document_summary()} for r in records]
     return render(request, 'registrar/documents.html', {
         'active_page': 'documents',
@@ -433,7 +479,7 @@ def ordination_requirements(request):
 
 @registrar_required
 def contract_review(request):
-    records = ClergyRecord.objects.filter(contract_end__isnull=False).order_by('contract_end')
+    records = ClergyRecord.objects.current().filter(contract_end__isnull=False).order_by('contract_end')
     today = date.today()
     rows = [{'record': r, 'days_left': (r.contract_end - today).days} for r in records]
     return render(request, 'registrar/contract-review.html', {
@@ -444,6 +490,7 @@ def contract_review(request):
 
 @registrar_required
 def generate_report(request):
+    archive.purge_expired_reports()   # no scheduler: archived reports past their 30 days go when this page opens
     if request.method == 'POST':
         report_type = request.POST.get('type')
         if report_type not in reports.REPORT_TYPES:
@@ -460,16 +507,59 @@ def generate_report(request):
         messages.success(request, f"{report['title']} generated.")
         return redirect('registrar:generate_report')
 
+    saved = GeneratedReport.objects.select_related('generated_by', 'archived_by')
+    archived_reports = list(saved.filter(archived_at__isnull=False).order_by('archived_at'))   # next to go first
+    now = timezone.now()
+    for generated in archived_reports:
+        generated.days_left = archive.days_left(generated, now)
     return render(request, 'registrar/generate-report.html', {
         'active_page': 'generate_report',
         'report_types': reports.REPORT_TYPES.items(),
-        'generated_reports': GeneratedReport.objects.select_related('generated_by').all(),
+        'generated_reports': saved.filter(archived_at__isnull=True),
+        'archived_reports': archived_reports,
+        'archive_days': REPORT_ARCHIVE_DAYS,
     })
+
+
+def _report_or_404(report_id):
+    """A saved report, after clearing out any whose 30 days in the archive are up, so an
+    old bookmark can't open a report the archive has already let go of."""
+    archive.purge_expired_reports()
+    return get_object_or_404(GeneratedReport, id=report_id)
+
+
+@registrar_required
+def archive_generated_report(request, report_id):
+    generated = _report_or_404(report_id)
+    if request.method == 'POST' and archive.archive_report(generated, request.user):
+        deletes_on = timezone.now() + timedelta(days=REPORT_ARCHIVE_DAYS)
+        messages.success(request, f'{generated.title} was archived. It will be deleted on {deletes_on:%b %d, %Y} unless you restore it.')
+    return redirect('registrar:generate_report')
+
+
+@registrar_required
+def restore_generated_report(request, report_id):
+    generated = _report_or_404(report_id)
+    if request.method == 'POST' and archive.restore_report(generated, request.user):
+        messages.success(request, f'{generated.title} is back under Generated Reports.')
+    return redirect('registrar:generate_report')
+
+
+@registrar_required
+def delete_generated_report(request, report_id):
+    generated = _report_or_404(report_id)
+    if request.method == 'POST':
+        try:
+            if archive.delete_report(generated, request.user):
+                messages.success(request, f'{generated.title} was deleted.')
+        except archive.ArchiveError as exc:
+            messages.error(request, str(exc))
+    return redirect('registrar:generate_report')
 
 
 @registrar_required
 def view_generated_report(request, report_id):
-    generated = get_object_or_404(GeneratedReport, id=report_id)
+    generated = _report_or_404(report_id)
     filename = generated.file.name.rsplit('/', 1)[-1]
     return FileResponse(_open_stored(generated.file), as_attachment=False, filename=filename, content_type='application/pdf')
 
@@ -483,7 +573,7 @@ def preview_generated_report(request, report_id):
     fresh as of right now rather than replaying the historical snapshot, so
     "View" is a live look and "Download" remains the exact file generated
     on the original date."""
-    generated = get_object_or_404(GeneratedReport, id=report_id)
+    generated = _report_or_404(report_id)
     report = reports.build_report(generated.report_type, generated_by=generated.generated_by)
     return render(request, 'registrar/report_pdf.html', {
         'report': report,
@@ -493,7 +583,7 @@ def preview_generated_report(request, report_id):
 
 @registrar_required
 def download_generated_report(request, report_id):
-    generated = get_object_or_404(GeneratedReport, id=report_id)
+    generated = _report_or_404(report_id)
     filename = generated.file.name.rsplit('/', 1)[-1]
     return FileResponse(_open_stored(generated.file), as_attachment=True, filename=filename, content_type='application/pdf')
 
