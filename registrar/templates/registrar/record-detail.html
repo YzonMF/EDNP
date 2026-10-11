@@ -40,8 +40,8 @@
     <div class="edit-field"><label>Date of Baptism</label><input name="baptism_date" type="date" value="{{ record.baptism_date|date:'Y-m-d' }}"></div>
     <div class="edit-field"><label>Date of Confirmation</label><input name="confirmation_date" type="date" value="{{ record.confirmation_date|date:'Y-m-d' }}"></div>
     <div class="edit-field"><label>Contact Number</label><input type="tel" value="{{ record.phone|default:'' }}" readonly title="Verified by the clergy member. Only they can change it."></div>
-    <div class="edit-field"><label>Email Address</label><input name="email" type="email" value="{{ record.email }}"></div>
-    <div class="edit-field full"><label>Residential Address</label><div class="input-with-action"><input name="address" id="addressInput" value="{{ record.address }}"><button type="button" class="ph-picker-btn" data-ph-picker-target="addressInput" title="Choose from province / city / barangay list"><i class="fa-solid fa-location-dot"></i></button></div></div>
+    <div class="edit-field"><label>Email Address</label><input name="email" type="email" value="{{ record.email|default:'' }}"></div>
+    <div class="edit-field full"><label>Residential Address</label><div class="input-with-action"><input name="address" id="addressInput" value="{{ record.address|default:'' }}"><button type="button" class="ph-picker-btn" data-ph-picker-target="addressInput" title="Choose from province / city / barangay list"><i class="fa-solid fa-location-dot"></i></button></div></div>
   </div>
   </div>
 
@@ -51,12 +51,12 @@
     <div class="edit-field"><label>Date of Ordination to Diaconate</label><input name="diaconate_date" type="date" value="{{ record.diaconate_date|date:'Y-m-d' }}"></div>
     <div class="edit-field"><label>Date of Ordination to Priesthood</label><input name="ordination_date" type="date" value="{{ record.ordination_date|date:'Y-m-d' }}"></div>
     <div class="edit-field"><label>Date for Holy Orders / Synod Entry</label><input name="holy_orders_date" type="date" value="{{ record.holy_orders_date|date:'Y-m-d' }}"></div>
-    <div class="edit-field"><label>Place of Ordination</label><input name="ordination_place" value="{{ record.ordination_place }}"></div>
-    <div class="edit-field"><label>Bishop</label><input name="bishop_name" value="{{ record.bishop_name }}"></div>
+    <div class="edit-field"><label>Place of Ordination</label><input name="ordination_place" value="{{ record.ordination_place|default:'' }}"></div>
+    <div class="edit-field"><label>Bishop</label><input name="bishop_name" value="{{ record.bishop_name|default:'' }}"></div>
     <div class="edit-field"><label>Date of Bishop Consecration</label><input name="consecration_date" type="date" value="{{ record.consecration_date|date:'Y-m-d' }}"></div>
-    <div class="edit-field"><label>Previous Assignment</label><input name="previous_assignment" value="{{ record.previous_assignment }}"></div>
+    <div class="edit-field"><label>Previous Assignment</label><input name="previous_assignment" value="{{ record.previous_assignment|default:'' }}"></div>
     <div class="edit-field"><label>Years of Service</label><input value="{{ record.years_of_service|default:'—' }}" readonly></div>
-    <div class="edit-field full"><label>Deployment &amp; Service History</label><textarea name="service_history" rows="3">{{ record.service_history }}</textarea></div>
+    <div class="edit-field full"><label>Deployment &amp; Service History</label><textarea name="service_history" rows="3">{{ record.service_history|default:'' }}</textarea></div>
   </div>
   </div>
 
@@ -71,7 +71,7 @@
       <option value="Missionary to Other Diocese" {% if record.status == 'Missionary to Other Diocese' %}selected{% endif %}>Missionary to Other Diocese</option>
       <option value="Retired" {% if record.status == 'Retired' %}selected{% endif %}>Retired</option>
     </select></div>
-    <div class="edit-field" id="editLeaveReasonField" style="display:none"><label>Leave Reason</label><input name="leave_reason" value="{{ record.leave_reason }}" placeholder="e.g. medical leave, sabbatical"></div>
+    <div class="edit-field" id="editLeaveReasonField" style="display:none"><label>Leave Reason</label><input name="leave_reason" value="{{ record.leave_reason|default:'' }}" placeholder="e.g. medical leave, sabbatical"></div>
     <div class="edit-field"><label>Rank</label><select name="rank">
       <option value="postulancy" {% if record.rank == 'postulancy' %}selected{% endif %}>Postulancy</option>
       <option value="deacon" {% if record.rank == 'deacon' %}selected{% endif %}>Deacon</option>

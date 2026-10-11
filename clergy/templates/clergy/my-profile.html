@@ -118,7 +118,7 @@
           <div class="field full">
             <label>Residential Address <span class="req-mark">*</span></label>
             <div class="input-with-action">
-              <textarea name="address" id="addressInput" rows="3" required>{{ profile.record.address }}</textarea>
+              <textarea name="address" id="addressInput" rows="3" required>{{ profile.record.address|default:'' }}</textarea>
               <button type="button" class="ph-picker-btn" data-ph-picker-target="addressInput" title="Choose from province / city / barangay list"><i class="fa-solid fa-location-dot"></i></button>
             </div>
           </div>
@@ -131,7 +131,7 @@
 
           <div class="field">
             <label>Email Address <span class="req-mark">*</span></label>
-            <input name="email" type="email" value="{{ profile.record.email }}" required>
+            <input name="email" type="email" value="{{ profile.record.email|default:'' }}" required>
           </div>
 
         </div>
@@ -151,7 +151,7 @@
           <div class="field"><label>Date of Consecration</label><input value="{{ profile.record.consecration_date|date:'Y-m-d'|default:'—' }}" readonly></div>
           <div class="field"><label>Previous Assignment</label><input value="{{ profile.record.previous_assignment|default:'—' }}" readonly></div>
           <div class="field"><label>Years of Service</label><input value="{{ profile.record.years_of_service|default:'—' }}" readonly></div>
-          <div class="field full"><label>Deployment &amp; Service History</label><textarea rows="3" readonly>{{ profile.record.service_history }}</textarea></div>
+          <div class="field full"><label>Deployment &amp; Service History</label><textarea rows="3" readonly>{{ profile.record.service_history|default:'—' }}</textarea></div>
           <div class="field full">
             <label>Educational Background</label>
             <textarea name="education" rows="3" placeholder="Seminary, college, degree, school, year completed, etc.">{{ profile.education }}</textarea>

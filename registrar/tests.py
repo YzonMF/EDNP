@@ -192,3 +192,29 @@ class UploadFeedbackTests(TestCase):
         self.client.force_login(activate(User.objects.create_user('r', password='pw12345!x', is_staff=True)))
         r = self.client.post(reverse('registrar:record_detail', args=[self.record.id]), self.bad, follow=True)
         self.assertContains(r, "showToast('Only PDF, JPG and PNG files are allowed.', 'error')")
+
+
+class BlankFieldTests(TestCase):
+    """An empty field on the record page is shown empty, not as the word "None": the
+    browser refused "None" as an email address, so a record without one couldn't be
+    saved, and in the other fields "None" was saved as text."""
+
+    def setUp(self):
+        self.client.force_login(activate(User.objects.create_user('reg', password='pw12345!x', is_staff=True)))
+        # Like a bulk-created record: only the name is filled in.
+        self.record = ClergyRecord.objects.create(id='CLG-001', name='Fr. New')
+
+    def test_empty_fields_are_shown_empty(self):
+        page = self.client.get(reverse('registrar:record_detail', args=[self.record.id]))
+        self.assertNotContains(page, 'value="None"')
+        self.assertNotContains(page, '>None</textarea>')
+
+    def test_saving_the_page_as_shown_stores_no_text_none(self):
+        # What the browser now sends for the untouched empty fields: empty strings.
+        blanks = dict.fromkeys(['email', 'address', 'ordination_place', 'bishop_name',
+                                'previous_assignment', 'service_history', 'leave_reason'], '')
+        self.client.post(reverse('registrar:record_detail', args=[self.record.id]),
+                         {'name': 'Fr. New', 'status': 'Active', 'rank': 'postulancy', **blanks})
+        self.record.refresh_from_db()
+        for field in blanks:
+            self.assertIn(getattr(self.record, field), (None, ''), field)
