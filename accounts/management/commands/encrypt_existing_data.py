@@ -1,38 +1,29 @@
 import hashlib
-import os
-import shutil
 import tempfile
 from collections import Counter
 
 from django.apps import apps
-from django.conf import settings
+from django.core.files.storage import default_storage
 from django.core.management.base import BaseCommand, CommandError
 from django.db import DatabaseError, connection
 
 from ednp import encryption
 from ednp.fields import EncryptedCharField
 
-SKIPPED_FOLDERS = {'lost+found'}
 
-
-def _plain_chunks(path):
-    with open(path, 'rb') as file:
-        while True:
-            piece = file.read(encryption.CHUNK_SIZE)
-            if not piece:
-                return
-            yield piece
-
-
-def _decrypted_chunks(path):
-    with open(path, 'rb') as file:
-        yield from encryption.decrypt_stream(file.read)
+def _plain_chunks(file):
+    while True:
+        piece = file.read(encryption.CHUNK_SIZE)
+        if not piece:
+            return
+        yield piece
 
 
 class Command(BaseCommand):
     help = ('Encrypts every stored file and government ID number that is still plaintext, using DATA_ENCRYPTION_KEY, '
-            'and checks each one reads back correctly before replacing the original. Safe to run again and again, '
-            'and while the site is running. Use --dry-run first.')
+            'and checks each one reads back correctly before replacing the original. Files encrypted in the first, '
+            'bigger format are rewritten in the current one. Works on the bucket or MEDIA_ROOT, whichever the site '
+            'uses. Safe to run again and again, and while the site is running. Use --dry-run first.')
 
     def add_arguments(self, parser):
         parser.add_argument('--dry-run', action='store_true',
@@ -74,73 +65,71 @@ class Command(BaseCommand):
     # --- Files ---------------------------------------------------------
 
     def _files(self):
-        root = str(settings.MEDIA_ROOT)
         tally, failures = Counter(), []
-        if os.path.isdir(root):
-            for folder, subfolders, names in os.walk(root):
-                subfolders[:] = [name for name in subfolders if name not in SKIPPED_FOLDERS and not name.startswith('.')]
-                for name in names:
-                    if name.startswith('.'):   # our own temporary files, and dotfiles
-                        continue
-                    path = os.path.join(folder, name)
-                    try:
-                        tally[self._file(path)] += 1
-                    except (OSError, encryption.EncryptionError) as exc:
-                        tally['failed'] += 1
-                        failures.append(f'{os.path.relpath(path, root)}: {exc}')
+        for name in list(default_storage.stored_names()):
+            try:
+                tally[self._file(name)] += 1
+            except FileNotFoundError:
+                pass   # deleted while this ran
+            except (OSError, encryption.EncryptionError) as exc:
+                tally['failed'] += 1
+                failures.append(f'{name}: {exc}')
         self._report('Files', tally)
         return failures
 
-    def _file(self, path):
-        with open(path, 'rb') as file:
+    def _file(self, name):
+        with default_storage.open_stored(name) as file:
             head = file.read(len(encryption.FILE_MAGIC))
-            if encryption.is_encrypted_header(head):
-                file.seek(0)
-                current = encryption.first_token_uses_current_key(file.read)
+            file.seek(0)
+            if not encryption.is_encrypted_header(head):
+                outcome, source = ('would be encrypted', 'encrypted now'), _plain_chunks(file)
             else:
-                current = None
-        if current is None:
+                # Already encrypted. Prove it can be read with the current keys (this is what catches a wrong key).
+                current = encryption.first_token_uses_current_key(file.read)
+                file.seek(0)
+                for _ in encryption.decrypt_stream(file.read):
+                    pass
+                file.seek(0)
+                if encryption.is_old_format(head):
+                    outcome = ('would be rewritten in the smaller format', 'rewritten in the smaller format now')
+                elif current or not self.rotate:
+                    return 'already encrypted' if current else 'encrypted under an older key (use --rotate)'
+                else:
+                    outcome = ('would be re-encrypted', 're-encrypted now')
+                source = encryption.decrypt_stream(file.read)
             if self.dry_run:
-                return 'would be encrypted'
-            self._rewrite(path, _plain_chunks(path))
-            return 'encrypted now'
+                return outcome[0]
+            replacement = self._encrypted_copy(source)
+        # Only now that the original is closed (Windows won't replace an open file).
+        with replacement:
+            default_storage.put_stored(name, replacement)
+        return outcome[1]
 
-        # Already encrypted. Prove it can be read with the current keys (this is what catches a wrong key).
-        for _ in _decrypted_chunks(path):
-            pass
-        if current or not self.rotate:
-            return 'already encrypted' if current else 'encrypted under an older key (use --rotate)'
-        if self.dry_run:
-            return 'would be re-encrypted'
-        self._rewrite(path, _decrypted_chunks(path))
-        return 're-encrypted now'
-
-    def _rewrite(self, path, source):
-        """Writes the encrypted form beside the original, proves it decrypts to the same bytes,
-        and only then swaps it in, so the original is never lost to a failed attempt."""
-        handle, temp = tempfile.mkstemp(dir=os.path.dirname(path), prefix='.enc-', suffix='.tmp')
+    def _encrypted_copy(self, source):
+        """The encrypted form of `source` in a temporary file, proven to decrypt to the same bytes,
+        so the original is only ever replaced by something that reads back identically."""
+        temp = tempfile.TemporaryFile()
         try:
             before = hashlib.sha256()
-
-            def watched():
-                for piece in source:
-                    before.update(piece)
-                    yield piece
-
-            with os.fdopen(handle, 'wb') as out:
-                for piece in encryption.encrypt_stream(watched()):
-                    out.write(piece)
+            for piece in encryption.encrypt_stream(self._watched(source, before)):
+                temp.write(piece)
+            temp.seek(0)
             after = hashlib.sha256()
-            for piece in _decrypted_chunks(temp):
+            for piece in encryption.decrypt_stream(temp.read):
                 after.update(piece)
             if after.digest() != before.digest():
                 raise encryption.EncryptionError('the encrypted copy did not read back identically')
-            shutil.copymode(path, temp)
-            os.replace(temp, path)
+            temp.seek(0)
+            return temp
         except BaseException:
-            if os.path.exists(temp):
-                os.remove(temp)
+            temp.close()
             raise
+
+    @staticmethod
+    def _watched(source, digest):
+        for piece in source:
+            digest.update(piece)
+            yield piece
 
     # --- Database values -----------------------------------------------
 

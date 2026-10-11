@@ -16,6 +16,7 @@
     </div>
 
     <div class="notice">You can view and submit documents attached to <b>your own clergy record only</b>. You cannot search, view, edit, or access another clergy member's records.</div>
+    <p class="muted" style="margin:10px 0 0">PDF files can be up to 5 MB. Photos and scans (JPG or PNG) can be up to 10 MB, and are made smaller automatically before they are stored.</p>
 
     <h3 style="margin:20px 0 10px"><i class="fa-solid fa-user" style="color:var(--blue);margin-right:6px"></i>Own Requirements &amp; Ordination Attachments</h3>
     <div class="doc-grid">
@@ -39,7 +40,7 @@
       <form method="post" enctype="multipart/form-data" class="doc-card-upload">
         {% csrf_token %}
         <input type="hidden" name="document_type" value="{{ item.document_type.id }}">
-        <input type="file" name="file" required>
+        <input type="file" name="file" accept=".pdf,.jpg,.jpeg,.png" required>
         <input type="text" name="notes" placeholder="Notes (optional)">
         <button class="btn small">{% if item.document %}<i class="fa-solid fa-rotate"></i> Replace{% else %}<i class="fa-solid fa-upload"></i> Upload{% endif %}</button>
       </form>

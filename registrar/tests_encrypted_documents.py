@@ -161,12 +161,10 @@ class ReportAndArchiveTests(EncryptedPagesCase):
             document = Document.objects.get()
             name = document.file.name
 
-            self.as_registrar().post(reverse('registrar:backup_records'))
-            archive = BackupArchive.objects.get()
-            self.assertTrue(self.on_disk(archive.file).startswith(MAGIC))   # the archive is itself stored encrypted
-
-            response = self.as_registrar().get(reverse('registrar:download_backup_archive', args=[archive.id]))
+            response = self.as_registrar().post(reverse('registrar:download_documents_archive'),
+                                                {'current_password': PASSWORD})
             downloaded = self.whole(response)
+            self.assertFalse(BackupArchive.objects.exists())                # nothing is kept on the server
             self.assertTrue(zipfile.is_zipfile(io.BytesIO(downloaded)))     # what the registrar gets is an ordinary zip
             with zipfile.ZipFile(io.BytesIO(downloaded)) as zipped:
                 self.assertEqual(zipped.namelist(), [name])

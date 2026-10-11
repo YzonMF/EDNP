@@ -22,5 +22,7 @@ ENV MEDIA_ROOT=/data/media
 
 EXPOSE 8000
 
-# Railway injects $PORT; fall back to 8000 for local runs.
-CMD ["sh", "-c", "python ensure_db.py && python manage.py migrate --noinput && gunicorn ednp.wsgi --bind 0.0.0.0:${PORT:-8000} --workers 3"]
+# Railway injects $PORT; fall back to 8000 for local runs. --timeout: a worker busy with one
+# request longer than this is restarted, and the documents archive streams for as long as its
+# download takes (gunicorn's default 30 seconds would cut a large one off).
+CMD ["sh", "-c", "python ensure_db.py && python manage.py migrate --noinput && gunicorn ednp.wsgi --bind 0.0.0.0:${PORT:-8000} --workers 3 --timeout 600"]

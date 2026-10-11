@@ -46,7 +46,7 @@
   <tr>
     <td>{{ entry.created_at|date:"M d, Y H:i" }}</td>
     <td>{{ entry.actor_name }}</td>
-    <td><span class="badge {% if entry.action == 'lost_phone_reset' or entry.action == 'report_deleted' or entry.action == 'report_expired' %}inactive-b{% elif entry.action == 'password_reprinted' or entry.action == 'database_backup' or entry.action == 'archive_downloaded' or entry.action == 'report_archived' or entry.action == 'record_archived' %}pending-b{% else %}active-b{% endif %}">{{ entry.get_action_display }}</span></td>
+    <td><span class="badge {% if entry.action == 'lost_phone_reset' or entry.action == 'report_deleted' or entry.action == 'report_expired' or entry.action == 'archive_deleted' %}inactive-b{% elif entry.action == 'password_reprinted' or entry.action == 'database_backup' or entry.action == 'archive_downloaded' or entry.action == 'report_archived' or entry.action == 'record_archived' %}pending-b{% else %}active-b{% endif %}">{{ entry.get_action_display }}</span></td>
     <td>{{ entry.target_name|default:"—" }}</td>
     <td>{{ entry.note|default:"—" }}</td>
   </tr>

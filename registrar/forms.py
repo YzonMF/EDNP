@@ -2,6 +2,7 @@ import os
 
 from django import forms
 
+from . import images
 from .models import ClergyRecord, DocumentType
 
 
@@ -40,7 +41,12 @@ class PersonalInfoForm(forms.ModelForm):
         }
 
 
-MAX_DOCUMENT_BYTES = 10 * 1024 * 1024  # 10 MB
+# What can be uploaded at all (a photo straight off a phone fits), and what may be stored: a PDF
+# as it is, or a photo or scan once it has been shrunk (registrar/images.py), which almost
+# always brings it well under.
+MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # 10 MB
+MAX_STORED_BYTES = 5 * 1024 * 1024   # 5 MB
+IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png'}
 
 # extension -> the leading bytes a genuine file of that type starts with.
 # Checking content as well as the extension stops e.g. an HTML/script file
@@ -61,8 +67,8 @@ class DocumentUploadForm(forms.Form):
 
     def clean_file(self):
         upload = self.cleaned_data['file']
-        if upload.size > MAX_DOCUMENT_BYTES:
-            raise forms.ValidationError('File is too large — the maximum is 10 MB.')
+        if upload.size > MAX_UPLOAD_BYTES:
+            raise forms.ValidationError('File is too large — the maximum is 10 MB for a photo or scan, and 5 MB for a PDF.')
         extension = os.path.splitext(upload.name)[1].lower()
         signatures = DOCUMENT_SIGNATURES.get(extension)
         if not signatures:
@@ -71,6 +77,14 @@ class DocumentUploadForm(forms.Form):
         upload.seek(0)
         if not header.startswith(signatures):
             raise forms.ValidationError('That file does not look like a real PDF, JPG or PNG.')
+        if extension in IMAGE_EXTENSIONS:
+            upload = images.shrink(upload)
+        if upload.size > MAX_STORED_BYTES:
+            if extension == '.pdf':
+                raise forms.ValidationError('That PDF is too large — the maximum is 5 MB. Scanning in black and white, '
+                                            'or at 150–200 dpi, makes it smaller.')
+            raise forms.ValidationError('That image is too large to store — the maximum is 5 MB. Please scan or '
+                                        'photograph it at a lower resolution.')
         return upload
 
 

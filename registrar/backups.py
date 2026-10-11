@@ -1,19 +1,21 @@
-"""Backup Records: a database dump plus a documents archive.
+"""Backup Records: a database dump, and an archive of the uploaded documents.
 
-Kept as two separate operations on purpose — see BackupArchive's docstring
-in models.py for why. build_database_dump() is cheap at any record count
-and is downloaded fresh every time; build_documents_zip() only covers the
-uploaded clergy documents folder and is saved as a BackupArchive so it
-doesn't have to be rebuilt (or re-downloaded) on every visit.
+Both are built as they are downloaded and go straight to the registrar's computer; neither is
+kept on the server. A copy kept beside the originals takes as much storage again, and is lost
+in the same accident. build_database_dump() is cheap at any record count; documents_zip()
+streams, sending each document on as it is read, so the archive is never held whole in memory
+or on disk however many documents there are.
 """
 
 import io
 import json
-import os
 import zipfile
 
-from django.conf import settings
 from django.core.management import call_command
+
+from .models import Document
+
+COPY_CHUNK = 64 * 1024
 
 
 def build_database_dump():
@@ -39,17 +41,46 @@ def build_database_dump():
     return json.dumps(data, indent=2).encode('utf-8')
 
 
-def build_documents_zip():
-    """Every uploaded document, copied exactly as stored. While DATA_ENCRYPTION_KEY is set they
-    are stored encrypted, so they stay encrypted inside the archive (which is itself stored
-    encrypted); restoring them means copying them back and needs the same key."""
-    documents_root = os.path.join(settings.MEDIA_ROOT, 'clergy_documents')
-    buffer = io.BytesIO()
-    with zipfile.ZipFile(buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
-        for root, _dirs, files in os.walk(documents_root):
-            for filename in files:
-                filepath = os.path.join(root, filename)
-                arcname = os.path.relpath(filepath, settings.MEDIA_ROOT)
-                zf.write(filepath, arcname)
-    buffer.seek(0)
-    return buffer.getvalue()
+class _Outbox:
+    """A write-only file that collects what zipfile writes, to be sent on in pieces."""
+
+    def __init__(self):
+        self._pieces = []
+
+    def write(self, data):
+        self._pieces.append(bytes(data))
+        return len(data)
+
+    def flush(self):
+        pass
+
+    def take(self):
+        data = b''.join(self._pieces)
+        self._pieces.clear()
+        return data
+
+
+def documents_zip():
+    """Yields a .zip of every uploaded document, each copied exactly as stored, at the same path
+    inside the archive. While DATA_ENCRYPTION_KEY is set they are stored encrypted, so they stay
+    encrypted inside it; restoring one means putting it back at that path, and needs the same key.
+    A document whose file is no longer stored is named in MISSING-FILES.txt instead."""
+    outbox, missing = _Outbox(), []
+    documents = Document.objects.select_related('record', 'document_type').order_by('record_id', 'document_type__name')
+    with zipfile.ZipFile(outbox, 'w', zipfile.ZIP_DEFLATED, compresslevel=1) as archive:
+        for document in documents.iterator():
+            name = document.file.name
+            try:
+                stored = document.file.storage.open_stored(name)
+            except FileNotFoundError:
+                missing.append(f'{name} ({document.record.name}: {document.document_type.name})')
+                continue
+            with stored, archive.open(name, 'w') as member:
+                while piece := stored.read(COPY_CHUNK):
+                    member.write(piece)
+                    if data := outbox.take():
+                        yield data
+        if missing:
+            archive.writestr('MISSING-FILES.txt', 'These documents are on record but their files are no longer '
+                                                  'stored, so they are not in this archive:\n' + '\n'.join(missing) + '\n')
+    yield outbox.take()

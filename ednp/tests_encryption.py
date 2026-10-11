@@ -28,7 +28,7 @@ from registrar.models import BackupArchive, ClergyRecord, Document, GeneratedRep
 
 from . import checks, encryption
 from .storage import EncryptedFileSystemStorage
-from .testing import MediaFolderMixin, encrypted, needs_crypto, new_key, plaintext_mode, raw_value
+from .testing import MediaFolderMixin, encrypted, needs_crypto, new_key, old_format, plaintext_mode, raw_value
 
 User = get_user_model()
 CHUNK = encryption.CHUNK_SIZE
@@ -151,6 +151,26 @@ class StreamTests(SimpleTestCase):
 
     def test_the_same_file_is_stored_differently_each_time(self):
         self.assertNotEqual(encrypt_all(b'same'), encrypt_all(b'same'))
+
+    def test_an_encrypted_file_is_barely_bigger_than_the_original(self):
+        # Each piece's token is stored as bytes, not as base64 text (which made files a third bigger).
+        data = os.urandom(1024 * 1024)
+        self.assertLess(len(encrypt_all(data)), len(data) * 1.005)
+
+    def test_a_file_in_the_first_format_still_reads(self):
+        data = os.urandom(2 * CHUNK + 9)
+        blob = old_format(encrypt_all(data))
+        self.assertTrue(blob.startswith(encryption.OLD_FILE_MAGIC))
+        self.assertGreater(len(blob), len(data) * 1.3)
+        self.assertTrue(encryption.is_encrypted_header(blob) and encryption.is_old_format(blob))
+        self.assertEqual(decrypt_all(blob), data)
+        self.assertTrue(encryption.first_token_uses_current_key(io.BytesIO(blob).read))
+
+    def test_a_damaged_piece_in_the_first_format_is_detected_too(self):
+        blob = bytearray(old_format(encrypt_all(os.urandom(CHUNK + 5))))
+        blob[len(MAGIC) + 4 + 50] ^= 0x01
+        with self.assertRaises(encryption.EncryptionError):
+            decrypt_all(bytes(blob))
 
     def test_how_the_source_is_chunked_does_not_matter(self):
         data = os.urandom(2 * CHUNK + 5)
@@ -325,6 +345,58 @@ class StorageTests(MediaFolderMixin, SimpleTestCase):
         with encrypted(self.key):
             with self.assertRaises(FileNotFoundError):
                 self.storage.open('clergy_documents/nope.pdf')
+            with self.assertRaises(FileNotFoundError):
+                self.storage.open_stored('clergy_documents/nope.pdf')
+
+    def test_a_file_in_the_first_format_opens_as_before(self):
+        plain = b'%PDF-1.4 ' + os.urandom(100_000)
+        with encrypted(self.key):
+            name = self.storage.save('clergy_documents/a.pdf', ContentFile(plain))
+            first_format = old_format(self.raw(name))
+            with open(self.storage.path(name), 'wb') as file:
+                file.write(first_format)
+            self.assertTrue(self.storage.is_encrypted(name))
+            self.assertEqual(self.storage.open(name).read(), plain)
+
+    def test_open_stored_gives_the_file_still_encrypted(self):
+        with encrypted(self.key):
+            name = self.storage.save('clergy_documents/a.pdf', ContentFile(b'%PDF-1.4 secret'))
+            with self.storage.open_stored(name) as file:
+                self.assertEqual(file.read(), self.raw(name))
+
+    def test_stored_names_lists_every_file_but_dotfiles_and_lost_and_found(self):
+        for name in ('clergy_documents/CLG-001/1_a.pdf', 'generated_reports/r.pdf', '.hidden', 'lost+found/x',
+                     'clergy_documents/.enc-123.tmp'):
+            os.makedirs(os.path.dirname(os.path.join(self.media, name)) or self.media, exist_ok=True)
+            with open(os.path.join(self.media, name), 'wb') as file:
+                file.write(b'x')
+        self.assertEqual(sorted(self.storage.stored_names()),
+                         ['clergy_documents/CLG-001/1_a.pdf', 'generated_reports/r.pdf'])
+
+    def test_with_no_folder_yet_there_is_nothing_stored(self):
+        os.rmdir(self.media)
+        self.assertEqual(list(self.storage.stored_names()), [])
+
+    def test_put_stored_writes_the_bytes_exactly_new_or_in_place_and_leaves_nothing_behind(self):
+        with encrypted(self.key):   # put_stored never encrypts: it is given what is to be stored
+            self.storage.put_stored('clergy_documents/CLG-001/new.pdf', io.BytesIO(b'as given'))
+            self.assertEqual(self.raw('clergy_documents/CLG-001/new.pdf'), b'as given')
+            self.storage.put_stored('clergy_documents/CLG-001/new.pdf', io.BytesIO(b'replaced'))
+            self.assertEqual(self.raw('clergy_documents/CLG-001/new.pdf'), b'replaced')
+        self.assertEqual(os.listdir(os.path.join(self.media, 'clergy_documents', 'CLG-001')), ['new.pdf'])
+
+    def test_a_failed_put_stored_leaves_the_original(self):
+        with plaintext_mode():
+            name = self.storage.save('clergy_documents/a.pdf', ContentFile(b'original'))
+
+        class Broken(io.BytesIO):
+            def read(self, *args):
+                raise OSError('disk full')
+
+        with self.assertRaises(OSError):
+            self.storage.put_stored(name, Broken())
+        self.assertEqual(self.raw(name), b'original')
+        self.assertEqual(os.listdir(os.path.join(self.media, 'clergy_documents')), ['a.pdf'])
 
 
 @needs_crypto

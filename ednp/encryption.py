@@ -14,21 +14,28 @@ With no key set nothing here does anything and the site behaves exactly as it di
 before encryption existed.
 
 Files are encrypted in 64 KiB pieces, each one authenticated and numbered, so that a
-damaged, truncated, reordered or swapped piece is detected, and a large file (the
-documents archive) is never held in memory whole. Text values are a single piece.
-Both use Fernet (AES-128-CBC with an HMAC), and several keys may be configured: the
-first encrypts, every one of them decrypts, which is how a key is replaced.
+damaged, truncated, reordered or swapped piece is detected, and a large file is never
+held in memory whole. Text values are a single piece. Both use Fernet (AES-128-CBC with
+an HMAC), and several keys may be configured: the first encrypts, every one of them
+decrypts, which is how a key is replaced.
+
+A Fernet token is base64 text, a third bigger than the bytes it carries. Files store each
+token's bytes instead (format 2), so an encrypted file is only about 0.1% bigger than the
+original. Files written in the first format (base64 tokens) are still read, and
+`manage.py encrypt_existing_data` converts them.
 """
 
+import base64
 import struct
 from functools import lru_cache
 
 from django.conf import settings
 
-FILE_MAGIC = b'EDNPENC1'     # the first bytes of every encrypted file
+FILE_MAGIC = b'EDNPENC2'     # the first bytes of every encrypted file
+OLD_FILE_MAGIC = b'EDNPENC1'  # the first format, whose pieces are stored as base64 text
 TEXT_PREFIX = 'enc1:'        # the first characters of every encrypted text value
 CHUNK_SIZE = 64 * 1024
-_MAX_TOKEN = 1024 * 1024     # a piece's token is about 90 KB; anything near this is a damaged file
+_MAX_TOKEN = 1024 * 1024     # a piece's token is about 66 KB (90 KB in the old format); anything near this is a damaged file
 _FRAME = struct.Struct('>QB')  # piece number, and 1 for the last piece
 
 
@@ -115,7 +122,12 @@ def text_uses_current_key(value):
 # --- Files ---------------------------------------------------------------
 
 def is_encrypted_header(head):
-    return head[:len(FILE_MAGIC)] == FILE_MAGIC
+    return head[:len(FILE_MAGIC)] in (FILE_MAGIC, OLD_FILE_MAGIC)
+
+
+def is_old_format(head):
+    """True for a file encrypted in the first, bigger format (see the module docstring)."""
+    return head[:len(OLD_FILE_MAGIC)] == OLD_FILE_MAGIC
 
 
 def _rechunk(chunks, size):
@@ -131,7 +143,7 @@ def _rechunk(chunks, size):
 
 
 def _frame(many, number, last, piece):
-    token = many.encrypt(_FRAME.pack(number, last) + piece)
+    token = base64.urlsafe_b64decode(many.encrypt(_FRAME.pack(number, last) + piece))
     return len(token).to_bytes(4, 'big') + token
 
 
@@ -160,14 +172,18 @@ def _read_exact(read, count):
 
 
 def _tokens(read):
-    """Yields each piece's token from an encrypted file, checking the framing as it goes."""
-    if read(len(FILE_MAGIC)) != FILE_MAGIC:
+    """Yields each piece's token (as Fernet takes it) from an encrypted file, checking the
+    framing as it goes."""
+    head = read(len(FILE_MAGIC))
+    if not is_encrypted_header(head):
         raise EncryptionError('This file is not in the encrypted format.')
+    stored_as_text = is_old_format(head)
     while True:
         length = int.from_bytes(_read_exact(read, 4), 'big')
         if not 0 < length <= _MAX_TOKEN:
             raise EncryptionError('An encrypted file is damaged.')
-        yield _read_exact(read, length)
+        token = _read_exact(read, length)
+        yield token if stored_as_text else base64.urlsafe_b64encode(token)
 
 
 def decrypt_stream(read):

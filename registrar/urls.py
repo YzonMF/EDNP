@@ -34,5 +34,7 @@ urlpatterns = [
     path('change-password/', views.change_password, name='change_password'),
     path('backup-records/', views.backup_records, name='backup_records'),
     path('backup-records/database/', views.download_database_backup, name='download_database_backup'),
+    path('backup-records/documents/', views.download_documents_archive, name='download_documents_archive'),
     path('backup-records/<int:archive_id>/download/', views.download_backup_archive, name='download_backup_archive'),
+    path('backup-records/<int:archive_id>/delete/', views.delete_backup_archive, name='delete_backup_archive'),
 ]

@@ -1,11 +1,14 @@
 """Helpers for the encryption tests."""
 
+import base64
 import shutil
 import tempfile
 import unittest
 
 from django.db import connection
 from django.test import override_settings
+
+from . import encryption
 
 try:
     from cryptography.fernet import Fernet
@@ -38,6 +41,17 @@ class MediaFolderMixin:
         override = override_settings(MEDIA_ROOT=self.media)
         override.enable()
         self.addCleanup(override.disable)
+
+
+def old_format(blob):
+    """An encrypted file as the first format stored it: each piece's token as base64 text."""
+    pieces, position = [encryption.OLD_FILE_MAGIC], len(encryption.FILE_MAGIC)
+    while position < len(blob):
+        length = int.from_bytes(blob[position:position + 4], 'big')
+        token = base64.urlsafe_b64encode(blob[position + 4:position + 4 + length])
+        pieces.append(len(token).to_bytes(4, 'big') + token)
+        position += 4 + length
+    return b''.join(pieces)
 
 
 def raw_value(model, pk, field_name):

@@ -45,6 +45,10 @@ DEBUG = os.environ.get('DEBUG', 'False') == 'True'
 # Comma-separated in .env, e.g. ALLOWED_HOSTS=localhost,127.0.0.1,ednp.example.com
 ALLOWED_HOSTS = [h.strip() for h in os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',') if h.strip()]
 
+# True while the test suite runs (`manage.py test`). Tests never send real texts or
+# touch a real bucket, whatever the environment says.
+TESTING = len(sys.argv) > 1 and sys.argv[1] == 'test'
+
 
 # Application definition
 
@@ -163,14 +167,32 @@ STATICFILES_DIRS = [BASE_DIR / 'static']
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 MEDIA_URL = 'media/'
-# Overridable so a container can point this at a mounted volume (uploads must
-# outlive redeploys).
+# Where stored files go when there is no bucket (below). Overridable so a container can point
+# it at a mounted volume; on a server whose disk is replaced at each redeploy, files kept here
+# are lost at the next one.
 MEDIA_ROOT = Path(os.environ.get('MEDIA_ROOT', BASE_DIR / 'media'))
 
-# Every stored file (documents, reports, backup archives) goes through this storage, which
-# encrypts it when DATA_ENCRYPTION_KEY is set and is Django's ordinary file storage when not.
+# A bucket for stored files: a Railway Storage Bucket, or any S3-compatible one. Set
+# BUCKET_NAME and the four below (on Railway, as references to the bucket's own BUCKET,
+# ENDPOINT, REGION, ACCESS_KEY_ID and SECRET_ACCESS_KEY; see resources/storage-bucket.md),
+# and every stored file goes there instead of MEDIA_ROOT. BUCKET_URL_STYLE is 'virtual'
+# (the default) or 'path', for a bucket whose Credentials tab says it needs path-style URLs.
+BUCKET_NAME = '' if TESTING else os.environ.get('BUCKET_NAME', '')
+BUCKET_OPTIONS = {
+    'bucket_name': BUCKET_NAME,
+    'endpoint_url': os.environ.get('BUCKET_ENDPOINT') or None,
+    'region_name': os.environ.get('BUCKET_REGION') or None,
+    'access_key': os.environ.get('BUCKET_ACCESS_KEY_ID') or None,
+    'secret_key': os.environ.get('BUCKET_SECRET_ACCESS_KEY') or None,
+    'addressing_style': os.environ.get('BUCKET_URL_STYLE') or 'virtual',
+}
+
+# Every stored file (documents, reports) goes through this storage, which encrypts it when
+# DATA_ENCRYPTION_KEY is set and is the ordinary bucket or disk storage when not. The bucket
+# storage reads BUCKET_OPTIONS itself.
 STORAGES = {
-    'default': {'BACKEND': 'ednp.storage.EncryptedFileSystemStorage'},
+    'default': {'BACKEND': 'ednp.bucket_storage.EncryptedS3Storage' if BUCKET_NAME
+                else 'ednp.storage.EncryptedFileSystemStorage'},
     'staticfiles': {'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage'},
 }
 
@@ -197,7 +219,6 @@ LOGIN_URL = 'index'
 # only on a developer machine (DEBUG on) — so forgetting the variable on the
 # server can never silently turn the on-screen code into a way past the
 # verification. The test suite always uses 'test' so it can never send a text.
-TESTING = len(sys.argv) > 1 and sys.argv[1] == 'test'
 SMS_BACKEND = 'test' if TESTING else (os.environ.get('SMS_BACKEND') or ('test' if DEBUG else 'semaphore'))
 if SMS_BACKEND not in ('semaphore', 'test'):
     raise ImproperlyConfigured(f"SMS_BACKEND must be 'semaphore' or 'test', not {SMS_BACKEND!r}.")

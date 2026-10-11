@@ -6,12 +6,21 @@ python-dotenv==1.2.3
 # https://doc.courtbouillon.org/weasyprint/stable/first_steps.html#installation
 weasyprint==70.0
 
+# Shrinks uploaded photos and scans before they are stored (registrar/images.py). WeasyPrint
+# needs it too; pinned here because the site now uses it directly.
+Pillow==12.3.0
+
 # Bulk account import (.xlsx upload) and the QR code on credential slips.
 openpyxl==3.1.5
 segno==1.6.6
 
 gunicorn==23.0.0
 whitenoise==6.9.0
+
+# Keeps stored files in a bucket (a Railway Storage Bucket, or any S3-compatible one) once
+# BUCKET_NAME is set; see resources/storage-bucket.md. Not imported until then.
+django-storages[s3]==1.14.6
+boto3==1.43.111
 
 # Encrypts uploaded documents and government ID numbers at rest (ednp/encryption.py). Only used once
 # DATA_ENCRYPTION_KEY is set; kept installed so switching it on is a setting, not a new deploy.

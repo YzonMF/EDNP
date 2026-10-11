@@ -19,7 +19,7 @@ from django.test import SimpleTestCase, TestCase
 from clergy.models import ClergyProfile
 from ednp import encryption
 from ednp.storage import EncryptedFileSystemStorage
-from ednp.testing import MediaFolderMixin, encrypted, needs_crypto, new_key, plaintext_mode, raw_value
+from ednp.testing import MediaFolderMixin, encrypted, needs_crypto, new_key, old_format, plaintext_mode, raw_value
 from registrar.models import ClergyRecord
 
 from .management.commands.encrypt_existing_data import Command
@@ -179,6 +179,26 @@ class EncryptExistingDataTests(DataCase):
                     self.assertEqual(file.read(), content, name)
             self.assertEqual(ClergyProfile.objects.get(pk=self.profile.pk).sss_number, NUMBER)
             self.assertIn('already encrypted', self.run_command('--rotate'))
+
+    def test_files_in_the_first_bigger_format_are_rewritten_in_the_smaller_one(self):
+        with encrypted(self.key):
+            self.run_command()
+            for name in FILES:
+                self.write(name, old_format(self.raw(name)))
+            before = sum(len(self.raw(name)) for name in FILES)
+
+            self.assertIn('5 would be rewritten in the smaller format', self.run_command('--dry-run'))
+            self.assertTrue(all(self.raw(name).startswith(encryption.OLD_FILE_MAGIC) for name in FILES))
+
+            self.assertIn('5 rewritten in the smaller format now', self.run_command())
+            self.assertLess(sum(len(self.raw(name)) for name in FILES), before)
+            storage = EncryptedFileSystemStorage()
+            for name, content in FILES.items():
+                self.assertTrue(self.raw(name).startswith(MAGIC), name)
+                with storage.open(name) as file:
+                    self.assertEqual(file.read(), content, name)
+            self.assertIn('5 already encrypted', self.run_command())
+            self.assertEqual(self.leftovers(), [])
 
     def test_it_copes_with_a_mixture_of_encrypted_and_plain(self):
         with encrypted(self.key):

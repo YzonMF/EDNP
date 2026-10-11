@@ -7,7 +7,7 @@ from django.contrib.auth.decorators import login_required
 from django.core.files.base import ContentFile
 from django.db import transaction
 from django.db import models as db_models
-from django.http import FileResponse, Http404, HttpResponse
+from django.http import FileResponse, Http404, HttpResponse, StreamingHttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -624,21 +624,14 @@ def download_generated_report(request, report_id):
 
 @registrar_required
 def backup_records(request):
-    if request.method == 'POST':
-        zip_bytes = backups.build_documents_zip()
-        filename = f"documents_archive_{timezone.now().strftime('%Y%m%d_%H%M%S')}.zip"
-        archive = BackupArchive(created_by=request.user)
-        archive.file.save(filename, ContentFile(zip_bytes), save=True)
-        security_log.export(request, request.user, 'documents archive created')
-        messages.success(request, 'Documents archive created.')
-        return redirect('registrar:backup_records')
-
-    archives = list(BackupArchive.objects.select_related('created_by'))
-    for archive in archives:
-        archive.stored_size = _stored_size(archive.file)
+    # Archives saved on the server before the archive became a straight download, listed until
+    # they are deleted so their storage can be freed.
+    saved_archives = list(BackupArchive.objects.select_related('created_by'))
+    for saved in saved_archives:
+        saved.stored_size = _stored_size(saved.file)
     return render(request, 'registrar/backup-records.html', {
         'active_page': 'backup_records',
-        'archives': archives,
+        'saved_archives': saved_archives,
         'encryption_on': encryption.configured(),
     })
 
@@ -663,17 +656,52 @@ def download_database_backup(request):
 
 
 @registrar_required
+def download_documents_archive(request):
+    """Every uploaded document in one .zip, built as it downloads (backups.documents_zip) and
+    never kept on the server. Like the database backup it is everything at once, so it takes
+    the registrar's password re-entered, and every download is written to the activity log."""
+    if request.method != 'POST' or not password_confirmed(request):
+        return redirect('registrar:backup_records')
+
+    filename = f"documents_archive_{timezone.now().strftime('%Y%m%d_%H%M%S')}.zip"
+    audit.record(request.user, None, 'archive_downloaded', note=filename)
+    security_log.export(request, request.user, 'documents archive downloaded')
+    response = StreamingHttpResponse(backups.documents_zip(), content_type='application/zip')
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    response['Cache-Control'] = 'no-store'
+    return response
+
+
+@registrar_required
 def download_backup_archive(request, archive_id):
-    archive = get_object_or_404(BackupArchive, id=archive_id)
-    filename = archive.file.name.rsplit('/', 1)[-1]
+    saved = get_object_or_404(BackupArchive, id=archive_id)
+    filename = saved.file.name.rsplit('/', 1)[-1]
     try:
-        handle = archive.file.open('rb')
+        handle = saved.file.open('rb')
     except FileNotFoundError:
-        messages.error(request, "That archive's file is no longer on the server. Press Archive Documents Now to make a new one.")
+        messages.error(request, "That archive's file is no longer on the server. Use Download Documents Archive for a new one.")
         return redirect('registrar:backup_records')
     audit.record(request.user, None, 'archive_downloaded', note=filename)
     security_log.export(request, request.user, 'documents archive downloaded')
     return FileResponse(handle, as_attachment=True, filename=filename, content_type='application/zip')
+
+
+@registrar_required
+def delete_backup_archive(request, archive_id):
+    """Deletes an archive saved on the server (a full copy of every document, as it was then)
+    to free its storage. The file goes once the row's deletion has committed."""
+    saved = get_object_or_404(BackupArchive, id=archive_id)
+    if request.method == 'POST':
+        name = saved.file.name
+        with transaction.atomic():
+            deleted, _ = BackupArchive.objects.filter(pk=saved.pk).delete()
+            if deleted:
+                audit.record(request.user, None, 'archive_deleted', note=name.rsplit('/', 1)[-1])
+                storage = saved.file.storage
+                transaction.on_commit(lambda: storage.delete(name))   # a file already gone is fine
+        if deleted:
+            messages.success(request, f"The archive saved {timezone.localtime(saved.created_at):%b %d, %Y} was deleted.")
+    return redirect('registrar:backup_records')
 
 
 @registrar_required

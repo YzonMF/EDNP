@@ -115,6 +115,7 @@ class AccountAuditLog(models.Model):
         ('password_reset', 'Password reset (forgot password)'),
         ('database_backup', 'Database backup downloaded'),
         ('archive_downloaded', 'Documents archive downloaded'),
+        ('archive_deleted', 'Saved documents archive deleted'),
         ('report_archived', 'Report archived'),
         ('report_restored', 'Report restored'),
         ('report_deleted', 'Report deleted'),
