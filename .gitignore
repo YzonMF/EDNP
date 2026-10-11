@@ -6,3 +6,6 @@ media/
 db.sqlite3
 .idea/
 staticfiles/
+# Reference material stays local; track only what the code points to.
+resources/*
+!resources/storage-bucket.md
