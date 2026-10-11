@@ -1,7 +1,7 @@
-"""Archiving. Generated reports: archive, still downloadable and printable while archived,
-restore, Delete now (archived only), and deleted for good 30 days after archiving. Clergy
-records: only retired ones can be archived, they leave the working lists, and they are never
-deleted."""
+"""Archiving. Generated reports: archive (one, or the ticked ones together), still downloadable
+and printable while archived, restore, Delete now and Clear all (archived only), and deleted for
+good 30 days after archiving. Clergy records: only retired ones can be archived, they leave the
+working lists, and they are never deleted."""
 
 import io
 import os
@@ -28,6 +28,8 @@ User = get_user_model()
 PDF = b'%PDF-1.4\n%a saved report\n'
 REPORTS_PAGE = reverse('registrar:generate_report')
 RECORDS_PAGE = reverse('registrar:clergy_records')
+ARCHIVE_TICKED = reverse('registrar:archive_selected_reports')
+CLEAR_ARCHIVED = reverse('registrar:clear_archived_reports')
 
 
 def url(name, obj):
@@ -170,6 +172,105 @@ class ReportArchiveTests(RegistrarTestCase):
         other.post(url('delete_generated_report', report))
         report.refresh_from_db()
         self.assertIsNotNone(report.archived_at)
+
+
+class BulkReportTests(RegistrarTestCase):
+    make_report = ReportArchiveTests.make_report
+
+    def archived(self):
+        return set(GeneratedReport.objects.filter(archived_at__isnull=False))
+
+    def test_the_buttons_only_show_when_there_is_something_to_act_on(self):
+        page = self.client.get(REPORTS_PAGE)
+        self.assertNotContains(page, ARCHIVE_TICKED)
+        self.assertNotContains(page, CLEAR_ARCHIVED)
+
+        report = self.make_report()
+        self.make_report('Old Report', archived_days_ago=3)
+        page = self.client.get(REPORTS_PAGE)
+        self.assertContains(page, ARCHIVE_TICKED)
+        self.assertContains(page, f'name="report_ids" value="{report.pk}" form="bulkArchiveForm"')
+        self.assertContains(page, 'id="pickAllReports"')
+        self.assertContains(page, CLEAR_ARCHIVED)
+        self.assertContains(page, 'Delete all 1 archived report now?')
+
+    def test_the_ticked_reports_are_archived_together_and_each_is_logged(self):
+        first, second, third = self.make_report('First'), self.make_report('Second'), self.make_report('Third')
+        response = self.client.post(ARCHIVE_TICKED, {'report_ids': [first.pk, second.pk]})
+        self.assertRedirects(response, REPORTS_PAGE, fetch_redirect_response=False)
+        self.assertTrue(flashed(response)[0].startswith('2 reports were archived. They will be deleted on '))
+        self.assertEqual(self.archived(), {first, second})
+        self.assertEqual(sorted(entry.note.split(',')[0] for entry in AccountAuditLog.objects.filter(action='report_archived')),
+                         ['First', 'Second'])
+        self.assertEqual(AccountAuditLog.objects.count(), 2)
+
+    def test_one_ticked_report_reads_naturally(self):
+        report = self.make_report()
+        response = self.client.post(ARCHIVE_TICKED, {'report_ids': [report.pk]})
+        self.assertTrue(flashed(response)[0].startswith('1 report was archived. It will be deleted on '))
+
+    def test_nothing_ticked_archives_nothing(self):
+        self.make_report()
+        response = self.client.post(ARCHIVE_TICKED)
+        self.assertEqual(flashed(response), ['Tick the reports to archive first.'])
+        self.assertEqual(self.archived(), set())
+
+    def test_a_report_already_archived_or_one_that_does_not_exist_is_passed_over(self):
+        archived = self.make_report('Archived', archived_days_ago=2)
+        response = self.client.post(ARCHIVE_TICKED, {'report_ids': [archived.pk, 'abc', '99999']})
+        self.assertRedirects(response, REPORTS_PAGE, fetch_redirect_response=False)
+        self.assertEqual(GeneratedReport.objects.get().archived_at, archived.archived_at)   # not archived again
+        self.assertFalse(AccountAuditLog.objects.exists())
+
+    def test_clear_all_deletes_every_archived_report_listed_with_its_file(self):
+        first = self.make_report('First', archived_days_ago=1)
+        second = self.make_report('Second', archived_days_ago=20)
+        current = self.make_report('Current')
+        paths = [first.file.path, second.file.path]
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(CLEAR_ARCHIVED, {'report_ids': [first.pk, second.pk]})
+        self.assertRedirects(response, REPORTS_PAGE, fetch_redirect_response=False)
+        self.assertEqual(flashed(response), ['2 archived reports were deleted.'])
+        self.assertEqual(list(GeneratedReport.objects.all()), [current])
+        self.assertFalse(any(os.path.exists(path) for path in paths))
+        self.assertTrue(os.path.exists(current.file.path))
+        self.assertEqual(sorted(entry.note.split(',')[0] for entry in AccountAuditLog.objects.filter(action='report_deleted')),
+                         ['First', 'Second'])
+
+    def test_clear_all_leaves_a_report_archived_after_the_page_was_opened(self):
+        shown = self.make_report('Shown', archived_days_ago=1)
+        later = self.make_report('Archived meanwhile', archived_days_ago=0)
+        with self.captureOnCommitCallbacks(execute=True):
+            self.client.post(CLEAR_ARCHIVED, {'report_ids': [shown.pk]})
+        self.assertEqual(list(GeneratedReport.objects.all()), [later])
+
+    def test_clear_all_never_deletes_a_report_that_is_not_archived(self):
+        current = self.make_report()
+        with self.captureOnCommitCallbacks(execute=True):
+            self.client.post(CLEAR_ARCHIVED, {'report_ids': [current.pk]})
+        self.assertTrue(os.path.exists(current.file.path))
+        self.assertEqual(list(GeneratedReport.objects.all()), [current])
+        self.assertFalse(AccountAuditLog.objects.exists())
+
+    def test_a_plain_link_changes_nothing(self):
+        current, archived = self.make_report('Current'), self.make_report('Archived', archived_days_ago=1)
+        self.client.get(ARCHIVE_TICKED, {'report_ids': [current.pk]})
+        self.client.get(CLEAR_ARCHIVED, {'report_ids': [archived.pk]})
+        self.assertEqual(self.archived(), {archived})
+        self.assertEqual(GeneratedReport.objects.count(), 2)
+        self.assertFalse(AccountAuditLog.objects.exists())
+
+    def test_clergy_users_can_do_neither(self):
+        current, archived = self.make_report('Current'), self.make_report('Archived', archived_days_ago=1)
+        record = ClergyRecord.objects.create(id='CLG-001', name='Fr. Juan')
+        clergy = User.objects.create_user('CLG-001', password='pw12345!x')
+        ClergyProfile.objects.create(user=clergy, record=record)
+        other = Client()
+        other.force_login(activate(clergy))
+        other.post(ARCHIVE_TICKED, {'report_ids': [current.pk]})
+        other.post(CLEAR_ARCHIVED, {'report_ids': [archived.pk]})
+        self.assertEqual(self.archived(), {archived})
+        self.assertEqual(GeneratedReport.objects.count(), 2)
 
 
 class RecordArchiveTests(RegistrarTestCase):

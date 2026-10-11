@@ -557,6 +557,40 @@ def delete_generated_report(request, report_id):
     return redirect('registrar:generate_report')
 
 
+def _posted_report_ids(request):
+    return [value for value in request.POST.getlist('report_ids') if value.isdigit()]
+
+
+@registrar_required
+def archive_selected_reports(request):
+    """Archive, for every report ticked under Generated Reports."""
+    if request.method == 'POST':
+        archive.purge_expired_reports()
+        ticked = GeneratedReport.objects.filter(id__in=_posted_report_ids(request), archived_at__isnull=True)
+        count = archive.archive_reports(ticked, request.user)
+        if count:
+            deletes_on = timezone.now() + timedelta(days=REPORT_ARCHIVE_DAYS)
+            messages.success(request, f'{count} report{"s were" if count != 1 else " was"} archived. '
+                                      f'{"They" if count != 1 else "It"} will be deleted on {deletes_on:%b %d, %Y} unless you restore '
+                                      f'{"them" if count != 1 else "it"}.')
+        elif not _posted_report_ids(request):
+            messages.error(request, 'Tick the reports to archive first.')
+    return redirect('registrar:generate_report')
+
+
+@registrar_required
+def clear_archived_reports(request):
+    """Delete now, for every archived report the page listed (Clear all). Only those: one
+    archived after the page was opened is left for the registrar to see first."""
+    if request.method == 'POST':
+        archive.purge_expired_reports()
+        listed = GeneratedReport.objects.filter(id__in=_posted_report_ids(request), archived_at__isnull=False)
+        count = archive.delete_reports(listed, request.user)
+        if count:
+            messages.success(request, f'{count} archived report{"s were" if count != 1 else " was"} deleted.')
+    return redirect('registrar:generate_report')
+
+
 @registrar_required
 def view_generated_report(request, report_id):
     generated = _report_or_404(report_id)

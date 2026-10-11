@@ -79,6 +79,17 @@ def delete_report(report, by):
     return deleted
 
 
+def archive_reports(reports, by):
+    """Archive, for several reports at once (the ticked ones). Returns how many this call archived."""
+    return sum(archive_report(report, by) for report in reports)
+
+
+def delete_reports(reports, by):
+    """Delete now, for several archived reports at once (Clear all), each logged as its own
+    deletion. Returns how many this call deleted."""
+    return sum(delete_report(report, by) for report in reports)
+
+
 def purge_expired_reports(now=None):
     """Deletes every report archived REPORT_ARCHIVE_DAYS or more ago, with its file, and
     logs each one. There is no scheduler, so this runs whenever the Generate Report page or
