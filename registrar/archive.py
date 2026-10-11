@@ -85,8 +85,8 @@ def archive_reports(reports, by):
 
 
 def delete_reports(reports, by):
-    """Delete now, for several archived reports at once (Clear all), each logged as its own
-    deletion. Returns how many this call deleted."""
+    """Delete now, for several archived reports at once (Delete selected, Clear all), each
+    logged as its own deletion. Returns how many this call deleted."""
     return sum(delete_report(report, by) for report in reports)
 
 

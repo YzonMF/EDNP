@@ -579,15 +579,18 @@ def archive_selected_reports(request):
 
 
 @registrar_required
-def clear_archived_reports(request):
-    """Delete now, for every archived report the page listed (Clear all). Only those: one
-    archived after the page was opened is left for the registrar to see first."""
+def delete_archived_reports(request):
+    """Delete now, for several archived reports at once: the ticked ones (Delete selected), or
+    every one the page listed (Clear all). Only those: one archived after the page was opened
+    is left for the registrar to see first."""
     if request.method == 'POST':
         archive.purge_expired_reports()
-        listed = GeneratedReport.objects.filter(id__in=_posted_report_ids(request), archived_at__isnull=False)
-        count = archive.delete_reports(listed, request.user)
+        posted = GeneratedReport.objects.filter(id__in=_posted_report_ids(request), archived_at__isnull=False)
+        count = archive.delete_reports(posted, request.user)
         if count:
             messages.success(request, f'{count} archived report{"s were" if count != 1 else " was"} deleted.')
+        elif not _posted_report_ids(request):
+            messages.error(request, 'Tick the archived reports to delete first.')
     return redirect('registrar:generate_report')
 
 

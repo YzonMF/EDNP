@@ -1,6 +1,6 @@
 """Archiving. Generated reports: archive (one, or the ticked ones together), still downloadable
-and printable while archived, restore, Delete now and Clear all (archived only), and deleted for
-good 30 days after archiving. Clergy records: only retired ones can be archived, they leave the
+and printable while archived, restore, Delete now, Delete selected and Clear all (archived only),
+and deleted for good 30 days after archiving. Clergy records: only retired ones can be archived, they leave the
 working lists, and they are never deleted."""
 
 import io
@@ -29,7 +29,7 @@ PDF = b'%PDF-1.4\n%a saved report\n'
 REPORTS_PAGE = reverse('registrar:generate_report')
 RECORDS_PAGE = reverse('registrar:clergy_records')
 ARCHIVE_TICKED = reverse('registrar:archive_selected_reports')
-CLEAR_ARCHIVED = reverse('registrar:clear_archived_reports')
+DELETE_ARCHIVED = reverse('registrar:delete_archived_reports')
 
 
 def url(name, obj):
@@ -183,15 +183,17 @@ class BulkReportTests(RegistrarTestCase):
     def test_the_buttons_only_show_when_there_is_something_to_act_on(self):
         page = self.client.get(REPORTS_PAGE)
         self.assertNotContains(page, ARCHIVE_TICKED)
-        self.assertNotContains(page, CLEAR_ARCHIVED)
+        self.assertNotContains(page, DELETE_ARCHIVED)
 
         report = self.make_report()
-        self.make_report('Old Report', archived_days_ago=3)
+        old = self.make_report('Old Report', archived_days_ago=3)
         page = self.client.get(REPORTS_PAGE)
         self.assertContains(page, ARCHIVE_TICKED)
         self.assertContains(page, f'name="report_ids" value="{report.pk}" form="bulkArchiveForm"')
         self.assertContains(page, 'id="pickAllReports"')
-        self.assertContains(page, CLEAR_ARCHIVED)
+        self.assertContains(page, DELETE_ARCHIVED, count=2)   # Delete selected and Clear all
+        self.assertContains(page, f'name="report_ids" value="{old.pk}" form="bulkDeleteForm"')
+        self.assertContains(page, 'id="pickAllArchived"')
         self.assertContains(page, 'Delete all 1 archived report now?')
 
     def test_the_ticked_reports_are_archived_together_and_each_is_logged(self):
@@ -222,13 +224,36 @@ class BulkReportTests(RegistrarTestCase):
         self.assertEqual(GeneratedReport.objects.get().archived_at, archived.archived_at)   # not archived again
         self.assertFalse(AccountAuditLog.objects.exists())
 
+    def test_delete_selected_deletes_only_the_ticked_archived_reports(self):
+        first = self.make_report('First', archived_days_ago=1)
+        second = self.make_report('Second', archived_days_ago=2)
+        kept = self.make_report('Kept', archived_days_ago=3)
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(DELETE_ARCHIVED, {'report_ids': [first.pk, second.pk]})
+        self.assertEqual(flashed(response), ['2 archived reports were deleted.'])
+        self.assertEqual(list(GeneratedReport.objects.all()), [kept])
+        self.assertTrue(os.path.exists(kept.file.path))
+        self.assertEqual(AccountAuditLog.objects.filter(action='report_deleted').count(), 2)
+
+    def test_one_ticked_archived_report_reads_naturally(self):
+        report = self.make_report(archived_days_ago=1)
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(DELETE_ARCHIVED, {'report_ids': [report.pk]})
+        self.assertEqual(flashed(response), ['1 archived report was deleted.'])
+
+    def test_nothing_ticked_deletes_nothing(self):
+        self.make_report(archived_days_ago=1)
+        response = self.client.post(DELETE_ARCHIVED)
+        self.assertEqual(flashed(response), ['Tick the archived reports to delete first.'])
+        self.assertEqual(GeneratedReport.objects.count(), 1)
+
     def test_clear_all_deletes_every_archived_report_listed_with_its_file(self):
         first = self.make_report('First', archived_days_ago=1)
         second = self.make_report('Second', archived_days_ago=20)
         current = self.make_report('Current')
         paths = [first.file.path, second.file.path]
         with self.captureOnCommitCallbacks(execute=True):
-            response = self.client.post(CLEAR_ARCHIVED, {'report_ids': [first.pk, second.pk]})
+            response = self.client.post(DELETE_ARCHIVED, {'report_ids': [first.pk, second.pk]})
         self.assertRedirects(response, REPORTS_PAGE, fetch_redirect_response=False)
         self.assertEqual(flashed(response), ['2 archived reports were deleted.'])
         self.assertEqual(list(GeneratedReport.objects.all()), [current])
@@ -241,13 +266,13 @@ class BulkReportTests(RegistrarTestCase):
         shown = self.make_report('Shown', archived_days_ago=1)
         later = self.make_report('Archived meanwhile', archived_days_ago=0)
         with self.captureOnCommitCallbacks(execute=True):
-            self.client.post(CLEAR_ARCHIVED, {'report_ids': [shown.pk]})
+            self.client.post(DELETE_ARCHIVED, {'report_ids': [shown.pk]})
         self.assertEqual(list(GeneratedReport.objects.all()), [later])
 
     def test_clear_all_never_deletes_a_report_that_is_not_archived(self):
         current = self.make_report()
         with self.captureOnCommitCallbacks(execute=True):
-            self.client.post(CLEAR_ARCHIVED, {'report_ids': [current.pk]})
+            self.client.post(DELETE_ARCHIVED, {'report_ids': [current.pk]})
         self.assertTrue(os.path.exists(current.file.path))
         self.assertEqual(list(GeneratedReport.objects.all()), [current])
         self.assertFalse(AccountAuditLog.objects.exists())
@@ -255,7 +280,7 @@ class BulkReportTests(RegistrarTestCase):
     def test_a_plain_link_changes_nothing(self):
         current, archived = self.make_report('Current'), self.make_report('Archived', archived_days_ago=1)
         self.client.get(ARCHIVE_TICKED, {'report_ids': [current.pk]})
-        self.client.get(CLEAR_ARCHIVED, {'report_ids': [archived.pk]})
+        self.client.get(DELETE_ARCHIVED, {'report_ids': [archived.pk]})
         self.assertEqual(self.archived(), {archived})
         self.assertEqual(GeneratedReport.objects.count(), 2)
         self.assertFalse(AccountAuditLog.objects.exists())
@@ -268,7 +293,7 @@ class BulkReportTests(RegistrarTestCase):
         other = Client()
         other.force_login(activate(clergy))
         other.post(ARCHIVE_TICKED, {'report_ids': [current.pk]})
-        other.post(CLEAR_ARCHIVED, {'report_ids': [archived.pk]})
+        other.post(DELETE_ARCHIVED, {'report_ids': [archived.pk]})
         self.assertEqual(self.archived(), {archived})
         self.assertEqual(GeneratedReport.objects.count(), 2)
 
