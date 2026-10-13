@@ -11,12 +11,12 @@
           {% if record.is_archived %}
             <form method="post"
                   action="{% url 'registrar:restore_record' record.id %}"
-                  style="display:inline">{% csrf_token %}<input type="hidden" name="next" value="record"><button class="btn secondary" type="submit"><i class="fa-solid fa-rotate-left"></i> Restore from Archive</button></form>
+                  class="inline-form">{% csrf_token %}<input type="hidden" name="next" value="record"><button class="btn secondary" type="submit"><i class="fa-solid fa-rotate-left"></i> Restore from Archive</button></form>
           {% elif record.status == archivable_status %}
             <form method="post"
                   action="{% url 'registrar:archive_record' record.id %}"
-                  style="display:inline"
-                  onsubmit="return confirm('Archive {{ record.name|escapejs }}? The record leaves the working lists but is kept, and can be restored any time.')">{% csrf_token %}<input type="hidden" name="next" value="record"><button class="btn secondary" type="submit"><i class="fa-solid fa-box-archive"></i> Archive</button></form>
+                  class="inline-form"
+                  data-confirm="Archive {{ record.name }}? The record leaves the working lists but is kept, and can be restored any time.">{% csrf_token %}<input type="hidden" name="next" value="record"><button class="btn secondary" type="submit"><i class="fa-solid fa-box-archive"></i> Archive</button></form>
           {% endif %}
           <a class="btn secondary" href="{{ records_list_url }}"><i class="fa-solid fa-arrow-left"></i> Back to {% if record.is_archived %}Archived Records{% else %}Clergy Records{% endif %}</a>
         </div>
@@ -24,11 +24,11 @@
       {% if record.is_archived %}
         <div class="notice">Archived on {{ record.archived_at|date:"M d, Y" }}{% if record.archived_by %} by {{ record.archived_by.first_name|default:record.archived_by.username }}{% endif %}. Archived records are never deleted: this one keeps its documents and portal account and still appears in reports. Its status stays Retired until you restore it.</div>
       {% endif %}
-      <div class="page-tabs">
+      <div class="page-tabs" data-active-tab="{{ active_tab }}">
         <button type="button"
                 id="tabBtnPersonal"
-                onclick="selectTab('personal')"><i class="fa-solid fa-user"></i> Personal Information</button>
-        <button type="button" id="tabBtnDocuments" onclick="selectTab('documents')"><i class="fa-solid fa-folder-open"></i> Documents <span class="badge {{ record.document_summary|document_badge_class }}">{{ record.document_summary.submitted }}/{{ record.document_summary.total }}</span></button>
+                data-tab="personal"><i class="fa-solid fa-user"></i> Personal Information</button>
+        <button type="button" id="tabBtnDocuments" data-tab="documents"><i class="fa-solid fa-folder-open"></i> Documents <span class="badge {{ record.document_summary|document_badge_class }}">{{ record.document_summary.submitted }}/{{ record.document_summary.total }}</span></button>
       </div>
       <div id="tabPersonal" class="tab-content">
         <form method="post">
@@ -130,7 +130,7 @@
               <div class="edit-field">
                 <label>Deanery</label><select name="deanery"
         id="editDeanery"
-        onchange="updateParishOptions('editDeanery','editAssignment')">
+        data-parish-target="editAssignment">
                   <option value="">Select Deanery</option>
                 </select>
               </div>
@@ -142,7 +142,7 @@
               <div class="edit-field">
                 <label>Current Status</label><select name="status"
         id="editStatus"
-        onchange="toggleLeaveReason('editStatus','editLeaveReasonField')">
+        data-leave-field="editLeaveReasonField">
                   <option value="Active" {% if record.status == 'Active' %}selected{% endif %}>Active</option>
                   <option value="On Leave"
                           {% if record.status == 'On Leave' %}selected{% endif %}>On Leave</option>
@@ -152,7 +152,7 @@
                           {% if record.status == 'Retired' %}selected{% endif %}>Retired</option>
                 </select>
               </div>
-              <div class="edit-field" id="editLeaveReasonField" style="display:none">
+              <div class="edit-field hidden" id="editLeaveReasonField">
                 <label>Leave Reason</label><input name="leave_reason"
        value="{{ record.leave_reason|default:'' }}"
        placeholder="e.g. medical leave, sabbatical">
@@ -211,7 +211,7 @@
          href="{% url 'registrar:download_document' item.document.id %}"><i class="fa-solid fa-download"></i> Download</a>
       <button type="button"
               class="btn small secondary"
-              onclick="quickPrintFile('{% url 'registrar:view_document' item.document.id %}')"><i class="fa-solid fa-print"></i> Print</button>
+              data-print-url="{% url 'registrar:view_document' item.document.id %}"><i class="fa-solid fa-print"></i> Print</button>
     </div>
   {% endif %}
   <form method="post" enctype="multipart/form-data" class="doc-card-upload">
@@ -250,7 +250,7 @@
        href="{% url 'registrar:download_document' item.document.id %}"><i class="fa-solid fa-download"></i> Download</a>
     <button type="button"
             class="btn small secondary"
-            onclick="quickPrintFile('{% url 'registrar:view_document' item.document.id %}')"><i class="fa-solid fa-print"></i> Print</button>
+            data-print-url="{% url 'registrar:view_document' item.document.id %}"><i class="fa-solid fa-print"></i> Print</button>
   </div>
 {% endif %}
 <form method="post" enctype="multipart/form-data" class="doc-card-upload">
@@ -277,5 +277,4 @@
   <script src="{% static 'registrar/js/clergy-records.js' %}"></script>
   <script src="{% static 'registrar/js/record-detail.js' %}"></script>
   <script src="{% static 'clergy/js/address-picker.js' %}"></script>
-  <script>initRecordDetailTabs('{{ active_tab }}');</script>
 {% endblock %}

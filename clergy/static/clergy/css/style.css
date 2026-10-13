@@ -1379,3 +1379,21 @@ img{max-width:100%}
 /* ===== Header actions beside the page title ===== */
 .top-actions{margin:0;align-items:center;flex-shrink:0}
 @media(max-width:800px){.top{flex-wrap:wrap;gap:10px}}
+/* ===== Page helpers (formerly inline style="" attributes) ===== */
+.stat h2.stat-text{font-size:17px}
+.tab-intro{margin:0 0 14px}
+.form-note{margin:10px 0 0}
+h3.doc-section-title{margin:20px 0 10px}
+.doc-grid + h3.doc-section-title{margin-top:25px}
+h3.doc-section-title i{color:var(--blue);margin-right:6px}
+
+/* ===== Security sections (templates/_security_sections.html), shared by both portals ===== */
+.stacked{margin-top:18px}
+.card-intro{margin:0 0 12px}
+.form-grid.single-col{grid-template-columns:1fr}.form-grid.narrow{max-width:420px}
+.security-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}
+.current-number{margin:0 0 14px}
+.field-help{margin:8px 0 14px}
+.code-help{margin:6px 0 0}
+.divider{border:0;border-top:1px solid #e3e8ef;margin:18px 0}
+.test-code{font-size:18px;letter-spacing:.15em}

@@ -3,6 +3,10 @@
 {% block page_name %}My Record &amp; Profile{% endblock %}
 {% block page_name_heading %}My Record &amp; Profile{% endblock %}
 
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'code-field.css' %}">
+{% endblock %}
+
 {% block top_actions %}
 <div class="actions top-actions">
   <span class="badge blue">{{ profile.verification }}</span>
@@ -21,11 +25,11 @@
     </div>
 
     {% if active_tab == 'security' %}
-    <p class="muted" style="margin:0 0 14px">Your sign-in details, mobile number and the devices you've trusted. Your number is shown on Personal Information too, but it can only be changed here.</p>
+    <p class="muted tab-intro">Your sign-in details, mobile number and the devices you've trusted. Your number is shown on Personal Information too, but it can only be changed here.</p>
     {% include '_security_sections.html' %}
     {% else %}
 
-    <p class="muted" style="margin:0 0 14px">Your own record is available for viewing. Personal information may be updated by you; official clergy information remains controlled by the Registrar.</p>
+    <p class="muted tab-intro">Your own record is available for viewing. Personal information may be updated by you; official clergy information remains controlled by the Registrar.</p>
 
     <div class="notice">
       You can access only your own clergy record. Your Clergy ID, official status, deployment,
@@ -236,4 +240,5 @@
 {% block extra_js %}
 <script src="{% static 'clergy/js/address-picker.js' %}"></script>
 <script src="{% static 'clergy/js/required-field-indicator.js' %}"></script>
+<script src="{% static 'code-field.js' %}"></script>
 {% endblock %}

@@ -16,9 +16,9 @@
     </div>
 
     <div class="notice">You can view and submit documents attached to <b>your own clergy record only</b>. You cannot search, view, edit, or access another clergy member's records.</div>
-    <p class="muted" style="margin:10px 0 0">PDF files can be up to 5 MB. Photos and scans (JPG or PNG) can be up to 10 MB, and are made smaller automatically before they are stored.</p>
+    <p class="muted form-note">PDF files can be up to 5 MB. Photos and scans (JPG or PNG) can be up to 10 MB, and are made smaller automatically before they are stored.</p>
 
-    <h3 style="margin:20px 0 10px"><i class="fa-solid fa-user" style="color:var(--blue);margin-right:6px"></i>Own Requirements &amp; Ordination Attachments</h3>
+    <h3 class="doc-section-title"><i class="fa-solid fa-user"></i>Own Requirements &amp; Ordination Attachments</h3>
     <div class="doc-grid">
     {% for item in checklist.clergy %}
     <div class="doc-card">
@@ -34,7 +34,7 @@
       <div class="row-actions">
         <a class="btn secondary small" href="{% url 'registrar:view_document' item.document.id %}" target="_blank" rel="noopener"><i class="fa-solid fa-eye"></i> View</a>
         <a class="btn secondary small" href="{% url 'registrar:download_document' item.document.id %}"><i class="fa-solid fa-download"></i> Download</a>
-        <button type="button" class="btn secondary small" onclick="quickPrintFile('{% url 'registrar:view_document' item.document.id %}')"><i class="fa-solid fa-print"></i> Print</button>
+        <button type="button" class="btn secondary small" data-print-url="{% url 'registrar:view_document' item.document.id %}"><i class="fa-solid fa-print"></i> Print</button>
       </div>
       {% endif %}
       <form method="post" enctype="multipart/form-data" class="doc-card-upload">
@@ -50,7 +50,7 @@
     {% endfor %}
     </div>
 
-    <h3 style="margin:25px 0 10px"><i class="fa-solid fa-building-columns" style="color:var(--blue);margin-right:6px"></i>Registrar / Official Documents</h3>
+    <h3 class="doc-section-title"><i class="fa-solid fa-building-columns"></i>Registrar / Official Documents</h3>
     <div class="notice">These are provided and maintained by the Registrar — view-only from your portal.</div>
     <div class="doc-grid">
     {% for item in checklist.registrar %}
@@ -67,7 +67,7 @@
       <div class="row-actions">
         <a class="btn secondary small" href="{% url 'registrar:view_document' item.document.id %}" target="_blank" rel="noopener"><i class="fa-solid fa-eye"></i> View</a>
         <a class="btn secondary small" href="{% url 'registrar:download_document' item.document.id %}"><i class="fa-solid fa-download"></i> Download</a>
-        <button type="button" class="btn secondary small" onclick="quickPrintFile('{% url 'registrar:view_document' item.document.id %}')"><i class="fa-solid fa-print"></i> Print</button>
+        <button type="button" class="btn secondary small" data-print-url="{% url 'registrar:view_document' item.document.id %}"><i class="fa-solid fa-print"></i> Print</button>
       </div>
       {% else %}
       <div class="muted">Not yet provided by the Registrar.</div>

@@ -8,6 +8,9 @@ Needs: sent (has a code been sent yet?), resend (accounts.otp.resend_status),
 The button reads "Send code" until a code is out, then "Resend" — greyed and counting
 down until another may be requested, and off for the day once today's codes are used
 up. The server enforces the same rules; this only shows them.
+
+A page that includes this links static/code-field.css and loads static/code-field.js
+(the countdown).
 {% endcomment %}
 <div class="code-wrap">
   <input id="code" name="code" inputmode="numeric" pattern="[0-9 ]*" maxlength="8" autocomplete="one-time-code"
@@ -21,33 +24,3 @@ up. The server enforces the same rules; this only shows them.
 {% if resend.exhausted %}
 <p class="code-note">You've used all {{ resend.daily_cap }} codes for today. You can try again in about {{ resend.retry_text }}.</p>
 {% endif %}
-<style>
-  .code-wrap { position: relative; display: block; }
-  .field .code-wrap input, .code-wrap input { width: 100%; box-sizing: border-box; padding-right: 124px; }
-  .code-send { position: absolute; top: 50%; right: 6px; transform: translateY(-50%); width: auto; margin: 0; padding: 7px 12px;
-               border: 0; border-radius: 7px; background: #2f6fed; color: #fff; font: inherit; font-size: 12px; font-weight: 700;
-               line-height: 1.2; white-space: nowrap; cursor: pointer; }
-  .code-send:hover:not(:disabled) { background: #2559c7; }
-  .code-send:disabled { background: rgba(125,146,166,.28); color: #8ea0b3; cursor: not-allowed; }
-  .code-note { font-size: 11px; margin: 6px 0 0; color: #ff9b97; }
-  .default-submit { position: absolute; width: 1px; height: 1px; padding: 0; border: 0; overflow: hidden; clip: rect(0 0 0 0); opacity: 0; }
-  .btn:disabled { opacity: .5; cursor: not-allowed; }
-</style>
-<script>
-(function () {
-  var btn = document.querySelector('.code-send');
-  if (!btn) return;
-  var left = parseInt(btn.dataset.wait, 10) || 0;
-  if (left <= 0 || !btn.disabled) return;
-  var timer = setInterval(function () {
-    left -= 1;
-    if (left <= 0) {
-      clearInterval(timer);
-      btn.disabled = false;
-      btn.textContent = btn.dataset.label;
-    } else {
-      btn.textContent = 'Resend in ' + left + 's';
-    }
-  }, 1000);
-})();
-</script>

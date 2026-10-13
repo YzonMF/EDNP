@@ -1,29 +1,14 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <title>EDNP Clergy Record - {{ profile.full_name }}</title>
-<style>
-  @page{size:A4;margin:16mm}
-  body{font-family:Arial,Segoe UI,sans-serif;color:#17212b;font-size:12px;line-height:1.45;margin:0}
-  h1{font-size:22px;margin:0 0 4px}
-  h2{font-size:16px;margin:24px 0 8px;border-bottom:2px solid #17324d;padding-bottom:5px}
-  .header{border-bottom:3px solid #17324d;padding-bottom:12px;margin-bottom:18px}
-  .subtitle{color:#64748b}
-  table{width:100%;border-collapse:collapse}
-  th,td{border:1px solid #d9e0e7;padding:7px;text-align:left;vertical-align:top}
-  th{width:32%;background:#f3f5f7;font-size:11px;text-transform:uppercase;color:#526273}
-  .note{margin-top:20px;padding:10px;background:#f3f7fb;border:1px solid #d9e0e7;color:#526273}
-  .actions{position:fixed;top:12px;right:12px;display:flex;gap:8px}
-  .actions a,.actions button{border:0;border-radius:7px;padding:9px 14px;font-weight:700;cursor:pointer;text-decoration:none;font-family:Arial,Segoe UI,sans-serif;font-size:12px}
-  .print-btn{background:#239b62;color:white}
-  .download-btn{background:#eef1f5;color:#17324d}
-  @media print{.actions{display:none}}
-</style>
+<link rel="stylesheet" href="{% static 'clergy/css/print-record.css' %}">
 </head>
 <body>
   <div class="actions">
-    <button type="button" class="print-btn" onclick="window.print()">Print Record</button>
+    <button type="button" class="print-btn" data-print-page>Print Record</button>
     {% if download_url %}<a class="download-btn" href="{{ download_url }}">Download PDF</a>{% endif %}
   </div>
 
@@ -75,7 +60,7 @@
 
   <h2>Requirements &amp; Attachments</h2>
   <table>
-    <thead><tr><th style="width:auto">Document</th><th style="width:auto">Status</th><th style="width:auto">Submitted</th></tr></thead>
+    <thead><tr><th>Document</th><th>Status</th><th>Submitted</th></tr></thead>
     <tbody>
       {% for item in checklist %}
       <tr>
@@ -94,5 +79,6 @@
     Other clergy records and Registrar-only functions are not included.
   </div>
 
+<script src="{% static 'print-page.js' %}"></script>
 </body>
 </html>

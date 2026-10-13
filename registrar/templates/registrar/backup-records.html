@@ -5,9 +5,9 @@
 {% block content %}
   <section class="page active">
     {% if encryption_on %}
-      <div class="panel" style="margin-bottom:18px"><span class="muted"><i class="fa-solid fa-lock"></i> Stored documents and government ID numbers are encrypted, and so are these backups. Restoring one needs the same DATA_ENCRYPTION_KEY the site uses, so keep a copy of that key somewhere safe that is not this server.</span></div>
+      <div class="panel"><span class="muted"><i class="fa-solid fa-lock"></i> Stored documents and government ID numbers are encrypted, and so are these backups. Restoring one needs the same DATA_ENCRYPTION_KEY the site uses, so keep a copy of that key somewhere safe that is not this server.</span></div>
     {% endif %}
-    <div class="panel">
+    <div class="panel{% if encryption_on %} stacked{% endif %}">
       <div class="panel-head">
         <div>
           <h3><i class="fa-solid fa-database"></i> Database Backup</h3>
@@ -16,26 +16,18 @@
       </div>
       <form method="post"
             action="{% url 'registrar:download_database_backup' %}"
-            style="display:flex;
-                   gap:8px;
-                   align-items:center;
-                   flex-wrap:wrap">
+            class="password-form">
         {% csrf_token %}
         <input type="password"
                name="current_password"
                placeholder="Confirm with your password"
                autocomplete="current-password"
-               required
-               style="padding:8px 10px;
-                      border:1px solid var(--border);
-                      border-radius:7px;
-                      font-size:12px;
-                      min-width:220px">
+               required>
         <button class="btn" type="submit"><i class="fa-solid fa-download"></i> Download Database Backup</button>
       </form>
-      <p class="muted" style="margin:10px 0 0">It holds every clergy member's personal details and ID numbers, so it asks for your password, and each download is recorded under Account Security.</p>
+      <p class="muted form-note">It holds every clergy member's personal details and ID numbers, so it asks for your password, and each download is recorded under Account Security.</p>
     </div>
-    <div class="panel" style="margin-top:18px">
+    <div class="panel stacked">
       <div class="panel-head">
         <div>
           <h3><i class="fa-solid fa-box-archive"></i> Documents Archive</h3>
@@ -44,27 +36,19 @@
       </div>
       <form method="post"
             action="{% url 'registrar:download_documents_archive' %}"
-            style="display:flex;
-                   gap:8px;
-                   align-items:center;
-                   flex-wrap:wrap">
+            class="password-form">
         {% csrf_token %}
         <input type="password"
                name="current_password"
                placeholder="Confirm with your password"
                autocomplete="current-password"
-               required
-               style="padding:8px 10px;
-                      border:1px solid var(--border);
-                      border-radius:7px;
-                      font-size:12px;
-                      min-width:220px">
+               required>
         <button class="btn" type="submit"><i class="fa-solid fa-file-zipper"></i> Download Documents Archive</button>
       </form>
-      <p class="muted" style="margin:10px 0 0">It holds every clergy member's documents, so it asks for your password, and each download is recorded under Account Security. With many documents it can take a few minutes.</p>
+      <p class="muted form-note">It holds every clergy member's documents, so it asks for your password, and each download is recorded under Account Security. With many documents it can take a few minutes.</p>
     </div>
     {% if saved_archives %}
-      <div class="panel" style="margin-top:18px">
+      <div class="panel stacked">
         <div class="panel-head">
           <div>
             <h3><i class="fa-solid fa-clock-rotate-left"></i> Archives Saved on the Server</h3>
@@ -98,7 +82,7 @@
    download><i class="fa-solid fa-download"></i> Download</a>{% endif %}
                     <form method="post"
                           action="{% url 'registrar:delete_backup_archive' saved.id %}"
-                          onsubmit="return confirm('Delete the archive saved {{ saved.created_at|date:"M d, Y"|escapejs }}? This cannot be undone.')">{% csrf_token %}<button class="btn small danger" type="submit"><i class="fa-solid fa-trash"></i> Delete</button></form>
+                          data-confirm="Delete the archive saved {{ saved.created_at|date:"M d, Y" }}? This cannot be undone.">{% csrf_token %}<button class="btn small danger" type="submit"><i class="fa-solid fa-trash"></i> Delete</button></form>
                   </div>
                 </td>
               </tr>

@@ -165,3 +165,32 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 /* Tab-style links (Clergy Records / Archived), matching the record page's tab buttons. */
 .page-tabs a{border:1px solid var(--border);background:#fff;border-radius:8px;padding:9px 14px;font-size:12px;font-weight:700;color:#334155;text-decoration:none}.page-tabs a.active{background:var(--blue);color:#fff;border-color:var(--blue)}
 @media(max-width:800px){.page-tabs a{flex:1 1 auto;text-align:center}}
+/* ===== Page helpers (formerly inline style="" attributes) ===== */
+.hidden{display:none!important}
+.brand small{color:#9db0c1}
+.inline-form{display:inline}
+.page-narrow{max-width:860px}
+.modal-head h3{margin:0}
+.modal-actions.align-start{justify-content:flex-start}
+.no-margin{margin:0}
+.form-note{margin:10px 0 0}
+.btn-group{display:flex;gap:8px;flex-wrap:wrap}
+.col-pick{width:28px}.col-narrow{width:40px}
+/* Password-confirmed download forms (Backup Records) and the staff reset form (Account Security) */
+.password-form{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.password-form input{padding:8px 10px;border:1px solid var(--border);border-radius:7px;font-size:12px;min-width:220px}
+.reset-form{display:flex;gap:6px;align-items:center}
+.reset-form input{padding:6px 8px;border:1px solid var(--border);border-radius:7px;font-size:11px}
+/* Bulk Create Accounts: the pasted list of names */
+.field .names-input{width:100%;font:inherit;padding:10px;border:1px solid var(--border);border-radius:8px;box-sizing:border-box}
+
+/* ===== Security sections (templates/_security_sections.html), shared by both portals ===== */
+.stacked{margin-top:18px}
+.card-intro{margin:0 0 12px}
+.form-grid.single-col{grid-template-columns:1fr}.form-grid.narrow{max-width:420px}
+.security-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}
+.current-number{margin:0 0 14px}
+.field-help{margin:8px 0 14px}
+.code-help{margin:6px 0 0}
+.divider{border:0;border-top:1px solid #e3e8ef;margin:18px 0}
+.test-code{font-size:18px;letter-spacing:.15em}

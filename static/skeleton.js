@@ -35,7 +35,7 @@
         '<div class="sk-card">' + line('w50') + line('w30', 'lg') + line('w70') + '</div>' +
         '<div class="sk-card">' + line('w50') + line('w30', 'lg') + line('w70') + '</div></div>';
     }
-    html += '<div class="sk-panel">' + line('w30', 'lg') + line('w50') + '<div style="margin-top:16px">' + rows(6) + '</div></div>';
+    html += '<div class="sk-panel">' + line('w30', 'lg') + line('w50') + '<div class="sk-rows">' + rows(6) + '</div></div>';
     wrap.innerHTML = html;
     return wrap;
   }

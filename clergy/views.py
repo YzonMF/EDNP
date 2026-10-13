@@ -123,13 +123,13 @@ def download_own_record(request):
         messages.error(request, 'Your account is not yet linked to an official clergy record — ask the Registrar to link one first.')
         return redirect('clergy:dashboard')
 
-    from weasyprint import HTML
+    from ednp.pdf import html_to_pdf
 
     html = render_to_string('clergy/print-record.html', {
         'profile': profile,
         'checklist': profile.record.document_checklist(),
     })
-    pdf_bytes = HTML(string=html).write_pdf()
+    pdf_bytes = html_to_pdf(html)
     filename = f"clergy_record_{profile.record.id or request.user.username}.pdf"
     response = HttpResponse(pdf_bytes, content_type='application/pdf')
     response['Content-Disposition'] = f'attachment; filename="{filename}"'

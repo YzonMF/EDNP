@@ -1,0 +1,20 @@
+/* The clergy member's printable record (clergy/print-record.html): the on-screen copy
+   with its Print / Download buttons, and the same page rendered to PDF by WeasyPrint
+   (ednp/pdf.py), which uses the print rules below. */
+@page{size:A4;margin:16mm}
+body{font-family:Arial,Segoe UI,sans-serif;color:#17212b;font-size:12px;line-height:1.45;margin:0}
+h1{font-size:22px;margin:0 0 4px}
+h2{font-size:16px;margin:24px 0 8px;border-bottom:2px solid #17324d;padding-bottom:5px}
+.header{border-bottom:3px solid #17324d;padding-bottom:12px;margin-bottom:18px}
+.subtitle{color:#64748b}
+table{width:100%;border-collapse:collapse}
+th,td{border:1px solid #d9e0e7;padding:7px;text-align:left;vertical-align:top}
+th{width:32%;background:#f3f5f7;font-size:11px;text-transform:uppercase;color:#526273}
+.note{margin-top:20px;padding:10px;background:#f3f7fb;border:1px solid #d9e0e7;color:#526273}
+.actions{position:fixed;top:12px;right:12px;display:flex;gap:8px}
+.actions a,.actions button{border:0;border-radius:7px;padding:9px 14px;font-weight:700;cursor:pointer;text-decoration:none;font-family:Arial,Segoe UI,sans-serif;font-size:12px}
+.print-btn{background:#239b62;color:white}
+.download-btn{background:#eef1f5;color:#17324d}
+@media print{.actions{display:none}}
+/* The requirements table's headings, unlike the record table's row labels, size to their columns */
+thead th{width:auto}

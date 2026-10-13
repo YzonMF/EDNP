@@ -9,6 +9,7 @@
 <link rel="stylesheet" href="{% static 'clergy/css/style.css' %}">
 <link rel="stylesheet" href="{% static 'skeleton.css' %}">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer">
+{% block extra_css %}{% endblock %}
 </head>
 <body>
 
@@ -21,7 +22,7 @@
       <div>EDNP<br><small>Clergy Portal</small></div>
     </div>
 
-    <button class="nav-toggle" type="button" aria-label="Toggle menu" aria-expanded="false" onclick="var s=this.closest('.sidebar');var o=s.classList.toggle('nav-open');this.setAttribute('aria-expanded',o)"><i class="fa-solid fa-bars"></i></button>
+    <button class="nav-toggle" type="button" aria-label="Toggle menu" aria-expanded="false"><i class="fa-solid fa-bars"></i></button>
     <div class="sidebar-user">
       <b>{{ profile.full_name }}</b><div class="role">Clergy User</div>
     </div>
@@ -62,14 +63,12 @@
 {% block modals %}{% endblock %}
 
 <div id="toast" class="toast"></div>
+{% if messages %}
+<div id="flash-messages" hidden>{% for message in messages %}<span data-level="{{ message.tags }}">{{ message }}</span>{% endfor %}</div>
+{% endif %}
 
 <script src="{% static 'clergy/js/ui.js' %}"></script>
 <script src="{% static 'skeleton.js' %}"></script>
 {% block extra_js %}{% endblock %}
-{% if messages %}
-<script>
-{% for message in messages %}showToast('{{ message|escapejs }}', '{{ message.tags|escapejs }}');{% endfor %}
-</script>
-{% endif %}
 </body>
 </html>

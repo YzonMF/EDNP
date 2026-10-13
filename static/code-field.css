@@ -1,0 +1,14 @@
+/* The verification-code input with its Send / Resend button inside it
+   (templates/_code_field.html). Used on the sign-in screens and on both
+   portals' security sections. */
+.code-wrap { position: relative; display: block; }
+.field .code-wrap input, .code-wrap input { width: 100%; box-sizing: border-box; padding-right: 124px; }
+.code-send { position: absolute; top: 50%; right: 6px; transform: translateY(-50%); width: auto; margin: 0; padding: 7px 12px;
+             border: 0; border-radius: 7px; background: #2f6fed; color: #fff; font: inherit; font-size: 12px; font-weight: 700;
+             line-height: 1.2; white-space: nowrap; cursor: pointer; }
+.code-send:hover:not(:disabled) { background: #2559c7; }
+.code-send:disabled { background: rgba(125,146,166,.28); color: #8ea0b3; cursor: not-allowed; }
+.code-note { font-size: 11px; margin: 6px 0 0; color: #ff9b97; }
+/* The hidden first submit button that makes Enter verify instead of re-sending a text */
+.default-submit { position: absolute; width: 1px; height: 1px; padding: 0; border: 0; overflow: hidden; clip: rect(0 0 0 0); opacity: 0; }
+.btn:disabled { opacity: .5; cursor: not-allowed; }

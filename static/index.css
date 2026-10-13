@@ -236,3 +236,66 @@ body{
   .form-panel{padding:24px 18px 32px}
   .form-panel-inner h2{font-size:22px}
 }
+
+/* =========================================
+   SETUP & CODE SCREENS
+   — first-login setup, forgot password and
+     confirm-this-device (activate.html,
+     forgot_password.html, verify_device.html)
+   ========================================= */
+.setup-steps{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  margin:0 0 18px;
+  font-size:12px;
+  color:#7d92a6;
+}
+.setup-steps span{padding:4px 10px;border-radius:999px;background:#eef1f5}
+.setup-steps span.on{background:#2f6fed;color:#fff;font-weight:700}
+.setup-steps span.done{background:#e3f6ea;color:#1d7a46}
+
+.setup-note,
+.setup-ok,
+.test-banner{
+  border-radius:9px;
+  padding:10px 12px;
+  font-size:12px;
+  margin:0 0 14px;
+}
+.setup-note{background:#eef4ff;color:#244a8f}
+.setup-ok{background:#e3f6ea;color:#1d7a46}
+.test-banner{background:#fff6e3;color:#865e00;border:1px dashed #d9a400}
+.test-banner b{font-size:20px;letter-spacing:.2em;display:block;margin-top:4px}
+
+.link-btn{
+  background:none;
+  border:0;
+  padding:0;
+  color:#7fa8ff;
+  cursor:pointer;
+  font:inherit;
+  font-size:12px;
+  text-decoration:underline;
+}
+
+.btn-row{display:flex;gap:10px;margin-top:8px}
+.btn-row .btn{margin-top:0;flex:1}
+.btn.ghost{background:transparent;color:inherit;border:1px solid rgba(125,146,166,.55)}
+.btn.ghost:hover{background:rgba(125,146,166,.15)}
+
+.row-gap{display:flex;gap:14px;align-items:center;margin-top:12px;flex-wrap:wrap}
+.inline-form{display:inline}
+.remember{display:flex;gap:8px;align-items:center;font-size:12px;margin:0 0 14px;color:#b8c7d6}
+
+/* Small grey help text: under the code field, under the buttons, and at the foot of the panel */
+.code-hint,
+.form-hint,
+.form-foot{font-size:11px;color:#7d92a6}
+.code-hint{display:block;margin-top:6px}
+.form-hint{margin-top:10px}
+.form-foot{margin-top:14px}
+
+/* "Forgot password?" under the sign-in form */
+.forgot-link{margin:14px 0 0;font-size:12px;text-align:center}
+.forgot-link a{color:#7fa8ff}

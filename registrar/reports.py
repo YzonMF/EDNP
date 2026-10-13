@@ -118,7 +118,8 @@ def render_pdf(report):
     that's a one-time environment setup step, not something pip alone
     provides on Windows."""
     from django.template.loader import render_to_string
-    from weasyprint import HTML
+
+    from ednp.pdf import html_to_pdf
 
     html = render_to_string('registrar/report_pdf.html', {'report': report})
-    return HTML(string=html).write_pdf()
+    return html_to_pdf(html)

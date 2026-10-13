@@ -21,7 +21,7 @@
 
     <div class="stat">
       <small><i class="fa-solid fa-calendar-days"></i> Contract End</small>
-      <h2 style="font-size:17px">{{ profile.record.contract_end|default:"Not yet assigned" }}</h2>
+      <h2 class="stat-text">{{ profile.record.contract_end|default:"Not yet assigned" }}</h2>
       <p>
         {% if days_left is not None %}
           {% if days_left < 0 %}Contract ended{% else %}{{ days_left }} day{{ days_left|pluralize }} left{% endif %}

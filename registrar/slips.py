@@ -35,7 +35,7 @@ def build_pages(entries):
 
 def render_slips_pdf(entries, portal_url):
     """entries: dicts with name, username, password, expires_on (a date)."""
-    from weasyprint import HTML
+    from ednp.pdf import html_to_pdf
 
     html = render_to_string('registrar/credential_slips.html', {
         'pages': build_pages(entries),
@@ -43,4 +43,4 @@ def render_slips_pdf(entries, portal_url):
         'qr': _qr_data_uri(portal_url),
         'count': len(entries),
     })
-    return HTML(string=html).write_pdf()
+    return html_to_pdf(html)

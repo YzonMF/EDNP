@@ -48,7 +48,7 @@
     panel.className = 'ph-picker-panel';
     panel.innerHTML =
       '<div class="ph-picker-head">' +
-        '<button type="button" class="ph-picker-back" style="display:none"><i class="fa-solid fa-arrow-left"></i></button>' +
+        '<button type="button" class="ph-picker-back" hidden><i class="fa-solid fa-arrow-left"></i></button>' +
         '<span class="ph-picker-title">Select Province</span>' +
         '<button type="button" class="ph-picker-close"><i class="fa-solid fa-xmark"></i></button>' +
       '</div>' +
@@ -101,7 +101,7 @@
     function showProvinces() {
       stage = 'province';
       titleEl.textContent = 'Select Province';
-      backBtn.style.display = 'none';
+      backBtn.hidden = true;
       listEl.innerHTML = SK;
       loadProvinces().then((provinces) => renderList(provinces, pickProvince));
     }
@@ -121,7 +121,7 @@
     function showCities() {
       stage = 'city';
       titleEl.textContent = 'Select City / Municipality';
-      backBtn.style.display = '';
+      backBtn.hidden = false;
       listEl.innerHTML = SK;
       loadCities().then((cities) => {
         const filtered = cities.filter((c) => c.province_code === selectedProvince.code);
@@ -138,7 +138,7 @@
     function showBarangays() {
       stage = 'barangay';
       titleEl.textContent = 'Select Barangay';
-      backBtn.style.display = '';
+      backBtn.hidden = false;
       listEl.innerHTML = SK;
       loadBarangays(selectedCity.code).then((names) => {
         renderList(names.map((n) => ({ name: n })), pickBarangay);

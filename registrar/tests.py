@@ -173,8 +173,8 @@ class ConcurrentIdAllocationTests(TransactionTestCase):
 
 
 class UploadFeedbackTests(TestCase):
-    """A rejected upload must surface its reason as a *valid* showToast call —
-    an unquoted message is a JS syntax error and the toast silently never shows."""
+    """A rejected upload must surface its reason in the page's flash messages
+    (#flash-messages in base.html), which ui.js shows as an error toast."""
 
     def setUp(self):
         self.record = ClergyRecord.objects.create(id='CLG-001', name='Fr. A')
@@ -186,12 +186,12 @@ class UploadFeedbackTests(TestCase):
         ClergyProfile.objects.create(user=user, record=self.record)
         self.client.force_login(user)
         r = self.client.post(reverse('clergy:my_requirements'), self.bad, follow=True)
-        self.assertContains(r, "showToast('Only PDF, JPG and PNG files are allowed.', 'error')")
+        self.assertContains(r, '<span data-level="error">Only PDF, JPG and PNG files are allowed.</span>')
 
     def test_registrar_sees_rejection_toast(self):
         self.client.force_login(activate(User.objects.create_user('r', password='pw12345!x', is_staff=True)))
         r = self.client.post(reverse('registrar:record_detail', args=[self.record.id]), self.bad, follow=True)
-        self.assertContains(r, "showToast('Only PDF, JPG and PNG files are allowed.', 'error')")
+        self.assertContains(r, '<span data-level="error">Only PDF, JPG and PNG files are allowed.</span>')
 
 
 class BlankFieldTests(TestCase):

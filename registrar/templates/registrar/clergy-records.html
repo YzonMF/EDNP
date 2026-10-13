@@ -6,7 +6,7 @@
 {% block content %}
   <section class="page active">
     <div class="panel">
-      <div class="panel-head"><div><h3><i class="fa-solid fa-address-book"></i> Clergy Records</h3><span class="muted">Create, search, retrieve and update stored clergy information</span></div><div><a class="btn secondary" href="{% url 'registrar:bulk_accounts' %}"><i class="fa-solid fa-users-gear"></i> Bulk Create Accounts</a> <button class="btn" onclick="openNewRecordModal()"><i class="fa-solid fa-plus"></i> New Record</button></div></div>
+      <div class="panel-head"><div><h3><i class="fa-solid fa-address-book"></i> Clergy Records</h3><span class="muted">Create, search, retrieve and update stored clergy information</span></div><div><a class="btn secondary" href="{% url 'registrar:bulk_accounts' %}"><i class="fa-solid fa-users-gear"></i> Bulk Create Accounts</a> <button class="btn" id="newRecordButton"><i class="fa-solid fa-plus"></i> New Record</button></div></div>
       <div class="page-tabs">
         <a class="{% if not showing_archived %}active{% endif %}"
            href="{% url 'registrar:clergy_records' %}"><i class="fa-solid fa-address-book"></i> Clergy Records</a>
@@ -22,7 +22,7 @@
                class="search"
                placeholder="Search by clergy name, assignment or ID..."
                value="{{ search_query }}">
-        <select name="status" class="select" onchange="this.form.submit()">
+        <select name="status" class="select" data-autosubmit>
           <option value="">All Status</option>
           {% for value, label in status_choices %}
             <option value="{{ value }}"
@@ -57,19 +57,19 @@
                     <span class="badge active-b">Activated</span>
                     <button class="btn small secondary"
                             type="button"
-                            onclick="openResetAccountModal(this)"
+                            data-reset-account
                             data-record-id="{{ record.id }}"
                             data-record-name="{{ record.name }}"><i class="fa-solid fa-mobile-screen"></i> Lost phone</button>
                   {% else %}
                     {% if record.account.state == "expired" %}<span class="badge inactive-b">Expired</span>{% else %}<span class="badge pending-b">Pending{% if record.account.days_left is not None %} · {{ record.account.days_left }}d left{% endif %}</span>{% endif %}
                     <form method="post"
                           action="{% url 'registrar:reset_account' record.id %}"
-                          style="display:inline"
-                          onsubmit="return confirm('Make a new temporary password for {{ record.name|escapejs }}? The old one will stop working.')">{% csrf_token %}<button class="btn small secondary" type="submit"><i class="fa-solid fa-print"></i> Reset &amp; reprint</button></form>
+                          class="inline-form"
+                          data-confirm="Make a new temporary password for {{ record.name }}? The old one will stop working.">{% csrf_token %}<button class="btn small secondary" type="submit"><i class="fa-solid fa-print"></i> Reset &amp; reprint</button></form>
                   {% endif %}
                 {% else %}
                   <button class="btn small secondary"
-                          onclick="openLinkAccountModal(this)"
+                          data-link-account
                           data-record-id="{{ record.id }}"
                           data-record-name="{{ record.name }}"><i class="fa-solid fa-user-plus"></i> Create Account</button>
                 {% endif %}
@@ -83,12 +83,12 @@
                 {% if record.is_archived %}
                   <form method="post"
                         action="{% url 'registrar:restore_record' record.id %}"
-                        style="display:inline">{% csrf_token %}<button class="btn small secondary" type="submit"><i class="fa-solid fa-rotate-left"></i> Restore</button></form>
+                        class="inline-form">{% csrf_token %}<button class="btn small secondary" type="submit"><i class="fa-solid fa-rotate-left"></i> Restore</button></form>
                 {% elif record.status == archivable_status %}
                   <form method="post"
                         action="{% url 'registrar:archive_record' record.id %}"
-                        style="display:inline"
-                        onsubmit="return confirm('Archive {{ record.name|escapejs }}? The record leaves the working lists but is kept, and can be restored any time.')">{% csrf_token %}<button class="btn small secondary" type="submit"><i class="fa-solid fa-box-archive"></i> Archive</button></form>
+                        class="inline-form"
+                        data-confirm="Archive {{ record.name }}? The record leaves the working lists but is kept, and can be restored any time.">{% csrf_token %}<button class="btn small secondary" type="submit"><i class="fa-solid fa-box-archive"></i> Archive</button></form>
                 {% endif %}
               </td>
             </tr>
@@ -106,13 +106,13 @@
     <div class="modal">
       <div class="modal-head">
         <div>
-          <h3 style="margin:0"><i class="fa-solid fa-plus"></i> Create Clergy Record</h3>
+          <h3><i class="fa-solid fa-plus"></i> Create Clergy Record</h3>
           <span class="muted">Encode verified clergy biodata and set up portal access</span>
         </div>
         <button class="close"
                 type="button"
                 aria-label="Close"
-                onclick="closeModal('recordModal')">
+                data-close-modal="recordModal">
           <i class="fa-solid fa-xmark"></i>
         </button>
       </div>
@@ -128,7 +128,7 @@
           <div class="field">
             <label>Deanery</label><select name="deanery"
         id="newDeanery"
-        onchange="updateParishOptions('newDeanery','newAssignment')">
+        data-parish-target="newAssignment">
               <option value="">Select Deanery</option>
             </select>
           </div>
@@ -140,14 +140,14 @@
           <div class="field">
             <label>Status</label><select name="status"
         id="newStatus"
-        onchange="toggleLeaveReason('newStatus','newLeaveReasonField')">
+        data-leave-field="newLeaveReasonField">
               <option>Active</option>
               <option>On Leave</option>
               <option>Missionary to Other Diocese</option>
               <option>Retired</option>
             </select>
           </div>
-          <div class="field" id="newLeaveReasonField" style="display:none">
+          <div class="field hidden" id="newLeaveReasonField">
             <label>Leave Reason</label><input name="leave_reason"
        id="newLeaveReason"
        placeholder="e.g. medical leave, sabbatical">
@@ -170,11 +170,11 @@
             <label>Contract End</label><input name="contract_end" type="date">
           </div>
         </div>
-        <p class="muted" style="margin:10px 0 0">A portal username and a random temporary password are made for this person automatically and opened as a printable slip.</p>
+        <p class="muted form-note">A portal username and a random temporary password are made for this person automatically and opened as a printable slip.</p>
         <div class="modal-actions">
           <button type="button"
                   class="btn secondary"
-                  onclick="closeModal('recordModal')"><i class="fa-solid fa-xmark"></i> Cancel</button><button class="btn"><i class="fa-solid fa-floppy-disk"></i> Save Record &amp; Print Slip</button>
+                  data-close-modal="recordModal"><i class="fa-solid fa-xmark"></i> Cancel</button><button class="btn"><i class="fa-solid fa-floppy-disk"></i> Save Record &amp; Print Slip</button>
         </div>
       </form>
     </div>
@@ -184,23 +184,23 @@
     <div class="modal">
       <div class="modal-head">
         <div>
-          <h3 style="margin:0"><i class="fa-solid fa-user-plus"></i> Create Portal Account</h3>
+          <h3><i class="fa-solid fa-user-plus"></i> Create Portal Account</h3>
           <span class="muted" id="linkAccountName"></span>
         </div>
         <button class="close"
                 type="button"
                 aria-label="Close"
-                onclick="closeModal('linkAccountModal')">
+                data-close-modal="linkAccountModal">
           <i class="fa-solid fa-xmark"></i>
         </button>
       </div>
       <form method="post" id="linkAccountForm">
         {% csrf_token %}
-        <p class="muted" style="margin:0">The username is the record ID, and a random temporary password is generated. Both open as a printable slip — the password is shown only once.</p>
+        <p class="muted no-margin">The username is the record ID, and a random temporary password is generated. Both open as a printable slip — the password is shown only once.</p>
         <div class="modal-actions">
           <button type="button"
                   class="btn secondary"
-                  onclick="closeModal('linkAccountModal')"><i class="fa-solid fa-xmark"></i> Cancel</button><button class="btn"><i class="fa-solid fa-print"></i> Create Account &amp; Print Slip</button>
+                  data-close-modal="linkAccountModal"><i class="fa-solid fa-xmark"></i> Cancel</button><button class="btn"><i class="fa-solid fa-print"></i> Create Account &amp; Print Slip</button>
         </div>
       </form>
     </div>
@@ -210,13 +210,13 @@
     <div class="modal">
       <div class="modal-head">
         <div>
-          <h3 style="margin:0"><i class="fa-solid fa-mobile-screen"></i> Reset Account — Lost Phone</h3>
+          <h3><i class="fa-solid fa-mobile-screen"></i> Reset Account — Lost Phone</h3>
           <span class="muted" id="resetAccountName"></span>
         </div>
         <button class="close"
                 type="button"
                 aria-label="Close"
-                onclick="closeModal('resetAccountModal')">
+                data-close-modal="resetAccountModal">
           <i class="fa-solid fa-xmark"></i>
         </button>
       </div>
@@ -230,7 +230,7 @@
         <div class="modal-actions">
           <button type="button"
                   class="btn secondary"
-                  onclick="closeModal('resetAccountModal')"><i class="fa-solid fa-xmark"></i> Cancel</button><button class="btn danger"><i class="fa-solid fa-print"></i> Reset &amp; Print Slip</button>
+                  data-close-modal="resetAccountModal"><i class="fa-solid fa-xmark"></i> Cancel</button><button class="btn danger"><i class="fa-solid fa-print"></i> Reset &amp; Print Slip</button>
         </div>
       </form>
     </div>

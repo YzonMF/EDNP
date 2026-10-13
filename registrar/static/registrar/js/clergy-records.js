@@ -1,6 +1,7 @@
 /* Clergy Records page UI: the deanery -> parish cascade dropdown for the New
-   Record modal, and the Link Account modal. Personal Information and
-   Documents are now a real per-record page (record-detail.html), not a
+   Record modal, and the Link Account and Lost Phone modals. The record page
+   (record-detail.html) loads this too, for the same cascade. Personal
+   Information and Documents are now a real per-record page, not a
    JS-populated modal. Every value below comes from what Django already
    rendered into the page (the embedded deaneries JSON) — nothing here
    holds or computes application data on its own. Depends on ui.js
@@ -28,7 +29,7 @@ function updateParishOptions(deanerySelectId,assignmentSelectId){
 
 function toggleLeaveReason(statusSelectId,fieldId){
  const status=document.getElementById(statusSelectId).value;
- document.getElementById(fieldId).style.display=(status==='On Leave')?'':'none';
+ document.getElementById(fieldId).classList.toggle('hidden',status!=='On Leave');
 }
 
 function openNewRecordModal(){
@@ -54,3 +55,17 @@ function openLinkAccountModal(button){
  document.getElementById('linkAccountForm').action=`/registrar/clergy-records/${id}/link-account/`;
  openModal('linkAccountModal');
 }
+
+// A deanery <select data-parish-target="id"> refills that parish list; a status
+// <select data-leave-field="id"> shows that Leave Reason field only for On Leave
+document.querySelectorAll('[data-parish-target]').forEach(sel=>{
+ sel.addEventListener('change',()=>updateParishOptions(sel.id,sel.dataset.parishTarget));
+});
+document.querySelectorAll('[data-leave-field]').forEach(sel=>{
+ sel.addEventListener('change',()=>toggleLeaveReason(sel.id,sel.dataset.leaveField));
+});
+
+const newRecordButton=document.getElementById('newRecordButton');
+if(newRecordButton)newRecordButton.addEventListener('click',openNewRecordModal);
+document.querySelectorAll('[data-reset-account]').forEach(btn=>btn.addEventListener('click',()=>openResetAccountModal(btn)));
+document.querySelectorAll('[data-link-account]').forEach(btn=>btn.addEventListener('click',()=>openLinkAccountModal(btn)));

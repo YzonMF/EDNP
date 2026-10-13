@@ -1,7 +1,8 @@
 /* Record detail page: the Personal Information / Documents tab switcher,
    and initializing the Deanery -> Assignment cascade with this record's
    existing values (the shared populateDeaneries/updateParishOptions/
-   toggleLeaveReason helpers come from clergy-records.js). */
+   toggleLeaveReason helpers come from clergy-records.js). The tab shown
+   first is the tab bar's data-active-tab. */
 
 function selectTab(tab) {
   document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
@@ -34,3 +35,9 @@ function initRecordDetailTabs(activeTab) {
 
   toggleLeaveReason('editStatus', 'editLeaveReasonField');
 }
+
+document.querySelectorAll('.page-tabs [data-tab]').forEach(button => {
+  button.addEventListener('click', () => selectTab(button.dataset.tab));
+});
+
+initRecordDetailTabs(document.querySelector('[data-active-tab]').dataset.activeTab);
