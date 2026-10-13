@@ -68,7 +68,7 @@ class DocumentUploadForm(forms.Form):
     def clean_file(self):
         upload = self.cleaned_data['file']
         if upload.size > MAX_UPLOAD_BYTES:
-            raise forms.ValidationError('File is too large — the maximum is 10 MB for a photo or scan, and 5 MB for a PDF.')
+            raise forms.ValidationError('File too large. The maximum file size is 10MB.')
         extension = os.path.splitext(upload.name)[1].lower()
         signatures = DOCUMENT_SIGNATURES.get(extension)
         if not signatures:
@@ -81,10 +81,8 @@ class DocumentUploadForm(forms.Form):
             upload = images.shrink(upload)
         if upload.size > MAX_STORED_BYTES:
             if extension == '.pdf':
-                raise forms.ValidationError('That PDF is too large — the maximum is 5 MB. Scanning in black and white, '
-                                            'or at 150–200 dpi, makes it smaller.')
-            raise forms.ValidationError('That image is too large to store — the maximum is 5 MB. Please scan or '
-                                        'photograph it at a lower resolution.')
+                raise forms.ValidationError('File too large. The maximum file size is 10MB.')
+            raise forms.ValidationError('File too large. The maximum file size is 10MB.')
         return upload
 
 

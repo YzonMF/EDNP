@@ -1,44 +1,65 @@
-{% extends 'registrar/base.html' %}
+{% extends "registrar/base.html" %}
 {% block page_name %}Bulk Create Accounts{% endblock %}
 {% block page_name_heading %}Bulk Create Accounts{% endblock %}
-
 {% block content %}
-<section class="page active">
-<div class="panel" style="max-width:860px">
-
-{% if preview_rows %}
-  <div class="panel-head"><div><h3><i class="fa-solid fa-list-check"></i> Review before creating</h3><span class="muted">Untick anyone you don't want created. Nothing has been saved yet.</span></div></div>
-
-  <div class="alert">Each person gets a username (their record ID) and a random temporary password. The passwords appear <b>only once</b>, on the printable slips that open next — they cannot be shown again. Unactivated accounts stop working after {{ setup_window_days }} days.</div>
-
-  <form method="post" id="bulkConfirmForm" onsubmit="this.querySelector('button[type=submit]').disabled=true">
-    {% csrf_token %}
-    <input type="hidden" name="step" value="confirm">
-    <input type="hidden" name="token" value="{{ token }}">
-    <table>
-      <thead><tr><th style="width:40px"></th><th style="width:40px">#</th><th>Full name</th><th>Check</th></tr></thead>
-      <tbody>
-      {% for row in preview_rows %}
-        <tr>
-          <td><input type="checkbox" class="pick" name="names" value="{{ row.name }}" {% if row.errors %}disabled{% elif not row.warnings %}checked{% endif %} aria-label="Create account for {{ row.name }}"></td>
-          <td>{{ forloop.counter }}</td>
-          <td><b>{{ row.name }}</b></td>
-          <td>
-            {% for e in row.errors %}<span class="badge inactive-b">{{ e }}</span> {% endfor %}
-            {% for w in row.warnings %}<span class="badge pending-b">{{ w }}</span> {% endfor %}
-            {% if not row.errors and not row.warnings %}<span class="badge active-b">OK</span>{% endif %}
-          </td>
-        </tr>
-      {% endfor %}
-      </tbody>
-    </table>
-    <p class="muted" style="margin-top:10px">Names with a yellow note start unticked — tick them only if it really is a different person.</p>
-    <div class="modal-actions">
-      <a class="btn secondary" href="{% url 'registrar:bulk_accounts' %}"><i class="fa-solid fa-arrow-left"></i> Start over</a>
-      <button class="btn" type="submit" id="bulkConfirmBtn"><i class="fa-solid fa-print"></i> Create accounts &amp; open slips</button>
-    </div>
-  </form>
-  <script>
+  <section class="page active">
+    <div class="panel" style="max-width:860px">
+      {% if preview_rows %}
+        <div class="panel-head">
+          <div>
+            <h3><i class="fa-solid fa-list-check"></i> Review before creating</h3>
+            <span class="muted">Untick anyone you don't want created. Nothing has been saved yet.</span>
+          </div>
+        </div>
+        <div class="alert">Each person gets a username (their record ID) and a random temporary password. The passwords appear <b>only once</b>, on the printable slips that open next — they cannot be shown again. Unactivated accounts stop working after {{ setup_window_days }} days.</div>
+        <form method="post"
+              id="bulkConfirmForm"
+              onsubmit="this.querySelector('button[type=submit]').disabled=true">
+          {% csrf_token %}
+          <input type="hidden" name="step" value="confirm">
+          <input type="hidden" name="token" value="{{ token }}">
+          <table>
+            <thead>
+              <tr>
+                <th style="width:40px"></th>
+                <th style="width:40px">#</th>
+                <th>Full name</th>
+                <th>Check</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in preview_rows %}
+                <tr>
+                  <td>
+                    <input type="checkbox"
+                           class="pick"
+                           name="names"
+                           value="{{ row.name }}"
+                           {% if row.errors %}disabled{% elif not row.warnings %}checked{% endif %}
+                           aria-label="Create account for {{ row.name }}">
+                  </td>
+                  <td>{{ forloop.counter }}</td>
+                  <td><b>{{ row.name }}</b></td>
+                  <td>
+                    {% for e in row.errors %}<span class="badge inactive-b">{{ e }}</span>{% endfor %}
+                    {% for w in row.warnings %}<span class="badge pending-b">{{ w }}</span>{% endfor %}
+                    {% if not row.errors and not row.warnings %}<span class="badge active-b">OK</span>{% endif %}
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          <p class="muted"
+             style="margin-top:10px">Names with a yellow note start unticked — tick them only if it really is a different person.</p>
+          <div class="modal-actions">
+            <a class="btn secondary"
+               href="{% url 'registrar:bulk_accounts' %}"><i class="fa-solid fa-arrow-left"></i> Start over</a>
+            <button class="btn"
+                    type="submit"
+                    id="bulkConfirmBtn"><i class="fa-solid fa-print"></i> Create accounts &amp; open slips</button>
+          </div>
+        </form>
+        <script>
     (function () {
       var form = document.getElementById('bulkConfirmForm');
       var btn = document.getElementById('bulkConfirmBtn');
@@ -50,30 +71,38 @@
       form.addEventListener('change', refresh);
       refresh();
     })();
-  </script>
-
-{% else %}
-  <div class="panel-head"><div><h3><i class="fa-solid fa-users-gear"></i> Bulk Create Accounts</h3><span class="muted">Add several clergy at once. Everything except the name is filled in later.</span></div><a class="btn secondary" href="{% url 'registrar:clergy_records' %}"><i class="fa-solid fa-arrow-left"></i> Clergy Records</a></div>
-
-  <form method="post" enctype="multipart/form-data" autocomplete="off">
-    {% csrf_token %}
-    <input type="hidden" name="step" value="preview">
-    <div class="form-grid" style="grid-template-columns:1fr">
-      <div class="field">
-        <label for="names_text">Paste full names, one per line (up to {{ max_names }})</label>
-        <textarea id="names_text" name="names_text" rows="10" placeholder="Rev. Juan Dela Cruz&#10;Rev. Maria Santos&#10;..." style="width:100%;font:inherit;padding:10px;border:1px solid var(--border);border-radius:8px;box-sizing:border-box">{{ names_text|default:"" }}</textarea>
-        <span class="muted">Copying a single column from Excel works.</span>
-      </div>
-      <div class="field">
-        <label for="names_file">…or upload a spreadsheet (.xlsx or .csv)</label>
-        <input type="file" id="names_file" name="names_file" accept=".xlsx,.csv">
-        <span class="muted">Names in the first column; a "Full name" header row is fine. If you choose a file, it is used instead of the text above.</span>
-      </div>
+        </script>
+      {% else %}
+        <div class="panel-head"><div><h3><i class="fa-solid fa-users-gear"></i> Bulk Create Accounts</h3><span class="muted">Add several clergy at once. Everything except the name is filled in later.</span></div><a class="btn secondary" href="{% url 'registrar:clergy_records' %}"><i class="fa-solid fa-arrow-left"></i> Clergy Records</a></div>
+        <form method="post" enctype="multipart/form-data" autocomplete="off">
+          {% csrf_token %}
+          <input type="hidden" name="step" value="preview">
+          <div class="form-grid" style="grid-template-columns:1fr">
+            <div class="field">
+              <label for="names_text">Paste full names, one per line (up to {{ max_names }})</label>
+              <textarea id="names_text"
+                        name="names_text"
+                        rows="10"
+                        placeholder="Rev. Juan Dela Cruz&#10;Rev. Maria Santos&#10;..."
+                        style="width:100%;
+                               font:inherit;
+                               padding:10px;
+                               border:1px solid var(--border);
+                               border-radius:8px;
+                               box-sizing:border-box">{{ names_text|default:"" }}</textarea>
+              <span class="muted">Copying a single column from Excel works.</span>
+            </div>
+            <div class="field">
+              <label for="names_file">…or upload a spreadsheet (.xlsx or .csv)</label>
+              <input type="file" id="names_file" name="names_file" accept=".xlsx,.csv">
+              <span class="muted">Names in the first column; a "Full name" header row is fine. If you choose a file, it is used instead of the text above.</span>
+            </div>
+          </div>
+          <div class="modal-actions">
+            <button class="btn" type="submit"><i class="fa-solid fa-magnifying-glass"></i> Preview</button>
+          </div>
+        </form>
+      {% endif %}
     </div>
-    <div class="modal-actions"><button class="btn" type="submit"><i class="fa-solid fa-magnifying-glass"></i> Preview</button></div>
-  </form>
-{% endif %}
-
-</div>
-</section>
+  </section>
 {% endblock %}

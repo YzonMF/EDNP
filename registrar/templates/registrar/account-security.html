@@ -1,59 +1,103 @@
-{% extends 'registrar/base.html' %}
+{% extends "registrar/base.html" %}
 {% load registrar_extras %}
 {% block page_name %}Account Security{% endblock %}
 {% block page_name_heading %}Account Security{% endblock %}
-
 {% block content %}
-<section class="page active">
-{% if show_registrars %}
-<div class="panel">
-  <div class="panel-head"><div><h3><i class="fa-solid fa-user-shield"></i> Registrar Accounts</h3><span class="muted">If a registrar loses their phone or password, another registrar can reset it after confirming who they are in person. A new slip is printed and every reset is recorded below.</span></div></div>
-  <table><thead><tr><th>Name</th><th>Username</th><th>Status</th><th>Reset</th></tr></thead>
-  <tbody>
-  {% for row in rows %}
-  <tr>
-    <td><b>{{ row.name }}</b>{% if row.is_self %} <span class="muted">(you)</span>{% endif %}</td>
-    <td>{{ row.user.username }}</td>
-    <td>
-      {% if row.state == 'activated' %}<span class="badge active-b">Activated</span>
-      {% elif row.state == 'expired' %}<span class="badge inactive-b">Expired</span>
-      {% else %}<span class="badge pending-b">Pending{% if row.days_left is not None %} · {{ row.days_left }}d left{% endif %}</span>{% endif %}
-    </td>
-    <td>
-      {% if row.is_self %}
-      <span class="muted">Ask another registrar, or whoever manages the server.</span>
-      {% else %}
-      <form method="post" action="{% url 'registrar:reset_staff_account' row.user.pk %}" style="display:flex;gap:6px;align-items:center" onsubmit="return confirm('Reset {{ row.name|escapejs }}? Their number is forgotten, their devices are signed out, and a new temporary password is printed. Only do this after confirming who they are in person.')">
-        {% csrf_token %}
-        <input name="note" maxlength="255" placeholder="Note (optional)" style="padding:6px 8px;border:1px solid var(--border);border-radius:7px;font-size:11px">
-        <button class="btn small danger" type="submit"><i class="fa-solid fa-rotate-left"></i> Reset &amp; print slip</button>
-      </form>
-      {% endif %}
-    </td>
-  </tr>
-  {% empty %}
-  <tr><td colspan="4" class="empty">No registrar accounts.</td></tr>
-  {% endfor %}
-  </tbody></table>
-</div>
+  <section class="page active">
+    {% if show_registrars %}
+      <div class="panel">
+        <div class="panel-head">
+          <div>
+            <h3><i class="fa-solid fa-user-shield"></i> Registrar Accounts</h3>
+            <span class="muted">If a registrar loses their phone or password, another registrar can reset it after confirming who they are in person. A new slip is printed and every reset is recorded below.</span>
+          </div>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Username</th>
+              <th>Status</th>
+              <th>Reset</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in rows %}
+              <tr>
+                <td><b>{{ row.name }}</b>{% if row.is_self %} <span class="muted">(you)</span>{% endif %}</td>
+                <td>{{ row.user.username }}</td>
+                <td>
+                  {% if row.state == "activated" %}<span class="badge active-b">Activated</span>
+            {% elif row.state == "expired" %}<span class="badge inactive-b">Expired</span>
+    {% else %}<span class="badge pending-b">Pending{% if row.days_left is not None %} · {{ row.days_left }}d left{% endif %}</span>{% endif %}
+      </td>
+      <td>
+        {% if row.is_self %}
+          <span class="muted">Ask another registrar, or whoever manages the server.</span>
+        {% else %}
+          <form method="post"
+                action="{% url 'registrar:reset_staff_account' row.user.pk %}"
+                style="display:flex;
+                       gap:6px;
+                       align-items:center"
+                onsubmit="return confirm('Reset {{ row.name|escapejs }}? Their number is forgotten, their devices are signed out, and a new temporary password is printed. Only do this after confirming who they are in person.')">
+            {% csrf_token %}
+            <input name="note"
+                   maxlength="255"
+                   placeholder="Note (optional)"
+                   style="padding:6px 8px;
+                          border:1px solid var(--border);
+                          border-radius:7px;
+                          font-size:11px">
+            <button class="btn small danger"
+                    type="submit"><i class="fa-solid fa-rotate-left"></i> Reset &amp; print slip</button>
+          </form>
+        {% endif %}
+      </td>
+      </tr>
+    {% empty %}
+      <tr>
+        <td colspan="4" class="empty">No registrar accounts.</td>
+      </tr>
+    {% endfor %}
+  </tbody>
+  </table>
+  </div>
 {% endif %}
-
-<div class="panel"{% if show_registrars %} style="margin-top:18px"{% endif %}>
-  <div class="panel-head"><div><h3><i class="fa-solid fa-clock-rotate-left"></i> Recent Account Activity</h3><span class="muted">Accounts created, resets after a lost phone or slip, changes to names, usernames and numbers, backups downloaded, and reports and clergy records archived, restored or deleted. The 50 most recent.</span></div></div>
-  <table><thead><tr><th>When</th><th>Who</th><th>Action</th><th>Account</th><th>Note</th></tr></thead>
-  <tbody>
-  {% for entry in activity %}
-  <tr>
-    <td>{{ entry.created_at|date:"M d, Y H:i" }}</td>
-    <td>{{ entry.actor_name }}</td>
-    <td><span class="badge {% if entry.action == 'lost_phone_reset' or entry.action == 'report_deleted' or entry.action == 'report_expired' or entry.action == 'archive_deleted' %}inactive-b{% elif entry.action == 'password_reprinted' or entry.action == 'database_backup' or entry.action == 'archive_downloaded' or entry.action == 'report_archived' or entry.action == 'record_archived' %}pending-b{% else %}active-b{% endif %}">{{ entry.get_action_display }}</span></td>
-    <td>{{ entry.target_name|default:"—" }}</td>
-    <td>{{ entry.note|default:"—" }}</td>
-  </tr>
-  {% empty %}
-  <tr><td colspan="5" class="empty">Nothing recorded yet.</td></tr>
-  {% endfor %}
-  </tbody></table>
+<div class="panel"
+     {% if show_registrars %} style="margin-top:18px"{% endif %}>
+  <div class="panel-head">
+    <div>
+      <h3><i class="fa-solid fa-clock-rotate-left"></i> Recent Account Activity</h3>
+      <span class="muted">Accounts created, resets after a lost phone or slip, changes to names, usernames and numbers, backups downloaded, and reports and clergy records archived, restored or deleted. The 50 most recent.</span>
+    </div>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>When</th>
+        <th>Who</th>
+        <th>Action</th>
+        <th>Account</th>
+        <th>Note</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for entry in activity %}
+        <tr>
+          <td>{{ entry.created_at|date:"M d, Y H:i" }}</td>
+          <td>{{ entry.actor_name }}</td>
+          <td><span class="badge {% if entry.action == 'lost_phone_reset' or entry.action == 'report_deleted' or entry.action == 'report_expired' or entry.action == 'archive_deleted' %}inactive-b{% elif entry.action == 'password_reprinted' or entry.action == 'database_backup' or entry.action == 'archive_downloaded' or entry.action == 'report_archived' or entry.action == 'record_archived' %}pending-b{% else %}active-b{% endif %}">{{ entry.get_action_display }}</span></td>
+          <td>{{ entry.target_name|default:"—" }}</td>
+          <td>{{ entry.note|default:"—" }}</td>
+        </tr>
+      {% empty %}
+        <tr>
+          <td colspan="5" class="empty">Nothing recorded yet.</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
 </div>
 </section>
 {% endblock %}
