@@ -84,6 +84,7 @@ NOTIFICATION_KINDS = {
     'contract_reminder': ('record', 'fa-calendar-days', 'amber'),
     'contract_ended': ('record', 'fa-calendar-xmark', 'red'),
     'document_uploaded': ('documents', 'fa-file-arrow-up', 'green'),
+    'ember_uploaded': ('documents', 'fa-file-arrow-up', 'green'),
     'document_expiring': ('documents', 'fa-hourglass-half', 'amber'),
     'document_expired': ('documents', 'fa-file-circle-exclamation', 'red'),
 }

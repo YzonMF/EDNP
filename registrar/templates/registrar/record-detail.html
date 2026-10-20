@@ -3,6 +3,9 @@
 {% load registrar_extras %}
 {% block page_name %}{{ record.name }}{% endblock %}
 {% block page_name_heading %}{{ record.name }}{% endblock %}
+{% block extra_css %}
+  <link rel="stylesheet" href="{% static 'ember-letters.css' %}">
+{% endblock %}
 {% block content %}
   <section class="page active">
     <div class="panel">
@@ -29,6 +32,7 @@
                 id="tabBtnPersonal"
                 data-tab="personal"><i class="fa-solid fa-user"></i> Personal Information</button>
         <button type="button" id="tabBtnDocuments" data-tab="documents"><i class="fa-solid fa-folder-open"></i> Documents <span class="badge {{ record.document_summary|document_badge_class }}">{{ record.document_summary.submitted }}/{{ record.document_summary.total }}</span></button>
+        <button type="button" id="tabBtnEmber" data-tab="ember"><i class="fa-solid fa-envelope-open-text"></i> Ember Letters <span class="badge abroad-b" data-ember-tab-badge>{{ ember_summary.uploaded }}/{{ ember_summary.target }}</span></button>
       </div>
       <div id="tabPersonal" class="tab-content">
         <form method="post">
@@ -267,6 +271,29 @@
 <p class="empty">No registrar-upload document types configured.</p>
 {% endfor %}
 </div>
+<h4 class="doc-group-title"><i class="fa-solid fa-envelope-open-text"></i>Ember Letters</h4>
+<div class="doc-grid">
+  <div class="doc-card ember-summary-card">
+    <div class="doc-card-head">
+      <b>Ember Letters (Quarterly)</b>
+      <span class="badge abroad-b" data-ember-card-badge>{{ ember_summary.uploaded }} of {{ ember_summary.target }} uploaded</span>
+    </div>
+    <div class="muted">Quarterly Ember Letters grouped by year (Q1–Q4). Informational — does not block checklist completion.</div>
+    <div class="doc-card-file" data-ember-card-detail>
+      {% if ember_summary.uploaded %}
+        <i class="fa-solid fa-file-lines"></i> {{ ember_summary.uploaded }} of {{ ember_summary.target }} quarterly letters uploaded across {{ ember_summary.years }} year{{ ember_summary.years|pluralize }}.
+      {% else %}
+        No quarterly Ember letters uploaded yet.
+      {% endif %}
+    </div>
+    <div class="row-actions">
+      <button type="button" class="btn small" data-open-tab="ember"><i class="fa-solid fa-folder-open"></i> Open Ember Letters</button>
+    </div>
+  </div>
+</div>
+</div>
+<div id="tabEmber" class="tab-content">
+  {% include "_ember_letters.html" %}
 </div>
 </div>
 </section>
@@ -276,5 +303,6 @@
 {% block extra_js %}
   <script src="{% static 'registrar/js/clergy-records.js' %}"></script>
   <script src="{% static 'registrar/js/record-detail.js' %}"></script>
+  <script src="{% static 'ember-letters.js' %}"></script>
   <script src="{% static 'clergy/js/address-picker.js' %}"></script>
 {% endblock %}

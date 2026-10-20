@@ -122,6 +122,9 @@ class AccountAuditLog(models.Model):
         ('report_expired', 'Report deleted after 30 days'),
         ('record_archived', 'Clergy record archived'),
         ('record_restored', 'Clergy record restored'),
+        ('ember_uploaded', 'Ember letter uploaded'),
+        ('ember_replaced', 'Ember letter replaced'),
+        ('ember_deleted', 'Ember letter removed'),
     ]
 
     actor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, blank=True, null=True, related_name='+')

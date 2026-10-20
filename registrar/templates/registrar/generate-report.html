@@ -77,6 +77,13 @@
           {% endfor %}
         </tbody>
       </table>
+      {% if page.has_other_pages %}
+        <div class="pager">
+          {% if page.has_previous %}<a class="btn small secondary" href="?page={{ page.previous_page_number }}"><i class="fa-solid fa-arrow-left"></i> Newer</a>{% endif %}
+          <span>Page {{ page.number }} of {{ page.paginator.num_pages }}</span>
+          {% if page.has_next %}<a class="btn small secondary" href="?page={{ page.next_page_number }}">Older <i class="fa-solid fa-arrow-right"></i></a>{% endif %}
+        </div>
+      {% endif %}
     </div>
     <div class="panel stacked">
       <div class="panel-head">

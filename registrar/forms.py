@@ -1,4 +1,5 @@
 import os
+from datetime import date
 
 from django import forms
 
@@ -68,7 +69,7 @@ class DocumentUploadForm(forms.Form):
     def clean_file(self):
         upload = self.cleaned_data['file']
         if upload.size > MAX_UPLOAD_BYTES:
-            raise forms.ValidationError('File too large. The maximum file size is 10MB.')
+            raise forms.ValidationError('File is too large — the maximum is 10 MB for a photo or scan, and 5 MB for a PDF.')
         extension = os.path.splitext(upload.name)[1].lower()
         signatures = DOCUMENT_SIGNATURES.get(extension)
         if not signatures:
@@ -81,8 +82,45 @@ class DocumentUploadForm(forms.Form):
             upload = images.shrink(upload)
         if upload.size > MAX_STORED_BYTES:
             if extension == '.pdf':
-                raise forms.ValidationError('File too large. The maximum file size is 10MB.')
-            raise forms.ValidationError('File too large. The maximum file size is 10MB.')
+                raise forms.ValidationError('That PDF is too large — the maximum is 5 MB. Scanning in black and white, '
+                                            'or at 150–200 dpi, makes it smaller.')
+            raise forms.ValidationError('That image is too large to store — the maximum is 5 MB. Please scan or '
+                                        'photograph it at a lower resolution.')
+        return upload
+
+
+EMBER_MIN_YEAR = 1950
+EMBER_MAX_BYTES = 5 * 1024 * 1024  # 5 MB
+
+
+class EmberLetterUploadForm(forms.Form):
+    year = forms.IntegerField()
+    quarter = forms.IntegerField(min_value=1, max_value=4)
+    file = forms.FileField()
+
+    def clean_year(self):
+        year = self.cleaned_data['year']
+        current_year = date.today().year
+        if year < EMBER_MIN_YEAR or year > current_year:
+            raise forms.ValidationError(f'Year must be between {EMBER_MIN_YEAR} and {current_year}.')
+        return year
+
+    def clean_file(self):
+        upload = self.cleaned_data['file']
+        if upload.size > EMBER_MAX_BYTES:
+            raise forms.ValidationError('File is too large — the maximum is 5 MB.')
+        extension = os.path.splitext(upload.name)[1].lower()
+        signatures = DOCUMENT_SIGNATURES.get(extension)
+        if not signatures:
+            raise forms.ValidationError('Only PDF, JPG and PNG files are allowed.')
+        header = upload.read(16)
+        upload.seek(0)
+        if not header.startswith(signatures):
+            raise forms.ValidationError('That file does not look like a real PDF, JPG or PNG.')
+        if extension in IMAGE_EXTENSIONS:
+            upload = images.shrink(upload)
+        if upload.size > EMBER_MAX_BYTES:
+            raise forms.ValidationError('File is too large — the maximum is 5 MB.')
         return upload
 
 

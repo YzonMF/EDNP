@@ -91,11 +91,6 @@ DOCUMENT_TYPES = [
         'name': 'Birth Certificate',
         'required_from_rank': 'none',
     },
-    {
-        'name': 'Seminary Evaluation / Grades / Ember Letter',
-        'required_from_rank': 'none',
-        'notes': 'From seminary — the registrar typically uploads this on the clergy member\'s behalf.',
-    },
 ]
 
 

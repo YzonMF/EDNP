@@ -1,0 +1,315 @@
+/* Shared Ember Letters UI (Registrar & Clergy portals) */
+
+.tab-content {
+  display: none;
+}
+
+.tab-content.active {
+  display: block;
+}
+
+.page-tabs button {
+  border: 1px solid var(--border, var(--line, #e1e7ee));
+  background: #fff;
+  border-radius: 8px;
+  padding: 9px 14px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  color: #334155;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.page-tabs button.active {
+  background: var(--blue, #2f6fed);
+  color: #fff;
+  border-color: var(--blue, #2f6fed);
+}
+
+.page-tabs button .badge {
+  margin-left: 4px;
+}
+
+.ember-summary-card {
+  border-left: 3px solid var(--blue, #2f6fed);
+}
+
+.ember-summary-card .row-actions {
+  width: auto;
+  flex-direction: row;
+  margin-top: auto;
+  padding-top: 6px;
+}
+
+.ember-summary-card .row-actions .btn {
+  width: auto;
+}
+
+.ember-header-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 12px 15px;
+  background: #f8fafc;
+  border: 1px solid var(--border, var(--line, #e1e7ee));
+  border-radius: 10px;
+  margin-bottom: 16px;
+}
+
+.ember-progress-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #17212b;
+}
+
+.ember-progress-summary i {
+  color: var(--blue, #2f6fed);
+  font-size: 15px;
+}
+
+.ember-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ember-queue-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 5px 10px;
+  border-radius: 20px;
+  background: #eaf1ff;
+  color: var(--blue, #2f6fed);
+}
+
+.ember-years-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.ember-year-block {
+  border: 1px solid var(--border, var(--line, #e1e7ee));
+  border-radius: 11px;
+  background: #fff;
+  overflow: hidden;
+  transition: opacity 0.15s ease, border-color 0.15s ease;
+}
+
+.ember-year-block.is-locked-block {
+  background: #fafbfd;
+  opacity: 0.72;
+}
+
+.ember-year-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 12px 16px;
+  background: #fbfcfe;
+  border-bottom: 1px solid var(--border, var(--line, #e1e7ee));
+}
+
+.ember-year-title-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.ember-year-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--navy, #17324d);
+}
+
+.ember-year-select {
+  width: auto;
+  min-width: 145px;
+  padding: 7px 11px;
+  font-size: 13px;
+  font-weight: 600;
+  border: 1px solid var(--border, var(--line, #e1e7ee));
+  border-radius: 7px;
+  background: #fff;
+  color: #17212b;
+}
+
+.ember-year-select:disabled {
+  background: #f1f5f9;
+  color: #475569;
+  cursor: not-allowed;
+}
+
+.ember-year-lock-hint {
+  font-size: 11px;
+  color: var(--muted, #718096);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.ember-quarters {
+  display: flex;
+  flex-direction: column;
+}
+
+.ember-quarter-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 11px 16px;
+  border-bottom: 1px solid #edf0f3;
+}
+
+.ember-quarter-row:last-child {
+  border-bottom: 0;
+}
+
+.ember-quarter-row.state-locked {
+  background: #fafbfd;
+  color: var(--muted, #718096);
+}
+
+.ember-quarter-row.state-saved {
+  background: #fbfefc;
+}
+
+.ember-quarter-row.state-error {
+  background: #fffafa;
+}
+
+.ember-q-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  flex: 1 1 260px;
+}
+
+.ember-q-pill {
+  flex: 0 0 auto;
+  width: 34px;
+  height: 28px;
+  border-radius: 6px;
+  background: #eef2f6;
+  color: var(--navy, #17324d);
+  font-size: 12px;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.state-saved .ember-q-pill {
+  background: #e9f7ef;
+  color: var(--green, #239b62);
+}
+
+.state-uploading .ember-q-pill,
+.state-queued .ember-q-pill {
+  background: #eaf1ff;
+  color: var(--blue, #2f6fed);
+}
+
+.state-error .ember-q-pill {
+  background: #fff0ef;
+  color: var(--red, #c94b47);
+}
+
+.ember-q-info {
+  min-width: 0;
+  flex: 1;
+}
+
+.ember-q-status-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 12.5px;
+}
+
+.ember-q-filename {
+  font-weight: 600;
+  color: #17212b;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 320px;
+}
+
+.ember-q-meta {
+  font-size: 11px;
+  color: var(--muted, #718096);
+  margin-top: 2px;
+}
+
+.ember-q-error {
+  font-size: 11.5px;
+  color: var(--red, #c94b47);
+  font-weight: 600;
+}
+
+.ember-q-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+
+.ember-q-actions .btn {
+  width: auto;
+}
+
+.ember-file-input {
+  display: none;
+}
+
+.ember-spinner {
+  width: 13px;
+  height: 13px;
+  border: 2px solid #cbd5e1;
+  border-top-color: var(--blue, #2f6fed);
+  border-radius: 50%;
+  display: inline-block;
+  animation: ember-spin 0.7s linear infinite;
+}
+
+@keyframes ember-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 650px) {
+  .ember-quarter-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .ember-q-left {
+    flex: 1 1 auto;
+    width: 100%;
+  }
+  .ember-q-filename {
+    max-width: 200px;
+  }
+  .ember-q-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+}

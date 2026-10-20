@@ -5,12 +5,14 @@ from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
 from django.core.files.base import ContentFile
+from django.core.paginator import Paginator
 from django.db import transaction
+from urllib.parse import urlencode
 from django.db import models as db_models
-from django.http import FileResponse, Http404, HttpResponse, StreamingHttpResponse
+from django.http import FileResponse, Http404, HttpResponse, JsonResponse, StreamingHttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
-from django.utils import timezone
+from django.utils import dateformat, timezone
 
 from accounts import audit
 from accounts.models import AccountAuditLog
@@ -21,13 +23,16 @@ from ednp import encryption, security_log
 
 from . import archive, backups, bulk, reports, slips
 from .decorators import registrar_required
-from .forms import ClergyRecordForm, DocumentUploadForm, PersonalInfoForm, first_error
+from .forms import ClergyRecordForm, DocumentUploadForm, EmberLetterUploadForm, PersonalInfoForm, first_error
 from .models import (RANK_CHOICES, REPORT_ARCHIVE_DAYS, BackupArchive, ClergyRecord, Deanery, Document, DocumentType,
-                     GeneratedReport, save_document)
+                     EmberLetter, GeneratedReport, delete_ember_letter as remove_ember_letter, save_document,
+                     save_ember_letter)
 from .provisioning import (SETUP_WINDOW_DAYS, ProvisionError, account_status, provision_account, reset_credentials,
                            reset_lost_phone)
 
 NEAR_EXPIRY_WINDOW_DAYS = 180
+CLERGY_RECORDS_PER_PAGE = 100
+GENERATED_REPORTS_PER_PAGE = 10
 
 
 def _can_access_document(user, document):
@@ -77,6 +82,131 @@ def download_document(request, document_id):
     return FileResponse(_open_stored(document.file), as_attachment=True, filename=filename)
 
 
+def _format_file_size(num_bytes):
+    if not num_bytes:
+        return '0 KB'
+    if num_bytes < 1024 * 1024:
+        return f'{max(1, round(num_bytes / 1024))} KB'
+    return f'{num_bytes / (1024 * 1024):.1f} MB'
+
+
+def serialize_ember_letter(ember):
+    raw_name = ember.file.name.rsplit('/', 1)[-1]
+    prefix = f'{ember.year}_Q{ember.quarter}_'
+    display_name = raw_name[len(prefix):] if raw_name.startswith(prefix) else raw_name
+    local_dt = timezone.localtime(ember.submitted_date) if timezone.is_aware(ember.submitted_date) else ember.submitted_date
+    return {
+        'id': ember.id,
+        'year': ember.year,
+        'quarter': ember.quarter,
+        'file_name': display_name,
+        'file_size': ember.file_size,
+        'file_size_label': _format_file_size(ember.file_size),
+        'submitted_date': dateformat.format(local_dt, 'M j, Y'),
+        'view_url': reverse('registrar:view_ember_letter', args=[ember.id]),
+        'download_url': reverse('registrar:download_ember_letter', args=[ember.id]),
+        'delete_url': reverse('registrar:delete_ember_letter', args=[ember.id]),
+    }
+
+
+def build_ember_context(record, upload_url):
+    letters = list(record.ember_letters.order_by('-year', 'quarter'))
+    serialized = [serialize_ember_letter(el) for el in letters]
+    current_year = date.today().year
+    years_choices = list(range(current_year, 1959, -1))
+    summary = record.ember_summary()
+    return {
+        'ember_summary': summary,
+        'ember_config': {
+            'upload_url': upload_url,
+            'years_choices': years_choices,
+            'min_year': 1950,
+            'max_year': current_year,
+            'max_bytes': 5 * 1024 * 1024,
+            'letters': serialized,
+            'summary': summary,
+        },
+    }
+
+
+def handle_ember_upload(request, record):
+    if request.method != 'POST':
+        return JsonResponse({'ok': False, 'error': 'POST required.'}, status=405)
+    form = EmberLetterUploadForm(request.POST, request.FILES)
+    if not form.is_valid():
+        return JsonResponse({'ok': False, 'error': first_error(form) or 'Invalid upload.'}, status=400)
+    year = form.cleaned_data['year']
+    quarter = form.cleaned_data['quarter']
+    upload = form.cleaned_data['file']
+    ember, replaced = save_ember_letter(record, year, quarter, upload, user=request.user)
+    target_user = getattr(getattr(record, 'profile', None), 'user', None)
+    action = 'ember_replaced' if replaced else 'ember_uploaded'
+    audit.record(
+        request.user,
+        target_user,
+        action,
+        note=f'{record.id} · {year} Q{quarter}',
+        target_name=record.name,
+    )
+    notifications.ember_letter_uploaded(ember, actor=request.user)
+    return JsonResponse({
+        'ok': True,
+        'replaced': replaced,
+        'letter': serialize_ember_letter(ember),
+        'summary': record.ember_summary(),
+    })
+
+
+@registrar_required
+def upload_ember_letter(request, record_id):
+    record = get_object_or_404(ClergyRecord, id=record_id)
+    return handle_ember_upload(request, record)
+
+
+@login_required(login_url='index')
+def view_ember_letter(request, ember_id):
+    ember = get_object_or_404(EmberLetter, id=ember_id)
+    if not _can_access_document(request.user, ember):
+        raise Http404
+    filename = ember.file.name.rsplit('/', 1)[-1]
+    return FileResponse(_open_stored(ember.file), as_attachment=False, filename=filename)
+
+
+@login_required(login_url='index')
+def download_ember_letter(request, ember_id):
+    ember = get_object_or_404(EmberLetter, id=ember_id)
+    if not _can_access_document(request.user, ember):
+        raise Http404
+    filename = ember.file.name.rsplit('/', 1)[-1]
+    return FileResponse(_open_stored(ember.file), as_attachment=True, filename=filename)
+
+
+@login_required(login_url='index')
+def delete_ember_letter(request, ember_id):
+    if request.method != 'POST':
+        return JsonResponse({'ok': False, 'error': 'POST required.'}, status=405)
+    ember = get_object_or_404(EmberLetter.objects.select_related('record'), id=ember_id)
+    if not _can_access_document(request.user, ember):
+        raise Http404
+    record = ember.record
+    year, quarter = ember.year, ember.quarter
+    remove_ember_letter(ember)
+    target_user = getattr(getattr(record, 'profile', None), 'user', None)
+    audit.record(
+        request.user,
+        target_user,
+        'ember_deleted',
+        note=f'{record.id} · {year} Q{quarter}',
+        target_name=record.name,
+    )
+    return JsonResponse({
+        'ok': True,
+        'year': year,
+        'quarter': quarter,
+        'summary': record.ember_summary(),
+    })
+
+
 def _build_deaneries_map():
     """Deanery -> its parishes, keyed by Deanery id (as a string, since JSON
     object keys are always strings) so a <select> can submit the real FK
@@ -106,6 +236,8 @@ def dashboard(request):
         'active_page': 'dashboard',
         'stats': stats,
         'recent_records': recent_records,
+        'next_id': ClergyRecord.next_id(),
+        'deaneries_map': _build_deaneries_map(),
     })
 
 
@@ -128,14 +260,17 @@ def clergy_records(request):
     if status:
         records = records.filter(status=status)
 
-    records = list(records)
+    records = records.prefetch_related('documents__document_type')
+    page = Paginator(records, CLERGY_RECORDS_PER_PAGE).get_page(request.GET.get('page'))
+    records = list(page.object_list)
+    required_types = list(DocumentType.objects.filter(is_required=True))
     for record in records:
-        record.doc_summary = record.document_summary()
+        record.doc_summary = record.document_summary(required_types=required_types)
 
     # Portal-account state per record, for the Portal Account column: None if
     # there is no account yet, otherwise {'state': 'pending'|'expired'|'activated',
     # 'days_left': int|None}.
-    profiles = ClergyProfile.objects.exclude(record=None).select_related('user__security')
+    profiles = ClergyProfile.objects.filter(record_id__in=[r.id for r in records]).select_related('user__security')
     account_by_record = {}
     for profile in profiles:
         state, days_left = account_status(getattr(profile.user, 'security', None))
@@ -143,9 +278,19 @@ def clergy_records(request):
     for record in records:
         record.account = account_by_record.get(record.id)
 
+    page_params = {}
+    if showing_archived:
+        page_params['view'] = 'archived'
+    if query:
+        page_params['q'] = query
+    if status:
+        page_params['status'] = status
+
     return render(request, 'registrar/clergy-records.html', {
         'active_page': 'clergy_records',
         'records': records,
+        'page': page,
+        'page_query': urlencode(page_params),
         'search_query': query,
         'status_filter': status,
         'status_choices': ClergyRecord.STATUS_CHOICES,
@@ -434,6 +579,7 @@ def record_detail(request, record_id):
         return redirect(f"{request.path}?tab=personal")
 
     records_list_url = reverse('registrar:clergy_records')
+    ember_upload_url = reverse('registrar:upload_ember_letter', args=[record.id])
     return render(request, 'registrar/record-detail.html', {
         'active_page': 'clergy_records',
         'record': record,
@@ -443,13 +589,15 @@ def record_detail(request, record_id):
         'record_data': {'deanery_id': record.deanery_id, 'assignment': record.assignment or ''},
         'archivable_status': archive.ARCHIVABLE_STATUS,
         'records_list_url': records_list_url + ARCHIVED_RECORDS_URL_QUERY if record.is_archived else records_list_url,
+        **build_ember_context(record, ember_upload_url),
     })
 
 
 @registrar_required
 def documents_overview(request):
-    records = ClergyRecord.objects.current()
-    rows = [{'record': r, 'summary': r.document_summary()} for r in records]
+    required_types = list(DocumentType.objects.filter(is_required=True))
+    records = ClergyRecord.objects.current().prefetch_related('documents__document_type')
+    rows = [{'record': r, 'summary': r.document_summary(required_types=required_types)} for r in records]
     return render(request, 'registrar/documents.html', {
         'active_page': 'documents',
         'rows': rows,
@@ -508,6 +656,7 @@ def generate_report(request):
         return redirect('registrar:generate_report')
 
     saved = GeneratedReport.objects.select_related('generated_by', 'archived_by')
+    page = Paginator(saved.filter(archived_at__isnull=True), GENERATED_REPORTS_PER_PAGE).get_page(request.GET.get('page'))
     archived_reports = list(saved.filter(archived_at__isnull=False).order_by('archived_at'))   # next to go first
     now = timezone.now()
     for generated in archived_reports:
@@ -515,7 +664,8 @@ def generate_report(request):
     return render(request, 'registrar/generate-report.html', {
         'active_page': 'generate_report',
         'report_types': reports.REPORT_TYPES.items(),
-        'generated_reports': saved.filter(archived_at__isnull=True),
+        'generated_reports': page.object_list,
+        'page': page,
         'archived_reports': archived_reports,
         'archive_days': REPORT_ARCHIVE_DAYS,
     })

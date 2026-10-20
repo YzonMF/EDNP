@@ -1,31 +1,41 @@
-/* Record detail page: the Personal Information / Documents tab switcher,
-   and initializing the Deanery -> Assignment cascade with this record's
-   existing values (the shared populateDeaneries/updateParishOptions/
+/* Record detail page: the Personal Information / Documents / Ember Letters
+   tab switcher, and initializing the Deanery -> Assignment cascade with this
+   record's existing values (the shared populateDeaneries/updateParishOptions/
    toggleLeaveReason helpers come from clergy-records.js). The tab shown
    first is the tab bar's data-active-tab. */
 
 function selectTab(tab) {
-  document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
-  document.querySelectorAll('.page-tabs button').forEach(el => el.classList.remove('active'));
-  document.getElementById('tab' + (tab === 'documents' ? 'Documents' : 'Personal')).classList.add('active');
-  document.getElementById('tabBtn' + (tab === 'documents' ? 'Documents' : 'Personal')).classList.add('active');
+  var map = {
+    personal: { content: 'tabPersonal', btn: 'tabBtnPersonal' },
+    documents: { content: 'tabDocuments', btn: 'tabBtnDocuments' },
+    ember: { content: 'tabEmber', btn: 'tabBtnEmber' },
+  };
+  var chosen = map[tab] || map.personal;
+  document.querySelectorAll('.tab-content').forEach(function (el) { el.classList.remove('active'); });
+  document.querySelectorAll('.page-tabs button').forEach(function (el) { el.classList.remove('active'); });
+  var contentEl = document.getElementById(chosen.content);
+  var btnEl = document.getElementById(chosen.btn);
+  if (contentEl) contentEl.classList.add('active');
+  if (btnEl) btnEl.classList.add('active');
 }
 
 function initRecordDetailTabs(activeTab) {
-  selectTab(activeTab === 'documents' ? 'documents' : 'personal');
+  selectTab(activeTab);
 
-  const recordData = JSON.parse(document.getElementById('record-data').textContent);
+  var recordDataEl = document.getElementById('record-data');
+  if (!recordDataEl) return;
+  var recordData = JSON.parse(recordDataEl.textContent);
   populateDeaneries('editDeanery');
   if (recordData.deanery_id) {
     document.getElementById('editDeanery').value = String(recordData.deanery_id);
   }
   updateParishOptions('editDeanery', 'editAssignment');
 
-  const assignmentSelect = document.getElementById('editAssignment');
+  var assignmentSelect = document.getElementById('editAssignment');
   if (recordData.assignment) {
-    const hasOption = Array.from(assignmentSelect.options).some(o => o.value === recordData.assignment);
+    var hasOption = Array.from(assignmentSelect.options).some(function (o) { return o.value === recordData.assignment; });
     if (!hasOption) {
-      const opt = document.createElement('option');
+      var opt = document.createElement('option');
       opt.value = recordData.assignment;
       opt.textContent = recordData.assignment;
       assignmentSelect.appendChild(opt);
@@ -36,8 +46,8 @@ function initRecordDetailTabs(activeTab) {
   toggleLeaveReason('editStatus', 'editLeaveReasonField');
 }
 
-document.querySelectorAll('.page-tabs [data-tab]').forEach(button => {
-  button.addEventListener('click', () => selectTab(button.dataset.tab));
+document.querySelectorAll('.page-tabs [data-tab]').forEach(function (button) {
+  button.addEventListener('click', function () { selectTab(button.dataset.tab); });
 });
 
 initRecordDetailTabs(document.querySelector('[data-active-tab]').dataset.activeTab);

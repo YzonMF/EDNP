@@ -209,6 +209,46 @@ def document_uploaded(document, registrar=None):
                f'You uploaded your {name}.{valid}')
 
 
+EMBER_COLLAPSE_MINUTES = 10
+
+
+def ember_letter_uploaded(ember_letter, actor=None):
+    """After an Ember letter is saved to a record. Collapses multiple uploads
+    to the same record within EMBER_COLLAPSE_MINUTES into a single notification
+    row so a 12-file batch doesn't flood the notifications page."""
+    user = _owner(ember_letter.record)
+    if user is None or user.is_staff:
+        return None
+    is_registrar = actor is not None and actor != user
+    since = timezone.now() - timedelta(minutes=EMBER_COLLAPSE_MINUTES)
+    recent_letter_count = ember_letter.record.ember_letters.filter(submitted_date__gte=since).count()
+    recent_notice = (
+        Notification.objects.filter(user=user, kind='ember_uploaded', created_at__gte=since)
+        .order_by('-created_at')
+        .first()
+    )
+    if recent_notice is not None and recent_letter_count > 1:
+        if is_registrar:
+            title = f'{recent_letter_count} Ember letters added by the Registrar'
+            message = f'{_registrar(actor)} uploaded {recent_letter_count} Ember letters to your record.'
+        else:
+            title = f'{recent_letter_count} Ember letters uploaded'
+            message = f'You uploaded {recent_letter_count} Ember letters.'
+        recent_notice.title = _fit(title, TITLE_MAX)
+        recent_notice.message = _fit(message, MESSAGE_MAX)
+        recent_notice.read_at = None
+        recent_notice.created_at = timezone.now()
+        recent_notice.save(update_fields=['title', 'message', 'read_at', 'created_at'])
+        return recent_notice
+
+    slot = f'{ember_letter.year} Q{ember_letter.quarter}'
+    if is_registrar:
+        return notify(user, 'ember_uploaded', f'Ember Letter ({slot}) added by the Registrar',
+                      f'{_registrar(actor)} uploaded your Ember Letter for {slot}.')
+    return notify(user, 'ember_uploaded', f'Ember Letter ({slot}) uploaded',
+                  f'You uploaded your Ember Letter for {slot}.')
+
+
 # --- Reminders ----------------------------------------------------------------
 
 def sync_reminders(user, record, today=None):

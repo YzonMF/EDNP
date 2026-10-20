@@ -32,7 +32,8 @@ function toggleLeaveReason(statusSelectId,fieldId){
  document.getElementById(fieldId).classList.toggle('hidden',status!=='On Leave');
 }
 
-function openNewRecordModal(){
+function openNewRecordModal(e){
+ if(e)e.preventDefault();
  populateDeaneries('newDeanery');
  document.getElementById('newDeanery').value='';
  updateParishOptions('newDeanery','newAssignment');

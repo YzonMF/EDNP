@@ -9,7 +9,7 @@ from django.utils import timezone
 from django.utils.html import escape
 from django.utils.safestring import mark_safe
 
-from .models import ClergyRecord, Parish
+from .models import ClergyRecord, DocumentType, Parish
 
 REPORT_TYPES = {
     'clerical_directory': 'Official Clergy List',
@@ -20,9 +20,8 @@ REPORT_TYPES = {
 
 
 def _assignment_to_deanery_map():
-    """Clergy assignment is a free-text label ('St. Peter - Alab'); this maps
-    that same label, as generated for the parish dropdown, back to its
-    deanery so per-deanery grouping doesn't need a direct FK on the record."""
+    """Fallback for older records where `deanery` FK wasn't set yet: maps the
+    parish dropdown label ('St. Peter - Alab') back to its deanery name."""
     mapping = {}
     for parish in Parish.objects.select_related('deanery'):
         label = f"{parish.parish_name} - {parish.place_name}" if parish.place_name else parish.parish_name
@@ -59,10 +58,13 @@ def _build_status_report():
 
 def _build_per_deanery_report():
     mapping = _assignment_to_deanery_map()
-    records = ClergyRecord.objects.all().order_by('name')
+    records = ClergyRecord.objects.select_related('deanery').order_by('name')
     groups = {}
     for r in records:
-        deanery = mapping.get(r.assignment, 'Unassigned / Not Matched to a Parish')
+        deanery = (
+            r.deanery.name if r.deanery
+            else mapping.get(r.assignment, 'Unassigned / Not Matched to a Parish')
+        )
         groups.setdefault(deanery, []).append(r)
 
     columns = ['Name', 'Rank', 'Current Deployment', 'Status']
@@ -74,11 +76,12 @@ def _build_per_deanery_report():
 
 
 def _build_ordination_documents_report():
-    records = ClergyRecord.objects.all().order_by('name')
+    required_types = list(DocumentType.objects.filter(is_required=True))
+    records = ClergyRecord.objects.prefetch_related('documents__document_type').order_by('name')
     columns = ['Name', 'Rank', 'Current Deployment', 'Status', 'Documents Submitted', 'Documents Missing']
     rows = []
     for r in records:
-        checklist = r.document_checklist()
+        checklist = r.document_checklist(required_types=required_types)
         missing = [c['document_type'].name for c in checklist if c['status'] in ('Missing', 'Expired')]
         submitted_count = len(checklist) - len(missing)
         rows.append([

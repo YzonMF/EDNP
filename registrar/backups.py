@@ -13,7 +13,7 @@ import zipfile
 
 from django.core.management import call_command
 
-from .models import Document
+from .models import Document, EmberLetter
 
 COPY_CHUNK = 64 * 1024
 
@@ -67,6 +67,7 @@ def documents_zip():
     A document whose file is no longer stored is named in MISSING-FILES.txt instead."""
     outbox, missing = _Outbox(), []
     documents = Document.objects.select_related('record', 'document_type').order_by('record_id', 'document_type__name')
+    ember_letters = EmberLetter.objects.select_related('record').order_by('record_id', 'year', 'quarter')
     with zipfile.ZipFile(outbox, 'w', zipfile.ZIP_DEFLATED, compresslevel=1) as archive:
         for document in documents.iterator():
             name = document.file.name
@@ -74,6 +75,18 @@ def documents_zip():
                 stored = document.file.storage.open_stored(name)
             except FileNotFoundError:
                 missing.append(f'{name} ({document.record.name}: {document.document_type.name})')
+                continue
+            with stored, archive.open(name, 'w') as member:
+                while piece := stored.read(COPY_CHUNK):
+                    member.write(piece)
+                    if data := outbox.take():
+                        yield data
+        for ember in ember_letters.iterator():
+            name = ember.file.name
+            try:
+                stored = ember.file.storage.open_stored(name)
+            except FileNotFoundError:
+                missing.append(f'{name} ({ember.record.name}: Ember Letter {ember.year} Q{ember.quarter})')
                 continue
             with stored, archive.open(name, 'w') as member:
                 while piece := stored.read(COPY_CHUNK):

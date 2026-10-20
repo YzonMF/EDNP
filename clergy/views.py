@@ -2,7 +2,7 @@ from datetime import date
 
 from django.contrib import messages
 from django.core.paginator import Paginator
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
 from django.template.loader import render_to_string
 from django.urls import reverse
@@ -11,6 +11,7 @@ from django.utils import timezone
 from accounts.views import security_context
 from registrar.forms import DocumentUploadForm, first_error
 from registrar.models import save_document
+from registrar.views import build_ember_context, handle_ember_upload
 
 from .decorators import clergy_required
 from .forms import ClergyProfileForm, ClergyRecordSelfServiceForm
@@ -210,8 +211,22 @@ def my_requirements(request):
         else:
             messages.error(request, first_error(form) or 'Please choose a document type and a file.')
 
+    ember_upload_url = reverse('clergy:upload_ember_letter')
     return render(request, 'clergy/my-requirements.html', {
         'active_page': 'my_requirements',
         'profile': profile,
         'checklist': profile.record.document_checklist_grouped(),
+        'active_tab': request.GET.get('tab', 'checklist'),
+        **build_ember_context(profile.record, ember_upload_url),
     })
+
+
+@clergy_required
+def upload_ember_letter(request):
+    profile = _get_or_create_profile(request.user)
+    if not profile.record:
+        return JsonResponse({
+            'ok': False,
+            'error': 'Your account is not yet linked to an official clergy record.',
+        }, status=400)
+    return handle_ember_upload(request, profile.record)

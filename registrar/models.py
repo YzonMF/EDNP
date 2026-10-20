@@ -3,6 +3,8 @@ from datetime import date, timedelta
 
 from django.conf import settings
 from django.db import models, transaction
+from django.db.models import CheckConstraint, Q, UniqueConstraint
+from django.utils import timezone
 
 RANK_CHOICES = [
     ('postulancy', 'Postulancy'),
@@ -162,23 +164,35 @@ class ClergyRecord(models.Model):
     def has_account(self):
         return hasattr(self, 'profile') and self.profile is not None
 
-    def document_checklist(self):
+    def document_checklist(self, required_types=None):
         """The full cumulative list of document types required for this
         clergy member's current rank (everything required at lower ranks,
-        plus their own), each paired with its submission status."""
+        plus their own), each paired with its submission status.
+
+        When called in a loop over many records, pass the already-loaded
+        `required_types` list and `prefetch_related('documents__document_type')`
+        on the records queryset so this does no extra queries per record."""
         try:
             rank_index = RANK_ORDER.index(self.rank)
         except ValueError:
             rank_index = 0
-        applicable_ranks = RANK_ORDER[:rank_index + 1] + ['none']
+        applicable_ranks = set(RANK_ORDER[:rank_index + 1] + ['none'])
 
-        required_types = DocumentType.objects.filter(
-            required_from_rank__in=applicable_ranks, is_required=True
-        )
-        existing = {d.document_type_id: d for d in self.documents.select_related('document_type')}
+        if required_types is None:
+            types = DocumentType.objects.filter(
+                required_from_rank__in=applicable_ranks, is_required=True
+            )
+        else:
+            types = [dt for dt in required_types if dt.required_from_rank in applicable_ranks]
+
+        if 'documents' in getattr(self, '_prefetched_objects_cache', {}):
+            docs = self.documents.all()
+        else:
+            docs = self.documents.select_related('document_type')
+        existing = {d.document_type_id: d for d in docs}
 
         checklist = []
-        for doc_type in required_types:
+        for doc_type in types:
             document = existing.get(doc_type.id)
             if document is None:
                 status = 'Missing'
@@ -189,24 +203,43 @@ class ClergyRecord(models.Model):
             checklist.append({'document_type': doc_type, 'document': document, 'status': status})
         return checklist
 
-    def document_checklist_grouped(self):
+    def document_checklist_grouped(self, required_types=None):
         """The same checklist, split into the two groups the UI shows as
         separate card panels: documents the clergy member normally submits
         themselves, and documents the Registrar normally provides."""
-        checklist = self.document_checklist()
+        checklist = self.document_checklist(required_types=required_types)
         groups = {'clergy': [], 'registrar': []}
         for item in checklist:
             groups[item['document_type'].uploaded_by].append(item)
         return groups
 
-    def document_summary(self):
+    def document_summary(self, required_types=None):
         """Counts behind the document checklist, for badges/list views that
         just need "5/8 submitted" rather than the full per-type breakdown."""
-        checklist = self.document_checklist()
-        submitted = sum(1 for c in checklist if c['status'] == 'Submitted')
-        expired = sum(1 for c in checklist if c['status'] == 'Expired')
-        missing = sum(1 for c in checklist if c['status'] == 'Missing')
-        return {'submitted': submitted, 'expired': expired, 'missing': missing, 'total': len(checklist)}
+        if not hasattr(self, '_document_summary_cache') or required_types is not None:
+            checklist = self.document_checklist(required_types=required_types)
+            submitted = sum(1 for c in checklist if c['status'] == 'Submitted')
+            expired = sum(1 for c in checklist if c['status'] == 'Expired')
+            missing = sum(1 for c in checklist if c['status'] == 'Missing')
+            self._document_summary_cache = {
+                'submitted': submitted, 'expired': expired, 'missing': missing, 'total': len(checklist),
+            }
+        return self._document_summary_cache
+
+    def ember_summary(self):
+        """Informational counts of uploaded Ember letters across years."""
+        if 'ember_letters' in getattr(self, '_prefetched_objects_cache', {}):
+            letters = list(self.ember_letters.all())
+        else:
+            letters = list(self.ember_letters.only('id', 'year'))
+        years = sorted({el.year for el in letters}, reverse=True)
+        year_count = len(years)
+        target = max(12, year_count * 4)
+        return {
+            'uploaded': len(letters),
+            'years': year_count,
+            'target': target,
+        }
 
 
 class DocumentType(models.Model):
@@ -345,3 +378,83 @@ def save_document(record, document_type, file, notes):
             storage = document.file.storage
             transaction.on_commit(lambda: storage.delete(old_name))
     return document
+
+
+def ember_letter_upload_path(instance, filename):
+    return f'ember_letters/{instance.record_id}/{instance.year}_Q{instance.quarter}_{filename}'
+
+
+class EmberLetter(models.Model):
+    record = models.ForeignKey(
+        ClergyRecord,
+        on_delete=models.CASCADE,
+        related_name='ember_letters',
+    )
+    year = models.PositiveSmallIntegerField()
+    quarter = models.PositiveSmallIntegerField()
+    file = models.FileField(upload_to=ember_letter_upload_path)
+    file_size = models.PositiveIntegerField(default=0)
+    uploaded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='+',
+    )
+    submitted_date = models.DateTimeField()
+
+    class Meta:
+        db_table = 'ember_letters'
+        ordering = ['-year', 'quarter']
+        constraints = [
+            UniqueConstraint(
+                fields=['record', 'year', 'quarter'],
+                name='ember_letter_unique_slot',
+            ),
+            CheckConstraint(
+                check=Q(quarter__gte=1, quarter__lte=4),
+                name='ember_letter_quarter_1_to_4',
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.record_id} - {self.year} Q{self.quarter}"
+
+
+def save_ember_letter(record, year, quarter, file, user=None):
+    """Create or replace the one EmberLetter for (record, year, quarter), then
+    delete the file it replaced once the transaction commits. Returns
+    (ember_letter, replaced_bool)."""
+    file_size = getattr(file, 'size', 0) or 0
+    with transaction.atomic():
+        previous = (
+            EmberLetter.objects.select_for_update()
+            .filter(record=record, year=year, quarter=quarter)
+            .first()
+        )
+        old_name = previous.file.name if previous else None
+        ember_letter, created = EmberLetter.objects.update_or_create(
+            record=record,
+            year=year,
+            quarter=quarter,
+            defaults={
+                'file': file,
+                'file_size': file_size,
+                'uploaded_by': user,
+                'submitted_date': timezone.now(),
+            },
+        )
+        if old_name and old_name != ember_letter.file.name:
+            storage = ember_letter.file.storage
+            transaction.on_commit(lambda: storage.delete(old_name))
+    return ember_letter, not created
+
+
+def delete_ember_letter(ember_letter):
+    """Delete an EmberLetter row and remove its stored file after commit."""
+    with transaction.atomic():
+        old_name = ember_letter.file.name
+        storage = ember_letter.file.storage
+        ember_letter.delete()
+        if old_name:
+            transaction.on_commit(lambda: storage.delete(old_name))

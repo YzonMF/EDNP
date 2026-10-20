@@ -1,0 +1,30 @@
+{% load static %}
+<div class="ember-root" id="emberLettersRoot">
+  <div class="notice">
+    Upload quarterly Ember Letters (Q1–Q4) by year. Select a year to unlock Q1; uploading or skipping a quarter unlocks the next.
+    <br>
+    Accepted formats: <b>PDF, JPG, or PNG</b> (maximum <b>5 MB</b> per file). Uploads run one at a time automatically.
+  </div>
+
+  <div class="ember-header-bar">
+    <div class="ember-progress-summary">
+      <i class="fa-solid fa-envelope-open-text"></i>
+      <span id="emberOverallText">
+        {% if ember_summary.uploaded %}
+          <b>{{ ember_summary.uploaded }}</b> of <b>{{ ember_summary.target }}</b> uploaded ({{ ember_summary.years }} year{{ ember_summary.years|pluralize }})
+        {% else %}
+          <b>0</b> of <b>12</b> uploaded
+        {% endif %}
+      </span>
+    </div>
+    <div class="ember-header-actions">
+      <span class="ember-queue-badge hidden" id="emberQueueBadge"></span>
+      <button type="button" class="btn secondary small" id="emberAddYearBtn">
+        <i class="fa-solid fa-plus"></i> Add another year
+      </button>
+    </div>
+  </div>
+
+  <div class="ember-years-list" id="emberYearsContainer"></div>
+</div>
+{{ ember_config|json_script:"ember-config-data" }}

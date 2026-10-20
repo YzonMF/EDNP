@@ -15,7 +15,8 @@ from accounts.testing import activate
 from clergy.models import ClergyProfile
 
 from .forms import DocumentUploadForm
-from .models import ClergyRecord, Document, DocumentType, GeneratedReport, IdCounter, save_document
+from . import reports
+from .models import ClergyRecord, Deanery, Document, DocumentType, GeneratedReport, IdCounter, Parish, save_document
 
 User = get_user_model()
 
@@ -61,6 +62,13 @@ class CreateRecordTests(TestCase):
         self.assertEqual(r['Content-Type'], 'application/pdf')
         self.assertTrue(r.content.startswith(b'%PDF'))
         self.assertEqual(r['Cache-Control'], 'no-store')
+
+    def test_dashboard_includes_create_record_modal_directly(self):
+        r = self.client.get(reverse('registrar:dashboard'))
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, 'id="newRecordButton"')
+        self.assertContains(r, 'id="recordModal"')
+        self.assertContains(r, 'id="deaneries-data"')
 
     def test_failure_midway_leaves_nothing_behind_and_returns_the_id(self):
         with mock.patch.object(User.objects, 'create_user', side_effect=IntegrityError):
@@ -218,3 +226,66 @@ class BlankFieldTests(TestCase):
         self.record.refresh_from_db()
         for field in blanks:
             self.assertIn(getattr(self.record, field), (None, ''), field)
+
+
+class PerDeaneryReportTests(TestCase):
+    def test_uses_record_deanery_fk_and_falls_back_to_parish_mapping_when_unset(self):
+        central = Deanery.objects.create(name='Central Deanery')
+        southern = Deanery.objects.create(name='Southern Deanery')
+        Parish.objects.create(deanery=southern, parish_name='St. Luke', place_name='Baguio')
+
+        # Has real deanery FK set (even with a custom assignment text not matching a parish)
+        ClergyRecord.objects.create(id='CLG-001', name='Fr. Central', deanery=central, assignment='Diocesan Office')
+        # Legacy record with no deanery FK, matched via parish label
+        ClergyRecord.objects.create(id='CLG-002', name='Fr. Southern', assignment='St. Luke - Baguio')
+        # Neither
+        ClergyRecord.objects.create(id='CLG-003', name='Fr. Unassigned')
+
+        sections = reports.build_report('per_deanery')['sections']
+        by_heading = {s['heading']: [r[0] for r in s['rows']] for s in sections}
+        self.assertEqual(by_heading['Central Deanery'], ['Fr. Central'])
+        self.assertEqual(by_heading['Southern Deanery'], ['Fr. Southern'])
+        self.assertEqual(by_heading['Unassigned / Not Matched to a Parish'], ['Fr. Unassigned'])
+
+
+class PaginationAndQueryCountTests(TestCase):
+    def setUp(self):
+        self.registrar = activate(User.objects.create_user('reg', password='pw12345!x', is_staff=True))
+        self.client.force_login(self.registrar)
+        self.doc_type = DocumentType.objects.create(name='Baptismal Certificate', is_required=True)
+
+    def test_clergy_records_and_documents_overview_do_not_run_n_plus_one_queries(self):
+        for i in range(1, 15):
+            r = ClergyRecord.objects.create(id=f'CLG-{i:03d}', name=f'Fr. {i}')
+            Document.objects.create(record=r, document_type=self.doc_type, file='a.pdf', submitted_date=date.today())
+        # 14 records on the page, but the query count stays flat (no per-record checklist queries)
+        with self.assertNumQueries(15):
+            res = self.client.get(reverse('registrar:clergy_records'))
+        self.assertEqual(len(res.context['records']), 14)
+        self.assertEqual(res.context['records'][0].doc_summary['submitted'], 1)
+
+        with self.assertNumQueries(10):
+            res2 = self.client.get(reverse('registrar:documents_overview'))
+        self.assertEqual(len(res2.context['rows']), 14)
+
+    def test_clergy_records_paginates_at_100_per_page_preserving_filters(self):
+        for i in range(1, 106):
+            ClergyRecord.objects.create(id=f'CLG-{i:03d}', name=f'Fr. {i:03d}', status='Active')
+        page1 = self.client.get(reverse('registrar:clergy_records'), {'status': 'Active'})
+        self.assertEqual(len(page1.context['records']), 100)
+        self.assertTrue(page1.context['page'].has_next())
+        self.assertContains(page1, 'status=Active&amp;page=2')
+
+        page2 = self.client.get(reverse('registrar:clergy_records'), {'status': 'Active', 'page': 2})
+        self.assertEqual(len(page2.context['records']), 5)
+
+    def test_generated_reports_paginates_at_10_per_page(self):
+        for i in range(12):
+            GeneratedReport.objects.create(report_type='status_report', title=f'Report {i}', file='r.pdf',
+                                           generated_by=self.registrar)
+        page1 = self.client.get(reverse('registrar:generate_report'))
+        self.assertEqual(len(page1.context['generated_reports']), 10)
+        self.assertTrue(page1.context['page'].has_next())
+
+        page2 = self.client.get(reverse('registrar:generate_report'), {'page': 2})
+        self.assertEqual(len(page2.context['generated_reports']), 2)
