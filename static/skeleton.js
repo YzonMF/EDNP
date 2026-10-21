@@ -55,11 +55,12 @@
   function clearSkeleton() {
     progress(false);
     document.querySelectorAll('.is-pending').forEach(function (n) { n.classList.remove('is-pending'); });
+    document.querySelectorAll('.is-submitting').forEach(function (f) { f.classList.remove('is-submitting'); });
+    document.querySelectorAll('.is-busy').forEach(function (b) { b.classList.remove('is-busy'); });
     var main = document.querySelector('main');
     if (!main) return;
     main.classList.remove('is-loading');
     main.querySelectorAll('.sk-wrap').forEach(function (n) { n.remove(); });
-    document.querySelectorAll('.is-busy').forEach(function (b) { b.classList.remove('is-busy'); });
   }
 
   document.addEventListener('click', function (e) {
@@ -78,6 +79,11 @@
     if (e.defaultPrevented) return;
     var form = e.target;
     if (form.target && form.target !== '_self') return;
+    if (form.classList.contains('is-submitting')) {
+      e.preventDefault();
+      return;
+    }
+    form.classList.add('is-submitting');
     var btn = e.submitter || form.querySelector('button[type=submit],button:not([type]),input[type=submit]');
     progress(true);
     // A POST that answers with a file download never leaves the page — don't spin forever

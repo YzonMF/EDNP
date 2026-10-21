@@ -59,3 +59,44 @@ class PasswordChangeKeepsSessionTests(TestCase):
                                            'new_password': 'Sturdy!Pass-2026', 'confirm_password': 'Sturdy!Pass-2026'})
             self.assertTrue(get_user_model().objects.get(pk=user.pk).check_password('Sturdy!Pass-2026'))
             self.assertEqual(c.get(reverse(home)).status_code, 200, user.username)
+
+
+class LoginCsrfAndCacheTests(TestCase):
+    """Double-clicking Sign In or submitting a stale login tab after signing in
+    rotates the CSRF cookie on the first request; a second POST by an already
+    signed-in browser must land on the dashboard rather than a 403 page, while
+    unauthenticated or state-changing requests still enforce CSRF."""
+
+    def setUp(self):
+        self.user = activate(get_user_model().objects.create_user('fr_csrf', password='pw12345!x'))
+
+    def test_auth_screens_send_no_store_cache_headers(self):
+        from django.urls import reverse
+        for path in ('/', reverse('verify_device'), reverse('forgot_password')):
+            r = self.client.get(path)
+            self.assertIn('no-store', r.headers.get('Cache-Control', ''), path)
+
+    def test_stale_or_duplicate_login_post_when_already_signed_in_redirects_to_dashboard(self):
+        from django.urls import reverse
+        c = trust_device(Client(enforce_csrf_checks=True), self.user)
+        login_page = c.get('/')
+        stale_csrf = login_page.cookies['csrftoken'].value
+
+        # First POST signs in and rotates csrftoken.
+        first = c.post('/', {'username': 'fr_csrf', 'password': 'pw12345!x', 'csrfmiddlewaretoken': stale_csrf})
+        self.assertRedirects(first, reverse('clergy:dashboard'), fetch_redirect_response=False)
+
+        # Second POST arrives with the pre-login (now mismatched) token; since the
+        # session is already signed in, it redirects to the dashboard instead of 403.
+        c.cookies['csrftoken'] = 'rotated-away-token-value-1234567890'
+        second = c.post('/', {'username': 'fr_csrf', 'password': 'pw12345!x', 'csrfmiddlewaretoken': stale_csrf})
+        self.assertRedirects(second, reverse('clergy:dashboard'), fetch_redirect_response=False)
+
+        # Real state-changing endpoints still reject a bad CSRF token with 403.
+        bad_action = c.post(reverse('my_security'), {'action': 'revoke_others', 'csrfmiddlewaretoken': stale_csrf})
+        self.assertEqual(bad_action.status_code, 403)
+
+    def test_unauthenticated_login_post_without_csrf_still_returns_403(self):
+        c = Client(enforce_csrf_checks=True)
+        r = c.post('/', {'username': 'fr_csrf', 'password': 'pw12345!x'})
+        self.assertEqual(r.status_code, 403)

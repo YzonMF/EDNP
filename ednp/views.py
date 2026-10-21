@@ -1,7 +1,10 @@
 from django.contrib import messages
 from django.contrib.auth import authenticate, get_user_model, login as auth_login, logout as auth_logout
 from django.shortcuts import redirect, render
+from django.urls import reverse
 from django.utils import timezone
+from django.views.csrf import csrf_failure as default_csrf_failure
+from django.views.decorators.cache import never_cache
 
 from accounts import devices, otp, setup, sms
 from accounts.middleware import SIGNED_OUT_PARAM
@@ -78,6 +81,7 @@ def _clear_pending(request):
     request.session.pop(DEVICE_TEST_CODE_KEY, None)
 
 
+@never_cache
 def verify_device(request):
     if request.user.is_authenticated:
         return redirect(_home_url_for(request.user))
@@ -134,6 +138,7 @@ def verify_device(request):
     })
 
 
+@never_cache
 def index(request):
     if request.user.is_authenticated:
         return redirect(_home_url_for(request.user))
@@ -192,3 +197,17 @@ def index(request):
 def logout_view(request):
     auth_logout(request)
     return redirect('index')
+
+
+def csrf_failure(request, reason=''):
+    """If an already-signed-in user submits a stale or duplicate login,
+    device-check, or forgot-password form (whose CSRF token was rotated by the
+    earlier sign-in), send them on to their dashboard just as GET does,
+    without running any POST action. Every other CSRF failure returns 403."""
+    if request.user.is_authenticated and request.path in {
+        reverse('index'),
+        reverse('verify_device'),
+        reverse('forgot_password'),
+    }:
+        return redirect(_home_url_for(request.user))
+    return default_csrf_failure(request, reason=reason)

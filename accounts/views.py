@@ -10,6 +10,7 @@ from django.db import IntegrityError, transaction
 from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.utils import timezone
+from django.views.decorators.cache import never_cache
 
 from clergy import notifications
 from ednp import login_throttle, security_log
@@ -62,6 +63,7 @@ def _send_code(request, user, e164):
     return True
 
 
+@never_cache
 @login_required(login_url='index')
 def activate(request):
     user = request.user
@@ -547,6 +549,7 @@ def _forgot_set_password(request, user):
     return response
 
 
+@never_cache
 def forgot_password(request):
     if request.user.is_authenticated:
         return redirect(_home_url_name(request.user))

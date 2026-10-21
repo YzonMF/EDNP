@@ -263,6 +263,7 @@ FILE_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024  # 10 MB
 SESSION_COOKIE_SECURE = not DEBUG
 CSRF_COOKIE_SECURE = not DEBUG
 CSRF_COOKIE_HTTPONLY = True
+CSRF_FAILURE_VIEW = 'ednp.views.csrf_failure'
 
 
 # Behind a TLS-terminating proxy (Railway, etc.): trust its forwarded-proto
