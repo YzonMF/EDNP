@@ -206,3 +206,6 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 .profile-pic-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:4px}
 .profile-pic-actions input[type="file"]{font-size:12px;padding:6px 8px;border:1px solid var(--border);border-radius:7px;background:#fff;max-width:100%}
 @media(max-width:600px){.profile-pic-row{flex-direction:column;align-items:flex-start}}
+
+/* Wide screens: let the fixed sidebar scroll when the menu is taller than the window, so Logout is always reachable. The footer joins the flow instead of overlapping the menu. */
+@media(min-width:801px){.sidebar{overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#2a4a66 transparent}.sidebar-foot{position:static;margin:24px 0 0 10px}}
