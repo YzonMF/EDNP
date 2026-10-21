@@ -22,6 +22,7 @@
   <table>
     <tr><th>Clergy ID</th><td>{{ profile.record.id|default:"Pending" }}</td></tr>
     <tr><th>Full Name</th><td>{{ profile.full_name }}</td></tr>
+    <tr><th>Current Rank</th><td>{{ profile.record.get_rank_display|default:"—" }}</td></tr>
     <tr><th>Status</th><td>{{ profile.record.status|default:"—" }}</td></tr>
     <tr><th>Deanery</th><td>{{ profile.record.deanery|default:"—" }}</td></tr>
     <tr><th>Deployment</th><td>{{ profile.record.assignment|default:"—" }}</td></tr>
@@ -39,9 +40,9 @@
     <tr><th>Address</th><td>{{ profile.record.address|default:"—" }}</td></tr>
     <tr><th>Contact Number</th><td>{{ profile.record.phone|default:"—" }}</td></tr>
     <tr><th>Email Address</th><td>{{ profile.record.email|default:"—" }}</td></tr>
+    <tr><th>Date Admitted as Holy Order</th><td>{{ profile.record.holy_orders_date|default:"—" }}</td></tr>
     <tr><th>Diaconate Ordination</th><td>{{ profile.record.diaconate_date|default:"—" }}</td></tr>
     <tr><th>Priesthood Ordination</th><td>{{ profile.record.ordination_date|default:"—" }}</td></tr>
-    <tr><th>Holy Orders Date</th><td>{{ profile.record.holy_orders_date|default:"—" }}</td></tr>
     <tr><th>Ordination Place</th><td>{{ profile.record.ordination_place|default:"—" }}</td></tr>
     <tr><th>Bishop</th><td>{{ profile.record.bishop_name|default:"—" }}</td></tr>
     <tr><th>Consecration Date</th><td>{{ profile.record.consecration_date|default:"—" }}</td></tr>

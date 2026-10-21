@@ -90,6 +90,11 @@
             <h4><i class="fa-solid fa-church"></i> Ordination, Bishop &amp; Family</h4>
             <div class="edit-grid">
               <div class="edit-field">
+                <label>Date Admitted as Holy Order</label><input name="holy_orders_date"
+       type="date"
+       value="{{ record.holy_orders_date|date:'Y-m-d' }}">
+              </div>
+              <div class="edit-field">
                 <label>Date of Ordination to Diaconate</label><input name="diaconate_date"
        type="date"
        value="{{ record.diaconate_date|date:'Y-m-d' }}">
@@ -98,11 +103,6 @@
                 <label>Date of Ordination to Priesthood</label><input name="ordination_date"
        type="date"
        value="{{ record.ordination_date|date:'Y-m-d' }}">
-              </div>
-              <div class="edit-field">
-                <label>Date for Holy Orders / Synod Entry</label><input name="holy_orders_date"
-       type="date"
-       value="{{ record.holy_orders_date|date:'Y-m-d' }}">
               </div>
               <div class="edit-field">
                 <label>Place of Ordination</label><input name="ordination_place"
@@ -163,8 +163,7 @@
               </div>
               <div class="edit-field">
                 <label>Rank</label><select name="rank">
-                  <option value="postulancy"
-                          {% if record.rank == 'postulancy' %}selected{% endif %}>Postulancy</option>
+              
                   <option value="deacon" {% if record.rank == 'deacon' %}selected{% endif %}>Deacon</option>
                   <option value="priest" {% if record.rank == 'priest' %}selected{% endif %}>Priest</option>
                   <option value="bishop" {% if record.rank == 'bishop' %}selected{% endif %}>Bishop</option>

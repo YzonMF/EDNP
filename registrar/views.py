@@ -629,6 +629,11 @@ def ordination_requirements(request):
         types = DocumentType.objects.filter(required_from_rank=rank_value)
         if types:
             groups.append({'label': rank_label, 'types': types})
+        if rank_value == 'postulancy':
+            groups.append({
+                'label': 'Holy Order',
+                'custom_items': ['Date admitted as Holy Order'],
+            })
     general_types = DocumentType.objects.filter(required_from_rank='none')
     if general_types:
         groups.append({'label': 'Required for Every Clergy Member', 'types': general_types})

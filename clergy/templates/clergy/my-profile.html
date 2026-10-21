@@ -41,6 +41,7 @@
       <h3><i class="fa-solid fa-id-badge"></i> My Clergy Record</h3>
       <div class="info-grid">
         <div class="info"><label>Clergy ID</label><b>{{ profile.record.id|default:"Pending" }}</b></div>
+        <div class="info"><label>Current Rank</label><b>{{ profile.record.get_rank_display|default:"—" }}</b></div>
         <div class="info"><label>Current Status</label><b>{{ profile.record.status|default:"Active" }}</b></div>
         <div class="info"><label>Deanery</label><b>{{ profile.record.deanery|default:"—" }}</b></div>
         <div class="info"><label>Deployment / Assignment</label><b>{{ profile.record.assignment|default:"Not yet assigned" }}</b></div>
@@ -169,9 +170,10 @@
 
         <div class="form-grid">
 
+          <div class="field"><label>Current Rank</label><input value="{{ profile.record.get_rank_display|default:'—' }}" readonly></div>
+          <div class="field"><label>Date Admitted as Holy Order</label><input value="{{ profile.record.holy_orders_date|date:'Y-m-d'|default:'—' }}" readonly></div>
           <div class="field"><label>Date of Ordination to Diaconate</label><input value="{{ profile.record.diaconate_date|date:'Y-m-d'|default:'—' }}" readonly></div>
           <div class="field"><label>Date of Ordination to Priesthood</label><input value="{{ profile.record.ordination_date|date:'Y-m-d'|default:'—' }}" readonly></div>
-          <div class="field"><label>Holy Orders / Synod Entry Date</label><input value="{{ profile.record.holy_orders_date|date:'Y-m-d'|default:'—' }}" readonly></div>
           <div class="field"><label>Place of Ordination</label><input value="{{ profile.record.ordination_place|default:'—' }}" readonly></div>
           <div class="field"><label>Bishop</label><input value="{{ profile.record.bishop_name|default:'—' }}" readonly></div>
           <div class="field"><label>Date of Consecration</label><input value="{{ profile.record.consecration_date|date:'Y-m-d'|default:'—' }}" readonly></div>

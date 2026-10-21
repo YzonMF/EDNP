@@ -90,7 +90,7 @@ class ClergyRecord(models.Model):
     assignment = models.CharField(max_length=150, blank=True, null=True)
     status = models.CharField(max_length=40, choices=STATUS_CHOICES, default='Active')
     leave_reason = models.CharField(max_length=255, blank=True, null=True)
-    rank = models.CharField(max_length=20, choices=RANK_CHOICES, default='postulancy')
+    rank = models.CharField(max_length=20, choices=RANK_CHOICES, default='deacon')
     contract_end = models.DateField(blank=True, null=True)
     retirement_date = models.DateField(blank=True, null=True)
 
@@ -100,7 +100,7 @@ class ClergyRecord(models.Model):
     # steps in that same process.
     diaconate_date = models.DateField('Date of Ordination to Diaconate', blank=True, null=True)
     ordination_date = models.DateField('Date of Ordination to Priesthood', blank=True, null=True)
-    holy_orders_date = models.DateField('Date for Holy Orders / Synod Entry', blank=True, null=True)
+    holy_orders_date = models.DateField('Date Admitted as Holy Order', blank=True, null=True)
     ordination_place = models.CharField(max_length=150, blank=True, null=True)
     bishop_name = models.CharField('Bishop', max_length=150, blank=True, null=True)
     consecration_date = models.DateField('Date of Bishop Consecration', blank=True, null=True)

@@ -10,8 +10,9 @@ from .models import ClergyRecord, DocumentType
 class ClergyRecordForm(forms.ModelForm):
     class Meta:
         model = ClergyRecord
-        fields = ['name', 'deanery', 'assignment', 'status', 'leave_reason', 'rank', 'baptism_date', 'confirmation_date', 'contract_end']
+        fields = ['name', 'deanery', 'assignment', 'status', 'leave_reason', 'rank', 'holy_orders_date', 'baptism_date', 'confirmation_date', 'contract_end']
         widgets = {
+            'holy_orders_date': forms.DateInput(attrs={'type': 'date'}),
             'baptism_date': forms.DateInput(attrs={'type': 'date'}),
             'confirmation_date': forms.DateInput(attrs={'type': 'date'}),
             'contract_end': forms.DateInput(attrs={'type': 'date'}),
