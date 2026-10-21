@@ -6,7 +6,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="description" content="{% block meta_description %}Electronic Diocese Network Portal — Clergy Self-Service.{% endblock %}">
 <title>EDNP — {% block page_name %}{% endblock %}</title>
-<link rel="stylesheet" href="{% static 'clergy/css/style.css' %}">
+<link rel="stylesheet" href="{% static 'clergy/css/style.css' %}?v=4">
 <link rel="stylesheet" href="{% static 'skeleton.css' %}">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer">
 {% block extra_css %}{% endblock %}
@@ -24,7 +24,8 @@
 
     <button class="nav-toggle" type="button" aria-label="Toggle menu" aria-expanded="false"><i class="fa-solid fa-bars"></i></button>
     <div class="sidebar-user">
-      <b>{{ profile.full_name }}</b><div class="role">Clergy User</div>
+      <div class="sidebar-avatar" title="{{ profile.full_name }}">{% if profile.record and profile.record.profile_picture %}<img src="{% url 'registrar:view_profile_picture' profile.record.id %}" alt="{{ profile.full_name }}" width="64" height="64">{% else %}<span>{{ profile.initials }}</span>{% endif %}</div>
+      <b>{{ profile.full_name }}</b>
     </div>
 
     <div class="nav">
@@ -51,7 +52,13 @@
         <h1>{% block page_name_heading %}{% endblock %}</h1>
         <div class="sub">Electronic Diocese Network Portal — Clergy Self-Service</div>
       </div>
-      {% block top_actions %}{% endblock %}
+      <div class="top-right">
+        {% block top_actions %}{% endblock %}
+        <a class="top-profile" href="{% url 'clergy:my_profile' %}" title="My Record &amp; Profile">
+          <div class="top-avatar">{% if profile.record and profile.record.profile_picture %}<img src="{% url 'registrar:view_profile_picture' profile.record.id %}" alt="{{ profile.full_name }}" width="64" height="64">{% else %}<span>{{ profile.initials }}</span>{% endif %}</div>
+          <div class="top-profile-meta"><b>{{ profile.full_name }}</b></div>
+        </a>
+      </div>
     </div>
 
     {% block content %}{% endblock %}
@@ -67,7 +74,7 @@
 <div id="flash-messages" hidden>{% for message in messages %}<span data-level="{{ message.tags }}">{{ message }}</span>{% endfor %}</div>
 {% endif %}
 
-<script src="{% static 'clergy/js/ui.js' %}"></script>
+<script src="{% static 'clergy/js/ui.js' %}?v=2"></script>
 <script src="{% static 'skeleton.js' %}"></script>
 {% block extra_js %}{% endblock %}
 </body>

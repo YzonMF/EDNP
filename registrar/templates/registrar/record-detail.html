@@ -9,7 +9,7 @@
 {% block content %}
   <section class="page active">
     <div class="panel">
-      <div class="panel-head"><div><h3><i class="fa-solid fa-user-tie"></i> {{ record.name }}</h3><span class="muted">{{ record.id }} — {{ record.get_rank_display }} — {{ record.get_status_display }}{% if record.is_archived %} — Archived{% endif %}</span></div>
+      <div class="panel-head"><div class="record-head-identity"><div class="record-avatar">{% if record.profile_picture %}<img src="{% url 'registrar:view_profile_picture' record.id %}" alt="{{ record.name }}" width="44" height="44">{% else %}<span>{{ record.initials }}</span>{% endif %}</div><div><h3><i class="fa-solid fa-user-tie"></i> {{ record.name }}</h3><span class="muted">{{ record.id }} — {{ record.get_rank_display }} — {{ record.get_status_display }}{% if record.is_archived %} — Archived{% endif %}</span></div></div>
         <div>
           {% if record.is_archived %}
             <form method="post"

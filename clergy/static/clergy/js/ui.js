@@ -44,3 +44,16 @@ document.addEventListener('submit',e=>{
 // Messages Django attached to this response ("Record saved", errors), rendered
 // into #flash-messages by base.html, shown as toasts
 document.querySelectorAll('#flash-messages [data-level]').forEach(msg=>showToast(msg.textContent,msg.dataset.level));
+
+// Live preview when choosing a profile picture on My Record & Profile
+const profilePicInput=document.getElementById('profilePictureInput');
+if(profilePicInput){
+ profilePicInput.addEventListener('change',()=>{
+  const file=profilePicInput.files&&profilePicInput.files[0];
+  if(!file||!file.type.startsWith('image/'))return;
+  const img=document.getElementById('profilePicPreviewImg');
+  const initials=document.getElementById('profilePicInitials');
+  if(img){img.src=URL.createObjectURL(file);img.classList.remove('hidden');}
+  if(initials)initials.classList.add('hidden');
+ });
+}

@@ -124,6 +124,27 @@ class EmberLetterUploadForm(forms.Form):
         return upload
 
 
+class ProfilePictureForm(forms.Form):
+    profile_picture = forms.FileField()
+
+    def clean_profile_picture(self):
+        upload = self.cleaned_data['profile_picture']
+        if upload.size > MAX_STORED_BYTES:
+            raise forms.ValidationError('Image is too large — the maximum is 5 MB.')
+        extension = os.path.splitext(upload.name)[1].lower()
+        if extension not in IMAGE_EXTENSIONS:
+            raise forms.ValidationError('Only JPG and PNG images are allowed for a profile picture.')
+        signatures = DOCUMENT_SIGNATURES.get(extension)
+        header = upload.read(16)
+        upload.seek(0)
+        if not signatures or not header.startswith(signatures):
+            raise forms.ValidationError('That file does not look like a real JPG or PNG image.')
+        upload = images.shrink_avatar(upload)
+        if upload.size > MAX_STORED_BYTES:
+            raise forms.ValidationError('That image is too large to store — the maximum is 5 MB.')
+        return upload
+
+
 def first_error(form):
     """The first validation message on a form, for showing in a flash message."""
     for errors in form.errors.values():

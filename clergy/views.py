@@ -9,8 +9,8 @@ from django.urls import reverse
 from django.utils import timezone
 
 from accounts.views import security_context
-from registrar.forms import DocumentUploadForm, first_error
-from registrar.models import save_document
+from registrar.forms import DocumentUploadForm, ProfilePictureForm, first_error
+from registrar.models import delete_profile_picture, save_document, save_profile_picture
 from registrar.views import build_ember_context, handle_ember_upload
 
 from .decorators import clergy_required
@@ -67,16 +67,37 @@ def my_profile(request):
     # tab; their actions live in accounts.views.my_security.
     active_tab = 'security' if request.GET.get('tab') == 'security' else 'personal'
 
+    if request.method == 'POST' and 'remove_profile_picture' in request.POST:
+        if profile.record.profile_picture:
+            delete_profile_picture(profile.record)
+            messages.success(request, 'Profile picture removed.')
+        return redirect('clergy:my_profile')
+
+    if request.method == 'POST' and 'upload_profile_picture' in request.POST:
+        pic_form = ProfilePictureForm(request.POST, request.FILES)
+        if pic_form.is_valid():
+            save_profile_picture(profile.record, pic_form.cleaned_data['profile_picture'])
+            messages.success(request, 'Profile picture updated successfully.')
+        else:
+            messages.error(request, first_error(pic_form) or 'Please choose a JPG or PNG image.')
+        return redirect('clergy:my_profile')
+
     if request.method == 'POST':
         form = ClergyProfileForm(request.POST, instance=profile)
         record_form = ClergyRecordSelfServiceForm(request.POST, instance=profile.record)
-        if form.is_valid() and record_form.is_valid():
+        pic_form = ProfilePictureForm(request.POST, request.FILES) if 'profile_picture' in request.FILES else None
+        if pic_form is not None and not pic_form.is_valid():
+            messages.error(request, first_error(pic_form) or 'Please choose a valid JPG or PNG image.')
+        elif form.is_valid() and record_form.is_valid():
             form.save()
             record_form.save()
+            if pic_form is not None:
+                save_profile_picture(profile.record, pic_form.cleaned_data['profile_picture'])
             profile_updated(request.user, (record_form, form))
             messages.success(request, 'Profile updated successfully.')
             return redirect('clergy:my_profile')
-        messages.error(request, 'Please check the form and try again.')
+        else:
+            messages.error(request, 'Please check the form and try again.')
     else:
         form = ClergyProfileForm(instance=profile)
         record_form = ClergyRecordSelfServiceForm(instance=profile.record)

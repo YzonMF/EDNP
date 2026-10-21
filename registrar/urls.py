@@ -14,6 +14,7 @@ urlpatterns = [
     path('clergy-records/<str:record_id>/archive/', views.archive_record, name='archive_record'),
     path('clergy-records/<str:record_id>/restore/', views.restore_record, name='restore_record'),
     path('clergy-records/<str:record_id>/ember-letters/upload/', views.upload_ember_letter, name='upload_ember_letter'),
+    path('clergy-records/<str:record_id>/photo/', views.view_profile_picture, name='view_profile_picture'),
     path('clergy-records/<str:record_id>/', views.record_detail, name='record_detail'),
     path('documents/', views.documents_overview, name='documents_overview'),
     path('ordination-requirements/', views.ordination_requirements, name='ordination_requirements'),

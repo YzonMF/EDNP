@@ -63,6 +63,10 @@ class ClergyRecordQuerySet(models.QuerySet):
         return self.filter(archived_at__isnull=False)
 
 
+def clergy_profile_picture_upload_path(instance, filename):
+    return f'clergy_photos/{instance.id}/{filename}'
+
+
 class ClergyRecord(models.Model):
     GENDER_CHOICES = [('Male', 'Male'), ('Female', 'Female')]
     STATUS_CHOICES = [
@@ -74,6 +78,7 @@ class ClergyRecord(models.Model):
 
     id = models.CharField(max_length=20, primary_key=True)
     name = models.CharField(max_length=150)
+    profile_picture = models.FileField(upload_to=clergy_profile_picture_upload_path, blank=True, null=True)
     gender = models.CharField(max_length=10, choices=GENDER_CHOICES, blank=True, null=True)
     date_of_birth = models.DateField(blank=True, null=True)
     baptism_date = models.DateField(blank=True, null=True)
@@ -118,6 +123,11 @@ class ClergyRecord(models.Model):
 
     def __str__(self):
         return f"{self.id} - {self.name}"
+
+    @property
+    def initials(self):
+        words = [w for w in (self.name or '').split() if w]
+        return "".join(w[0] for w in words[:2]).upper() or "CU"
 
     @property
     def is_archived(self):
@@ -457,4 +467,32 @@ def delete_ember_letter(ember_letter):
         storage = ember_letter.file.storage
         ember_letter.delete()
         if old_name:
+            transaction.on_commit(lambda: storage.delete(old_name))
+
+
+def save_profile_picture(record, file):
+    """Save or replace `record`'s profile picture, deleting the previous file
+    from storage only after the transaction commits."""
+    with transaction.atomic():
+        locked = ClergyRecord.objects.select_for_update().get(pk=record.pk)
+        old_name = locked.profile_picture.name if locked.profile_picture else None
+        locked.profile_picture = file
+        locked.save(update_fields=['profile_picture'])
+        record.profile_picture = locked.profile_picture
+        if old_name and old_name != locked.profile_picture.name:
+            storage = locked.profile_picture.storage
+            transaction.on_commit(lambda: storage.delete(old_name))
+    return record
+
+
+def delete_profile_picture(record):
+    """Clear `record`'s profile picture and delete the stored file after commit."""
+    with transaction.atomic():
+        locked = ClergyRecord.objects.select_for_update().get(pk=record.pk)
+        old_name = locked.profile_picture.name if locked.profile_picture else None
+        storage = locked.profile_picture.storage if old_name else None
+        locked.profile_picture = ''
+        locked.save(update_fields=['profile_picture'])
+        record.profile_picture = locked.profile_picture
+        if old_name and storage is not None:
             transaction.on_commit(lambda: storage.delete(old_name))

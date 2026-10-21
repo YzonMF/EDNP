@@ -82,6 +82,20 @@ def download_document(request, document_id):
     return FileResponse(_open_stored(document.file), as_attachment=True, filename=filename)
 
 
+@login_required(login_url='index')
+def view_profile_picture(request, record_id):
+    record = get_object_or_404(ClergyRecord, id=record_id)
+    profile = getattr(request.user, 'clergy_profile', None)
+    if not (request.user.is_staff or (profile is not None and profile.record_id == record.id)):
+        raise Http404
+    if not record.profile_picture:
+        raise Http404
+    filename = record.profile_picture.name.rsplit('/', 1)[-1]
+    response = FileResponse(_open_stored(record.profile_picture), as_attachment=False, filename=filename)
+    response['Cache-Control'] = 'private, no-cache'
+    return response
+
+
 def _format_file_size(num_bytes):
     if not num_bytes:
         return '0 KB'

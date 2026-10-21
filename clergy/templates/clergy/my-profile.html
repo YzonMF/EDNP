@@ -54,11 +54,33 @@
       </div>
     </div>
 
-    <form method="post">
+    <form method="post" enctype="multipart/form-data">
       {% csrf_token %}
 
       <div class="section-card">
         <h3><i class="fa-solid fa-user"></i> Personal Information</h3>
+
+        <div class="profile-pic-row">
+          <div class="profile-avatar-lg" id="profilePicPreview">
+            {% if profile.record.profile_picture %}
+              <img src="{% url 'registrar:view_profile_picture' profile.record.id %}" alt="{{ profile.full_name }}" id="profilePicPreviewImg" width="72" height="72">
+            {% else %}
+              <img src="" alt="{{ profile.full_name }}" id="profilePicPreviewImg" class="hidden" width="72" height="72">
+              <span id="profilePicInitials">{{ profile.initials }}</span>
+            {% endif %}
+          </div>
+          <div class="profile-pic-controls">
+            <label for="profilePictureInput">Profile Picture</label>
+            <span class="muted">Upload a JPG or PNG image up to 5 MB (cropped to a square and shrunk automatically before storing).</span>
+            <div class="profile-pic-actions">
+              <input type="file" name="profile_picture" id="profilePictureInput" accept=".jpg,.jpeg,.png">
+              <button type="submit" name="upload_profile_picture" value="1" class="btn small" formnovalidate><i class="fa-solid fa-camera"></i> {% if profile.record.profile_picture %}Replace Photo{% else %}Upload Photo{% endif %}</button>
+              {% if profile.record.profile_picture %}
+                <button type="submit" name="remove_profile_picture" value="1" class="btn small danger" formnovalidate data-confirm="Remove your profile picture?"><i class="fa-solid fa-trash"></i> Remove</button>
+              {% endif %}
+            </div>
+          </div>
+        </div>
 
         <div class="form-grid">
 

@@ -1397,3 +1397,36 @@ h3.doc-section-title i{color:var(--blue);margin-right:6px}
 .code-help{margin:6px 0 0}
 .divider{border:0;border-top:1px solid #e3e8ef;margin:18px 0}
 .test-code{font-size:18px;letter-spacing:.15em}
+
+/* ===== Clergy profile picture: top-right header pill (desktop) and near Logout (smaller screens) ===== */
+.sidebar-user{display:none}
+.sidebar-avatar,.top-avatar{width:38px;height:38px;aspect-ratio:1/1;border-radius:50%;background:#eaf1ff;color:var(--blue);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;overflow:hidden;flex-shrink:0}
+.sidebar-avatar{background:#294863;color:#fff;border:2px solid rgba(255,255,255,.22)}
+.sidebar-avatar img,.top-avatar img{width:100%;height:100%;aspect-ratio:1/1;object-fit:cover;object-position:center;display:block}
+.top-right{display:flex;align-items:center;gap:12px;flex-shrink:0}
+.top-profile{display:flex;align-items:center;gap:10px;background:#fff;border:1px solid var(--line);border-radius:11px;padding:6px 12px 6px 8px;text-decoration:none;color:var(--text);transition:border-color .15s,background .15s}
+.top-profile:hover{background:#f8fafd;border-color:#cbd5e1}
+.top-profile-text{display:flex;flex-direction:column;line-height:1.25}
+.top-profile-text b{font-size:13px;color:var(--text)}
+.top-profile-text span{font-size:11px;color:var(--muted)}
+@media(max-width:800px){
+.top-profile{display:none}
+.sidebar-user{display:flex;flex-direction:row;order:2;margin:0 0 0 auto;padding:0 0 0 8px;border-bottom:0;border-left:1px solid #2a4a66;flex-shrink:0}
+.sidebar-user b,.sidebar-user .role{display:none}
+.sidebar-user .sidebar-avatar{width:34px;height:34px;font-size:12px;margin-bottom:0}
+.sidebar .nav a.nav-logout{order:3;margin:0 0 0 2px!important}
+.sidebar .nav a.nav-logout::before{display:none}
+}
+@media(max-width:380px){
+.sidebar-user{padding-left:6px}
+.sidebar-user .sidebar-avatar{width:30px;height:30px;font-size:11px}
+}
+/* ===== Profile picture upload on My Record & Profile ===== */
+.profile-pic-row{display:flex;align-items:center;gap:16px;padding:12px 14px;margin:14px 0 4px;background:#fff;border:1px solid var(--line);border-radius:10px}
+.profile-avatar-lg{width:72px;height:72px;aspect-ratio:1/1;border-radius:50%;background:#eaf1ff;color:var(--blue);border:2px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:800;overflow:hidden;flex-shrink:0}
+.profile-avatar-lg img{width:100%;height:100%;aspect-ratio:1/1;object-fit:cover;object-position:center;display:block}
+.profile-pic-controls{display:flex;flex-direction:column;gap:4px;flex:1;min-width:0}
+.profile-pic-controls>label{font-size:12px;font-weight:700;color:var(--text)}
+.profile-pic-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:4px}
+.profile-pic-actions input[type="file"]{width:auto;max-width:100%;font-size:12px;padding:7px 9px}
+@media(max-width:650px){.profile-pic-row{flex-direction:column;align-items:flex-start}}
