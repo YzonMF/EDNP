@@ -201,7 +201,7 @@ class EmberLetterTests(TestCase):
             names = zf.namelist()
         self.assertIn(ember.file.name, names)
 
-    def test_seed_command_and_cleanup_migration_remove_seminary_evaluation_type(self):
+    def test_seed_command_and_cleanup_migration_remove_legacy_ember_type(self):
         # Create legacy DocumentType and a Document attached to it
         legacy_type = DocumentType.objects.create(name='Seminary Evaluation / Grades / Ember Letter')
         doc = save_document(self.record_a, legacy_type, SimpleUploadedFile('old_sem.pdf', PDF), '')
@@ -215,7 +215,9 @@ class EmberLetterTests(TestCase):
         self.assertFalse(Document.objects.filter(pk=doc.pk).exists())
         self.assertFalse(os.path.exists(doc_path))
 
-        # Running seed_document_types does not re-create it
+        # Running seed_document_types does not re-create the combined Ember type,
+        # while Seminary Evaluation and Supervisor's Evaluation are seeded for Deacon
         call_command('seed_document_types', stdout=io.StringIO())
         self.assertFalse(DocumentType.objects.filter(name__icontains='Ember').exists())
-        self.assertFalse(DocumentType.objects.filter(name__icontains='Seminary Evaluation').exists())
+        self.assertTrue(DocumentType.objects.filter(name='Seminary Evaluation', required_from_rank='deacon').exists())
+        self.assertTrue(DocumentType.objects.filter(name="Supervisor's Evaluation", required_from_rank='deacon').exists())

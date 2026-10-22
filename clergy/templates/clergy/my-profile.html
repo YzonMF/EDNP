@@ -230,17 +230,28 @@
           <h3><i class="fa-solid fa-notes-medical"></i> Medical / Psychiatric Status</h3>
           <a class="btn secondary small" href="{% url 'clergy:my_requirements' %}"><i class="fa-solid fa-arrow-right"></i> Manage in My Requirements</a>
         </div>
-        <div class="notice">Status and expiry are computed automatically from what's on file — upload or renew a copy from My Requirements &amp; Attachments.</div>
+        <div class="notice">Medical exam clearance and psychiatric evaluation submission status. Official psychiatric results are noted upon receipt by the Bishop without document upload.</div>
         <div class="info-grid">
           {% for item in medical_psych %}
           <div class="info">
             <label>{{ item.document_type.name }}</label>
             <b>
-              {% if item.status == 'Submitted' %}<span class="badge green">Valid</span>
-              {% elif item.status == 'Expired' %}<span class="badge red">Expired</span>
-              {% else %}<span class="badge amber">Missing</span>{% endif %}
+              {% if item.document_type.is_noted_only %}
+                {% if item.status == 'Submitted' %}<span class="badge green">Submitted</span>
+                {% else %}<span class="badge amber">Not Submitted</span>{% endif %}
+              {% else %}
+                {% if item.status == 'Submitted' %}<span class="badge green">Valid</span>
+                {% elif item.status == 'Expired' %}<span class="badge red">Expired</span>
+                {% else %}<span class="badge amber">Missing</span>{% endif %}
+              {% endif %}
             </b>
-            {% if item.document %}<div class="muted">Valid until {{ item.document.expiry_date|default:"—" }}</div>{% endif %}
+            {% if item.document %}
+              {% if item.document_type.is_noted_only %}
+                <div class="muted">Noted submitted {{ item.document.submitted_date }}</div>
+              {% else %}
+                <div class="muted">Valid until {{ item.document.expiry_date|default:"—" }}</div>
+              {% endif %}
+            {% endif %}
           </div>
           {% empty %}
           <div class="info full"><label>Status</label><b>Not yet configured by the Registrar.</b></div>

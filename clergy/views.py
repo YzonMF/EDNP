@@ -39,7 +39,12 @@ def dashboard(request):
     })
 
 
-MEDICAL_PSYCH_DOCUMENT_NAMES = ('Medical Exam Result', 'Psychiatric Evaluation Result')
+MEDICAL_PSYCH_DOCUMENT_NAMES = (
+    'Medical Exam Result',
+    'Psychiatric Evaluation Result',
+    'Medical Exam Result (Priest)',
+    'Psychiatric Evaluation Result (Priest)',
+)
 
 
 @clergy_required
@@ -217,7 +222,9 @@ def my_requirements(request):
 
     if request.method == 'POST':
         form = DocumentUploadForm(request.POST, request.FILES)
-        if form.is_valid() and form.cleaned_data['document_type'].uploaded_by == 'registrar':
+        if form.is_valid() and form.cleaned_data['document_type'].is_noted_only:
+            messages.error(request, 'That requirement does not accept document uploads — it is noted directly by the Registrar.')
+        elif form.is_valid() and form.cleaned_data['document_type'].uploaded_by == 'registrar':
             messages.error(request, 'That document is provided by the Registrar — you cannot upload it yourself.')
         elif form.is_valid():
             document = save_document(

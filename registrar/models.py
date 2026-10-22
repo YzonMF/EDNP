@@ -206,6 +206,8 @@ class ClergyRecord(models.Model):
             document = existing.get(doc_type.id)
             if document is None:
                 status = 'Missing'
+            elif doc_type.is_noted_only:
+                status = 'Submitted'
             elif document.is_expired():
                 status = 'Expired'
             else:
@@ -273,6 +275,10 @@ class DocumentType(models.Model):
         help_text='Leave blank if this document type does not expire.',
     )
     notes = models.CharField(max_length=255, blank=True)
+    requires_upload = models.BooleanField(
+        default=True,
+        help_text='If false, this item is noted only (Submitted/Not Submitted) without document upload.',
+    )
 
     class Meta:
         db_table = 'document_types'
@@ -280,6 +286,10 @@ class DocumentType(models.Model):
 
     def __str__(self):
         return self.name
+
+    @property
+    def is_noted_only(self):
+        return not self.requires_upload
 
 
 def clergy_document_upload_path(instance, filename):
@@ -289,7 +299,7 @@ def clergy_document_upload_path(instance, filename):
 class Document(models.Model):
     record = models.ForeignKey(ClergyRecord, on_delete=models.CASCADE, related_name='documents')
     document_type = models.ForeignKey(DocumentType, on_delete=models.PROTECT, related_name='documents')
-    file = models.FileField(upload_to=clergy_document_upload_path)
+    file = models.FileField(upload_to=clergy_document_upload_path, blank=True, null=True)
     submitted_date = models.DateField()
     notes = models.CharField(max_length=255, blank=True)
 
@@ -384,10 +394,35 @@ def save_document(record, document_type, file, notes):
             document_type=document_type,
             defaults={'file': file, 'notes': notes, 'submitted_date': date.today()},
         )
-        if old_name and old_name != document.file.name:
+        if old_name and document.file and old_name != document.file.name:
             storage = document.file.storage
             transaction.on_commit(lambda: storage.delete(old_name))
     return document
+
+
+def note_document_submission(record, document_type, submitted=True, submitted_date=None, notes=''):
+    """Record or remove a noted-only requirement (e.g. Psychiatric Evaluation Result)
+    without any file upload."""
+    with transaction.atomic():
+        previous = Document.objects.select_for_update().filter(record=record, document_type=document_type).first()
+        old_name = previous.file.name if previous and previous.file else None
+        if submitted:
+            document, _ = Document.objects.update_or_create(
+                record=record,
+                document_type=document_type,
+                defaults={'file': None, 'notes': notes, 'submitted_date': submitted_date or date.today()},
+            )
+            if old_name and previous.file:
+                storage = previous.file.storage
+                transaction.on_commit(lambda: storage.delete(old_name))
+            return document
+        else:
+            if previous:
+                if old_name and previous.file:
+                    storage = previous.file.storage
+                    transaction.on_commit(lambda: storage.delete(old_name))
+                previous.delete()
+            return None
 
 
 def ember_letter_upload_path(instance, filename):

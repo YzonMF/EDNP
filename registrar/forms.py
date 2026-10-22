@@ -67,6 +67,12 @@ class DocumentUploadForm(forms.Form):
     file = forms.FileField()
     notes = forms.CharField(max_length=255, required=False)
 
+    def clean_document_type(self):
+        doc_type = self.cleaned_data['document_type']
+        if doc_type.is_noted_only:
+            raise forms.ValidationError(f"{doc_type.name} does not accept file uploads; it is noted directly.")
+        return doc_type
+
     def clean_file(self):
         upload = self.cleaned_data['file']
         if upload.size > MAX_UPLOAD_BYTES:

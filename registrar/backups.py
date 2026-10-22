@@ -70,6 +70,8 @@ def documents_zip():
     ember_letters = EmberLetter.objects.select_related('record').order_by('record_id', 'year', 'quarter')
     with zipfile.ZipFile(outbox, 'w', zipfile.ZIP_DEFLATED, compresslevel=1) as archive:
         for document in documents.iterator():
+            if not document.file or not document.file.name:
+                continue
             name = document.file.name
             try:
                 stored = document.file.storage.open_stored(name)

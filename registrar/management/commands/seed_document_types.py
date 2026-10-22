@@ -24,8 +24,9 @@ DOCUMENT_TYPES = [
     {
         'name': 'Psychiatric Evaluation Result',
         'required_from_rank': 'postulancy',
-        'validity_period_months': 12,
-        'notes': 'Record the date it was received by the bishop.',
+        'uploaded_by': 'registrar',
+        'requires_upload': False,
+        'notes': 'Noted upon receipt by the Bishop (no document upload).',
     },
     {
         'name': 'Letter of Intention (Postulancy)',
@@ -49,10 +50,48 @@ DOCUMENT_TYPES = [
         'name': 'Letter of Intention (Deacon)',
         'required_from_rank': 'deacon',
     },
+    {
+        'name': 'Application Letter (Deacon)',
+        'required_from_rank': 'deacon',
+    },
+    {
+        'name': 'Seminary Evaluation',
+        'required_from_rank': 'deacon',
+        'uploaded_by': 'registrar',
+    },
+    {
+        'name': "Supervisor's Evaluation",
+        'required_from_rank': 'deacon',
+        'uploaded_by': 'registrar',
+    },
+    {
+        'name': 'Endorsement from Commission on Ministry, Standing Committee, and Bishop (Deacon)',
+        'required_from_rank': 'deacon',
+    },
 
     # Priest — Postulancy + Deacon requirements plus these
     {
-        'name': 'Endorsement from Commission on Ministry and Standing Committee',
+        'name': 'Endorsement from Vestry (Currently Assigned)',
+        'required_from_rank': 'priest',
+    },
+    {
+        'name': 'Medical Exam Result (Priest)',
+        'required_from_rank': 'priest',
+        'validity_period_months': 6,
+    },
+    {
+        'name': 'Psychiatric Evaluation Result (Priest)',
+        'required_from_rank': 'priest',
+        'uploaded_by': 'registrar',
+        'requires_upload': False,
+        'notes': 'Noted upon receipt by the Bishop (no document upload).',
+    },
+    {
+        'name': 'Interview Record (Priest)',
+        'required_from_rank': 'priest',
+    },
+    {
+        'name': 'Endorsement from Commission on Ministry, Standing Committee, and Bishop (Priest)',
         'required_from_rank': 'priest',
     },
     {
@@ -73,14 +112,21 @@ DOCUMENT_TYPES = [
 
     # Supporting document types — not rank-gated, but every clergy member may need them
     {
-        'name': 'Deployment Notice',
+        'name': 'Deployment Notice - Bishop',
         'required_from_rank': 'none',
+        'uploaded_by': 'registrar',
         'notes': 'Issued by the bishop.',
     },
     {
         'name': 'Letter of Institution',
         'required_from_rank': 'none',
+        'uploaded_by': 'registrar',
         'notes': 'Issued per deployment/assignment.',
+    },
+    {
+        'name': 'Ordination Entry / Holy Orders Document',
+        'required_from_rank': 'none',
+        'uploaded_by': 'registrar',
     },
     {
         'name': 'Biodata Form',
@@ -103,8 +149,10 @@ class Command(BaseCommand):
                 name=entry['name'],
                 defaults={
                     'required_from_rank': entry['required_from_rank'],
+                    'uploaded_by': entry.get('uploaded_by', 'clergy'),
                     'validity_period_months': entry.get('validity_period_months'),
                     'notes': entry.get('notes', ''),
+                    'requires_upload': entry.get('requires_upload', True),
                     'is_required': True,
                 },
             )

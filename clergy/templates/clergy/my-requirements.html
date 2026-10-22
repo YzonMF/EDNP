@@ -39,26 +39,38 @@
       <div class="doc-card">
         <div class="doc-card-head">
           <b>{{ item.document_type.name }}</b>
-          {% if item.status == 'Submitted' %}<span class="badge green">Submitted</span>
-          {% elif item.status == 'Expired' %}<span class="badge red">Expired</span>
-          {% else %}<span class="badge amber">Missing</span>{% endif %}
+          {% if item.document_type.is_noted_only %}
+            {% if item.status == 'Submitted' %}<span class="badge green">Submitted</span>
+            {% else %}<span class="badge amber">Not Submitted</span>{% endif %}
+          {% else %}
+            {% if item.status == 'Submitted' %}<span class="badge green">Submitted</span>
+            {% elif item.status == 'Expired' %}<span class="badge red">Expired</span>
+            {% else %}<span class="badge amber">Missing</span>{% endif %}
+          {% endif %}
         </div>
         {% if item.document_type.notes %}<div class="muted">{{ item.document_type.notes }}</div>{% endif %}
-        {% if item.document %}
-        <div class="doc-card-file"><i class="fa-solid fa-file-lines"></i> Submitted {{ item.document.submitted_date }}{% if item.document.notes %}<br>{{ item.document.notes }}{% endif %}</div>
-        <div class="row-actions">
-          <a class="btn secondary small" href="{% url 'registrar:view_document' item.document.id %}" target="_blank" rel="noopener"><i class="fa-solid fa-eye"></i> View</a>
-          <a class="btn secondary small" href="{% url 'registrar:download_document' item.document.id %}"><i class="fa-solid fa-download"></i> Download</a>
-          <button type="button" class="btn secondary small" data-print-url="{% url 'registrar:view_document' item.document.id %}"><i class="fa-solid fa-print"></i> Print</button>
-        </div>
+        {% if item.document_type.is_noted_only %}
+          <div class="muted" style="margin-top:6px;"><i class="fa-solid fa-shield-halved"></i> Noted upon receipt by the Bishop. No document upload required.</div>
+          {% if item.document %}
+          <div class="doc-card-file" style="margin-top:8px;"><i class="fa-solid fa-circle-check"></i> Noted as submitted on {{ item.document.submitted_date }}{% if item.document.notes %}<br>{{ item.document.notes }}{% endif %}</div>
+          {% endif %}
+        {% else %}
+          {% if item.document and item.document.file %}
+          <div class="doc-card-file"><i class="fa-solid fa-file-lines"></i> Submitted {{ item.document.submitted_date }}{% if item.document.notes %}<br>{{ item.document.notes }}{% endif %}</div>
+          <div class="row-actions">
+            <a class="btn secondary small" href="{% url 'registrar:view_document' item.document.id %}" target="_blank" rel="noopener"><i class="fa-solid fa-eye"></i> View</a>
+            <a class="btn secondary small" href="{% url 'registrar:download_document' item.document.id %}"><i class="fa-solid fa-download"></i> Download</a>
+            <button type="button" class="btn secondary small" data-print-url="{% url 'registrar:view_document' item.document.id %}"><i class="fa-solid fa-print"></i> Print</button>
+          </div>
+          {% endif %}
+          <form method="post" enctype="multipart/form-data" class="doc-card-upload">
+            {% csrf_token %}
+            <input type="hidden" name="document_type" value="{{ item.document_type.id }}">
+            <input type="file" name="file" accept=".pdf,.jpg,.jpeg,.png" required>
+            <input type="text" name="notes" placeholder="Notes (optional)">
+            <button class="btn small">{% if item.document and item.document.file %}<i class="fa-solid fa-rotate"></i> Replace{% else %}<i class="fa-solid fa-upload"></i> Upload{% endif %}</button>
+          </form>
         {% endif %}
-        <form method="post" enctype="multipart/form-data" class="doc-card-upload">
-          {% csrf_token %}
-          <input type="hidden" name="document_type" value="{{ item.document_type.id }}">
-          <input type="file" name="file" accept=".pdf,.jpg,.jpeg,.png" required>
-          <input type="text" name="notes" placeholder="Notes (optional)">
-          <button class="btn small">{% if item.document %}<i class="fa-solid fa-rotate"></i> Replace{% else %}<i class="fa-solid fa-upload"></i> Upload{% endif %}</button>
-        </form>
       </div>
       {% empty %}
       <p class="empty">No requirements configured yet.</p>
@@ -72,20 +84,32 @@
       <div class="doc-card">
         <div class="doc-card-head">
           <b>{{ item.document_type.name }}</b>
-          {% if item.status == 'Submitted' %}<span class="badge green">Submitted</span>
-          {% elif item.status == 'Expired' %}<span class="badge red">Expired</span>
-          {% else %}<span class="badge amber">Pending</span>{% endif %}
+          {% if item.document_type.is_noted_only %}
+            {% if item.status == 'Submitted' %}<span class="badge green">Submitted</span>
+            {% else %}<span class="badge amber">Not Submitted</span>{% endif %}
+          {% else %}
+            {% if item.status == 'Submitted' %}<span class="badge green">Submitted</span>
+            {% elif item.status == 'Expired' %}<span class="badge red">Expired</span>
+            {% else %}<span class="badge amber">Pending</span>{% endif %}
+          {% endif %}
         </div>
         {% if item.document_type.notes %}<div class="muted">{{ item.document_type.notes }}</div>{% endif %}
-        {% if item.document %}
-        <div class="doc-card-file"><i class="fa-solid fa-file-lines"></i> Submitted {{ item.document.submitted_date }}{% if item.document.notes %}<br>{{ item.document.notes }}{% endif %}</div>
-        <div class="row-actions">
-          <a class="btn secondary small" href="{% url 'registrar:view_document' item.document.id %}" target="_blank" rel="noopener"><i class="fa-solid fa-eye"></i> View</a>
-          <a class="btn secondary small" href="{% url 'registrar:download_document' item.document.id %}"><i class="fa-solid fa-download"></i> Download</a>
-          <button type="button" class="btn secondary small" data-print-url="{% url 'registrar:view_document' item.document.id %}"><i class="fa-solid fa-print"></i> Print</button>
-        </div>
+        {% if item.document_type.is_noted_only %}
+          <div class="muted" style="margin-top:6px;"><i class="fa-solid fa-shield-halved"></i> Noted upon receipt by the Bishop. No document upload required.</div>
+          {% if item.document %}
+          <div class="doc-card-file" style="margin-top:8px;"><i class="fa-solid fa-circle-check"></i> Noted as submitted on {{ item.document.submitted_date }}{% if item.document.notes %}<br>{{ item.document.notes }}{% endif %}</div>
+          {% endif %}
         {% else %}
-        <div class="muted">Not yet provided by the Registrar.</div>
+          {% if item.document and item.document.file %}
+          <div class="doc-card-file"><i class="fa-solid fa-file-lines"></i> Submitted {{ item.document.submitted_date }}{% if item.document.notes %}<br>{{ item.document.notes }}{% endif %}</div>
+          <div class="row-actions">
+            <a class="btn secondary small" href="{% url 'registrar:view_document' item.document.id %}" target="_blank" rel="noopener"><i class="fa-solid fa-eye"></i> View</a>
+            <a class="btn secondary small" href="{% url 'registrar:download_document' item.document.id %}"><i class="fa-solid fa-download"></i> Download</a>
+            <button type="button" class="btn secondary small" data-print-url="{% url 'registrar:view_document' item.document.id %}"><i class="fa-solid fa-print"></i> Print</button>
+          </div>
+          {% else %}
+          <div class="muted">Not yet provided by the Registrar.</div>
+          {% endif %}
         {% endif %}
       </div>
       {% empty %}

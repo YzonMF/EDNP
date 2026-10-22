@@ -25,8 +25,8 @@ from . import archive, backups, bulk, reports, slips
 from .decorators import registrar_required
 from .forms import ClergyRecordForm, DocumentUploadForm, EmberLetterUploadForm, PersonalInfoForm, first_error
 from .models import (RANK_CHOICES, REPORT_ARCHIVE_DAYS, BackupArchive, ClergyRecord, Deanery, Document, DocumentType,
-                     EmberLetter, GeneratedReport, delete_ember_letter as remove_ember_letter, save_document,
-                     save_ember_letter)
+                     EmberLetter, GeneratedReport, delete_ember_letter as remove_ember_letter,
+                     note_document_submission, save_document, save_ember_letter)
 from .provisioning import (SETUP_WINDOW_DAYS, ProvisionError, account_status, provision_account, reset_credentials,
                            reset_lost_phone)
 
@@ -67,7 +67,7 @@ def _stored_size(field_file):
 @login_required(login_url='index')
 def view_document(request, document_id):
     document = get_object_or_404(Document, id=document_id)
-    if not _can_access_document(request.user, document):
+    if not _can_access_document(request.user, document) or not document.file or not document.file.name:
         raise Http404
     filename = document.file.name.rsplit('/', 1)[-1]
     return FileResponse(_open_stored(document.file), as_attachment=False, filename=filename)
@@ -76,7 +76,7 @@ def view_document(request, document_id):
 @login_required(login_url='index')
 def download_document(request, document_id):
     document = get_object_or_404(Document, id=document_id)
-    if not _can_access_document(request.user, document):
+    if not _can_access_document(request.user, document) or not document.file or not document.file.name:
         raise Http404
     filename = document.file.name.rsplit('/', 1)[-1]
     return FileResponse(_open_stored(document.file), as_attachment=True, filename=filename)
@@ -563,6 +563,25 @@ def record_detail(request, record_id):
     page can link straight into a specific record's Documents tab."""
     record = get_object_or_404(ClergyRecord, id=record_id)
 
+    if request.method == 'POST' and request.POST.get('action') == 'toggle_noted_requirement':
+        dt_id = request.POST.get('document_type_id')
+        doc_type = get_object_or_404(DocumentType, id=dt_id)
+        set_submitted = request.POST.get('set_submitted') == '1'
+        if set_submitted:
+            raw_date = request.POST.get('submitted_date')
+            try:
+                sub_date = date.fromisoformat(raw_date) if raw_date else date.today()
+            except ValueError:
+                sub_date = date.today()
+            notes = request.POST.get('notes', '').strip()
+            doc = note_document_submission(record, doc_type, submitted=True, submitted_date=sub_date, notes=notes)
+            notifications.document_uploaded(doc, registrar=request.user)
+            messages.success(request, f"{doc_type.name} marked as Submitted for {record.name}.")
+        else:
+            note_document_submission(record, doc_type, submitted=False)
+            messages.success(request, f"{doc_type.name} marked as Not Submitted for {record.name}.")
+        return redirect(f"{request.path}?tab=documents")
+
     if request.method == 'POST' and 'document_type' in request.POST:
         doc_form = DocumentUploadForm(request.POST, request.FILES)
         if doc_form.is_valid():
@@ -633,6 +652,7 @@ def ordination_requirements(request):
             groups.append({
                 'label': 'Holy Order',
                 'custom_items': ['Date admitted as Holy Order'],
+                'types': types,
             })
     general_types = DocumentType.objects.filter(required_from_rank='none')
     if general_types:
