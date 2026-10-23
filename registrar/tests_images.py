@@ -101,7 +101,7 @@ class ShrinkTests(TestCase):
 
 class UploadFormTests(TestCase):
     def setUp(self):
-        self.document_type = DocumentType.objects.create(name='Baptismal Certificate')
+        self.document_type, _ = DocumentType.objects.get_or_create(name='Baptismal Certificate')
 
     def form(self, name, content):
         return DocumentUploadForm({'document_type': self.document_type.pk, 'notes': ''},
@@ -151,7 +151,7 @@ class UploadPageTests(MediaFolderMixin, TestCase):
     def test_a_photo_uploaded_by_the_registrar_is_stored_shrunk_and_opens_as_a_jpeg(self):
         registrar = activate(User.objects.create_user('reg', password='pw12345!x', is_staff=True))
         record = ClergyRecord.objects.create(id='CLG-001', name='Fr. Juan')
-        document_type = DocumentType.objects.create(name='Baptismal Certificate')
+        document_type, _ = DocumentType.objects.get_or_create(name='Baptismal Certificate')
         client = Client()
         client.force_login(registrar)
         original = encoded(photo_like(3000, 4000, 'L'))   # a greyscale scan

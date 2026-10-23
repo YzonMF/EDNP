@@ -102,7 +102,7 @@ class DocumentTests(TestCase):
         override.enable()
         self.addCleanup(override.disable)
         self.record = ClergyRecord.objects.create(id='CLG-001', name='Fr. A')
-        self.doc_type = DocumentType.objects.create(name='Baptismal Certificate')
+        self.doc_type, _ = DocumentType.objects.get_or_create(name='Baptismal Certificate')
 
     def _form(self, name, content):
         return DocumentUploadForm({'document_type': self.doc_type.pk, 'notes': ''},
@@ -189,7 +189,7 @@ class UploadFeedbackTests(TestCase):
 
     def setUp(self):
         self.record = ClergyRecord.objects.create(id='CLG-001', name='Fr. A')
-        self.doc_type = DocumentType.objects.create(name='Baptismal Certificate')
+        self.doc_type, _ = DocumentType.objects.get_or_create(name='Baptismal Certificate')
         self.bad = {'document_type': self.doc_type.pk, 'file': SimpleUploadedFile('x.html', b'<b>hi</b>')}
 
     def test_clergy_sees_rejection_toast(self):
@@ -255,7 +255,7 @@ class PaginationAndQueryCountTests(TestCase):
     def setUp(self):
         self.registrar = activate(User.objects.create_user('reg', password='pw12345!x', is_staff=True))
         self.client.force_login(self.registrar)
-        self.doc_type = DocumentType.objects.create(name='Baptismal Certificate', is_required=True)
+        self.doc_type, _ = DocumentType.objects.get_or_create(name='Baptismal Certificate', defaults={'is_required': True})
 
     def test_clergy_records_and_documents_overview_do_not_run_n_plus_one_queries(self):
         for i in range(1, 15):

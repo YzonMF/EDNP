@@ -137,6 +137,11 @@ DOCUMENT_TYPES = [
         'name': 'Birth Certificate',
         'required_from_rank': 'none',
     },
+    {
+        'name': 'Baptismal Certificate',
+        'required_from_rank': 'none',
+        'uploaded_by': 'clergy',
+    },
 ]
 
 

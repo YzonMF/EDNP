@@ -16,7 +16,7 @@ from accounts.tests_forgot import ForgotCase
 from accounts.tests_mysecurity import OLD, PASSWORD, SecurityTestCase
 from ednp import login_throttle
 from ednp.testing import MediaFolderMixin
-from registrar.models import ClergyRecord, Document, DocumentType
+from registrar.models import ClergyDeployment, ClergyRecord, Document, DocumentType, EmberLetter
 
 from . import notifications
 from .models import ClergyProfile, Notification
@@ -247,6 +247,59 @@ class RecordEventTests(MediaFolderMixin, TestCase):
         self.assertNotIn('ID checked', message)   # the registrar's note is for the activity log only
 
 
+    def test_registrar_adding_and_removing_deployment_notifies_clergy(self):
+        self.staff.post(reverse('registrar:record_detail', args=[self.record.id]), {
+            'action': 'add_deployment',
+            'station_name': 'St. Barnabas Parish',
+            'place_name': 'Alab, Bontoc',
+            'role': 'Priest-in-Charge',
+        })
+        note = only(self.user, 'deployment_added')
+        self.assertEqual(note.title, 'Deployment added')
+        self.assertIn('Maria Santos (Registrar) added a deployment for you at St. Barnabas Parish in Alab, Bontoc (Priest-in-Charge).', note.message)
+
+        dep = ClergyDeployment.objects.get(record=self.record)
+        self.staff.post(reverse('registrar:record_detail', args=[self.record.id]), {
+            'action': 'delete_deployment',
+            'deployment_id': dep.id,
+        })
+        removed = only(self.user, 'deployment_removed')
+        self.assertEqual(removed.title, 'Deployment removed')
+        self.assertIn('Maria Santos (Registrar) removed your deployment at St. Barnabas Parish.', removed.message)
+
+    def test_registrar_unmarking_noted_requirement_notifies_clergy(self):
+        doc_type = DocumentType.objects.create(name='Psychiatric Evaluation', requires_upload=False)
+        self.staff.post(reverse('registrar:record_detail', args=[self.record.id]), {
+            'action': 'toggle_noted_requirement',
+            'document_type_id': doc_type.id,
+            'set_submitted': '0',
+        })
+        note = only(self.user, 'document_removed')
+        self.assertEqual(note.title, 'Psychiatric Evaluation marked not submitted')
+        self.assertIn('Maria Santos (Registrar) marked your Psychiatric Evaluation as Not Submitted.', note.message)
+
+    def test_registrar_deleting_ember_letter_notifies_clergy(self):
+        ember = EmberLetter.objects.create(record=self.record, year=2026, quarter=1,
+                                           file=SimpleUploadedFile('ember.pdf', PDF),
+                                           submitted_date=date.today())
+        self.staff.post(reverse('registrar:delete_ember_letter', args=[ember.id]))
+        note = only(self.user, 'document_removed')
+        self.assertEqual(note.title, 'Ember Letter (2026 Q1) removed')
+        self.assertIn('Maria Santos (Registrar) removed your Ember Letter for 2026 Q1.', note.message)
+
+    def test_registrar_archiving_and_restoring_record_notifies_clergy(self):
+        ClergyRecord.objects.filter(id=self.record.id).update(status='Retired')
+        self.staff.post(reverse('registrar:archive_record', args=[self.record.id]))
+        note = only(self.user, 'record_archived')
+        self.assertEqual(note.title, 'Record archived')
+        self.assertIn('Maria Santos (Registrar) moved your clergy record to the archive.', note.message)
+
+        self.staff.post(reverse('registrar:restore_record', args=[self.record.id]))
+        restored = only(self.user, 'record_restored')
+        self.assertEqual(restored.title, 'Record restored')
+        self.assertIn('Maria Santos (Registrar) restored your clergy record from the archive.', restored.message)
+
+
 class ReminderTests(TestCase):
     TODAY = date(2026, 10, 10)
 
@@ -331,6 +384,10 @@ class ReminderTests(TestCase):
 
 
 class PageTests(SecurityTestCase):
+    def setUp(self):
+        super().setUp()
+        DocumentType.objects.all().delete()
+
     def add(self, title, kind='password_changed', user=None, read=False):
         return Notification.objects.create(user=user or self.user, kind=kind, title=title,
                                            read_at=timezone.now() if read else None)
@@ -401,10 +458,8 @@ class PageTests(SecurityTestCase):
     def test_all_caught_up_with_the_true_verification_status(self):
         page = self.client.get(PAGE)
         self.assertContains(page, "You're all caught up")
-        self.assertContains(page, 'Awaiting verification')
+        self.assertNotContains(page, 'Awaiting verification')
         self.assertNotContains(page, 'Record verified')
-        ClergyProfile.objects.filter(user=self.user).update(verification='Verified')
-        self.assertContains(self.client.get(PAGE), 'Record verified')
 
     def test_an_unlinked_account_is_told_so(self):
         ClergyProfile.objects.filter(user=self.user).update(record=None)

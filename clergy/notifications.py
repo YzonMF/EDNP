@@ -174,6 +174,32 @@ def profile_updated(user, forms):
         notify(user, 'profile_updated', 'Profile updated', f'You updated: {", ".join(labels)}.')
 
 
+def deployment_added(record, registrar, deployment):
+    """After the registrar adds a deployment to a clergy record."""
+    role_suffix = f' ({deployment.role})' if deployment.role else ''
+    place_suffix = f' in {deployment.place_name}' if deployment.place_name else ''
+    notify(_owner(record), 'deployment_added', 'Deployment added',
+           f'{_registrar(registrar)} added a deployment for you at {deployment.station_name}{place_suffix}{role_suffix}.')
+
+
+def deployment_deleted(record, registrar, station_name):
+    """After the registrar deletes a deployment from a clergy record."""
+    notify(_owner(record), 'deployment_removed', 'Deployment removed',
+           f'{_registrar(registrar)} removed your deployment at {station_name}.')
+
+
+def record_archived(record, registrar):
+    """After the registrar archives a clergy record."""
+    notify(_owner(record), 'record_archived', 'Record archived',
+           f'{_registrar(registrar)} moved your clergy record to the archive.')
+
+
+def record_restored(record, registrar):
+    """After the registrar restores a clergy record from the archive."""
+    notify(_owner(record), 'record_restored', 'Record restored',
+           f'{_registrar(registrar)} restored your clergy record from the archive.')
+
+
 def record_updated(record, registrar, form):
     """After the registrar saves a clergy member's record (call it after form.save())."""
     changes = [_describe(form, name) for name in form.changed_data]
@@ -247,6 +273,18 @@ def ember_letter_uploaded(ember_letter, actor=None):
                       f'{_registrar(actor)} uploaded your Ember Letter for {slot}.')
     return notify(user, 'ember_uploaded', f'Ember Letter ({slot}) uploaded',
                   f'You uploaded your Ember Letter for {slot}.')
+
+
+def document_unmarked(record, registrar, doc_type):
+    """After the registrar marks a noted requirement as Not Submitted."""
+    notify(_owner(record), 'document_removed', f'{doc_type.name} marked not submitted',
+           f'{_registrar(registrar)} marked your {doc_type.name} as Not Submitted.')
+
+
+def ember_letter_deleted(record, registrar, slot):
+    """After the registrar deletes an Ember letter from a record."""
+    notify(_owner(record), 'document_removed', f'Ember Letter ({slot}) removed',
+           f'{_registrar(registrar)} removed your Ember Letter for {slot}.')
 
 
 # --- Reminders ----------------------------------------------------------------

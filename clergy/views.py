@@ -129,6 +129,25 @@ def my_profile(request):
         messages.success(request, 'Deployment removed.')
         return redirect('clergy:my_profile')
 
+    if request.method == 'POST' and request.POST.get('action') == 'upload_attachment':
+        form = DocumentUploadForm(request.POST, request.FILES)
+        if form.is_valid() and form.cleaned_data['document_type'].is_noted_only:
+            messages.error(request, 'That requirement does not accept document uploads — it is noted directly by the Registrar.')
+        elif form.is_valid() and form.cleaned_data['document_type'].uploaded_by == 'registrar':
+            messages.error(request, 'That document is provided by the Registrar — you cannot upload it yourself.')
+        elif form.is_valid():
+            document = save_document(
+                profile.record,
+                form.cleaned_data['document_type'],
+                form.cleaned_data['file'],
+                form.cleaned_data.get('notes', ''),
+            )
+            document_uploaded(document)
+            messages.success(request, f"{form.cleaned_data['document_type'].name} uploaded successfully.")
+        else:
+            messages.error(request, first_error(form) or 'Please choose a valid document file (PDF, PNG, JPG).')
+        return redirect('clergy:my_profile')
+
     if request.method == 'POST' and 'remove_profile_picture' in request.POST:
         if profile.record.profile_picture:
             delete_profile_picture(profile.record)

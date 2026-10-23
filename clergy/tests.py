@@ -402,3 +402,74 @@ class EnhancedClergyProfileTests(TestCase):
         self.assertContains(res, 'Holy Trinity Mission')
         self.assertContains(res, 'Ben Skywalker')
         self.assertContains(res, 'B.Th.')
+
+    def test_date_attachments_map_and_quick_upload_flow(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from registrar.models import Document, DocumentType
+
+        birth_type, _ = DocumentType.objects.get_or_create(
+            name='Birth Certificate',
+            defaults={'uploaded_by': 'clergy', 'is_required': True}
+        )
+        orders_type, _ = DocumentType.objects.get_or_create(
+            name='Ordination Entry / Holy Orders Document',
+            defaults={'uploaded_by': 'registrar', 'is_required': True}
+        )
+
+        # 1. Initial state: map reflects missing documents
+        att_map = self.record.date_attachments_map
+        self.assertIn('date_of_birth', att_map)
+        self.assertIn('diaconate_date', att_map)
+        self.assertFalse(att_map['date_of_birth']['is_uploaded'])
+        self.assertTrue(att_map['date_of_birth']['can_clergy_upload'])
+        self.assertFalse(att_map['diaconate_date']['can_clergy_upload'])
+
+        # GET my_profile displays quick upload trigger
+        page = self.client.get(reverse('clergy:my_profile'))
+        self.assertEqual(page.status_code, 200)
+        self.assertContains(page, 'No Birth Certificate attached')
+        self.assertContains(page, 'data-quick-upload')
+
+        # 2. Clergy quick-uploads Birth Certificate
+        pdf_file = SimpleUploadedFile('birth.pdf', b'%PDF-1.4\ncontent', content_type='application/pdf')
+        res = self.client.post(reverse('clergy:my_profile'), {
+            'action': 'upload_attachment',
+            'document_type': birth_type.id,
+            'file': pdf_file,
+            'notes': 'Uploaded via date field',
+        }, follow=True)
+        self.assertEqual(res.status_code, 200)
+        self.assertContains(res, 'Birth Certificate uploaded successfully.')
+
+        # Verify document created and map updated
+        fresh_record = ClergyRecord.objects.get(id=self.record.id)
+        fresh_map = fresh_record.date_attachments_map
+        self.assertTrue(fresh_map['date_of_birth']['is_uploaded'])
+        self.assertIsNotNone(fresh_map['date_of_birth']['doc_id'])
+
+        # 3. Clergy cannot upload registrar-only document
+        res_disallowed = self.client.post(reverse('clergy:my_profile'), {
+            'action': 'upload_attachment',
+            'document_type': orders_type.id,
+            'file': SimpleUploadedFile('orders.pdf', b'%PDF-1.4\ncontent', content_type='application/pdf'),
+        }, follow=True)
+        self.assertContains(res_disallowed, 'That document is provided by the Registrar')
+
+        # 4. Registrar quick-uploads Holy Orders document
+        reg_user = activate(User.objects.create_user('reg_test', password='pw12345!x', is_staff=True))
+        reg_client = self.client_class()
+        reg_client.force_login(reg_user)
+
+        res_reg = reg_client.post(reverse('registrar:record_detail', args=[self.record.id]), {
+            'action': 'upload_attachment',
+            'document_type': orders_type.id,
+            'file': SimpleUploadedFile('holy_orders.pdf', b'%PDF-1.4\ncontent', content_type='application/pdf'),
+            'notes': 'Registrar upload',
+        })
+        self.assertRedirects(res_reg, f"{reverse('registrar:record_detail', args=[self.record.id])}?tab=personal")
+
+        # Map now reflects uploaded for holy orders dates
+        fresh_record_2 = ClergyRecord.objects.get(id=self.record.id)
+        self.assertTrue(fresh_record_2.date_attachments_map['diaconate_date']['is_uploaded'])
+        self.assertIsNotNone(fresh_record_2.date_attachments_map['diaconate_date']['doc_id'])
+

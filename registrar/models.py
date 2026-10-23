@@ -430,6 +430,42 @@ class ClergyRecord(models.Model):
             }
         return self._document_summary_cache
 
+    @property
+    def date_attachments_map(self):
+        """Map of date field names to their corresponding document requirement status,
+        attachment object, and upload metadata."""
+        if not hasattr(self, '_date_attachments_cache'):
+            fields_map = {
+                'date_of_birth': 'Birth Certificate',
+                'baptism_date': 'Baptismal Certificate',
+                'confirmation_date': 'Declaration of Conformity',
+                'diaconate_date': 'Ordination Entry / Holy Orders Document',
+                'ordination_date': 'Ordination Entry / Holy Orders Document',
+                'holy_orders_date': 'Ordination Entry / Holy Orders Document',
+                'consecration_date': 'Ordination Entry / Holy Orders Document',
+            }
+            needed_names = set(fields_map.values())
+            doc_types = {dt.name: dt for dt in DocumentType.objects.filter(name__in=needed_names)}
+            existing_docs = {
+                doc.document_type.name: doc
+                for doc in self.documents.select_related('document_type').filter(document_type__name__in=needed_names)
+                if doc.file
+            }
+            res = {}
+            for field_name, doc_name in fields_map.items():
+                dt = doc_types.get(doc_name)
+                doc = existing_docs.get(doc_name)
+                res[field_name] = {
+                    'name': doc_name,
+                    'doc_type': dt,
+                    'doc': doc,
+                    'is_uploaded': doc is not None and bool(doc.file),
+                    'doc_id': doc.id if doc else None,
+                    'can_clergy_upload': dt.uploaded_by == 'clergy' if dt else False,
+                }
+            self._date_attachments_cache = res
+        return self._date_attachments_cache
+
     def ember_summary(self):
         """Informational counts of uploaded Ember letters across years."""
         if 'ember_letters' in getattr(self, '_prefetched_objects_cache', {}):

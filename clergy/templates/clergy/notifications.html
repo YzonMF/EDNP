@@ -35,19 +35,7 @@
     </div>
     {% endfor %}
 
-    {% if profile.record %}
-    {% if profile.verification == 'Verified' %}
-    <div class="notice success notice-row">
-      <i class="fa-solid fa-shield-halved"></i>
-      <div><b>Record verified.</b> Your clergy record has been verified by the Registrar.</div>
-    </div>
-    {% else %}
-    <div class="notice info notice-row">
-      <i class="fa-solid fa-hourglass-half"></i>
-      <div><b>Awaiting verification.</b> The Registrar hasn't marked your record as verified yet.</div>
-    </div>
-    {% endif %}
-    {% endif %}
+
   </div>
 
   <div class="panel notif-panel">

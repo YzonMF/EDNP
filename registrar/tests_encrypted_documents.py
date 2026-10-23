@@ -34,7 +34,7 @@ class EncryptedPagesCase(MediaFolderMixin, TestCase):
         self.record = ClergyRecord.objects.create(id='CLG-001', name='Fr. Juan')
         self.clergy = activate(User.objects.create_user('CLG-001', password=PASSWORD))
         ClergyProfile.objects.create(user=self.clergy, record=self.record)
-        self.doc_type = DocumentType.objects.create(name='Baptismal Certificate')
+        self.doc_type, _ = DocumentType.objects.get_or_create(name='Baptismal Certificate')
 
     def as_registrar(self):
         client = Client()

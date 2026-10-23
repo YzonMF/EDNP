@@ -214,6 +214,8 @@ def delete_ember_letter(request, ember_id):
         note=f'{record.id} · {year} Q{quarter}',
         target_name=record.name,
     )
+    if request.user.is_staff:
+        notifications.ember_letter_deleted(record, request.user, f'{year} Q{quarter}')
     return JsonResponse({
         'ok': True,
         'year': year,
@@ -366,6 +368,7 @@ def archive_record(request, record_id):
     if request.method == 'POST':
         try:
             if archive.archive_record(record, request.user):
+                notifications.record_archived(record, request.user)
                 messages.success(request, f'{record.name} was moved to the archive. The record is kept and can be restored any time.')
         except archive.ArchiveError as exc:
             messages.error(request, str(exc))
@@ -376,6 +379,7 @@ def archive_record(request, record_id):
 def restore_record(request, record_id):
     record = get_object_or_404(ClergyRecord, id=record_id)
     if request.method == 'POST' and archive.restore_record(record, request.user):
+        notifications.record_restored(record, request.user)
         messages.success(request, f'{record.name} is back on the Clergy Records list.')
     return _back_from_archiving(request, record, reverse('registrar:clergy_records') + ARCHIVED_RECORDS_URL_QUERY)
 
@@ -613,6 +617,7 @@ def record_detail(request, record_id):
             messages.success(request, f"{doc_type.name} marked as Submitted for {record.name}.")
         else:
             note_document_submission(record, doc_type, submitted=False)
+            notifications.document_unmarked(record, request.user, doc_type)
             messages.success(request, f"{doc_type.name} marked as Not Submitted for {record.name}.")
         return redirect(f"{request.path}?tab=documents")
 
@@ -629,7 +634,8 @@ def record_detail(request, record_id):
             messages.success(request, f"{doc_form.cleaned_data['document_type'].name} uploaded for {record.name}.")
         else:
             messages.error(request, first_error(doc_form) or 'Please choose a document type and a file.')
-        return redirect(f"{request.path}?tab=documents")
+        tab = 'personal' if request.POST.get('action') == 'upload_attachment' else 'documents'
+        return redirect(f"{request.path}?tab={tab}")
 
     if request.method == 'POST' and request.POST.get('action') == 'add_deployment':
         station_name = request.POST.get('station_name', '').strip()
@@ -658,7 +664,7 @@ def record_detail(request, record_id):
         else:
             if is_current:
                 record.deployments.filter(is_current=True).update(is_current=False)
-            ClergyDeployment.objects.create(
+            dep = ClergyDeployment.objects.create(
                 record=record,
                 station_name=station_name,
                 place_name=place_name,
@@ -668,12 +674,16 @@ def record_detail(request, record_id):
                 is_current=is_current,
                 notes=notes
             )
+            notifications.deployment_added(record, request.user, dep)
             messages.success(request, f'Deployment at {station_name} added successfully.')
         return redirect(f"{request.path}?tab=personal")
 
     if request.method == 'POST' and request.POST.get('action') == 'delete_deployment':
         dep_id = request.POST.get('deployment_id')
-        get_object_or_404(ClergyDeployment, id=dep_id, record=record).delete()
+        dep = get_object_or_404(ClergyDeployment, id=dep_id, record=record)
+        station_name = dep.station_name
+        dep.delete()
+        notifications.deployment_deleted(record, request.user, station_name)
         messages.success(request, 'Deployment removed.')
         return redirect(f"{request.path}?tab=personal")
 

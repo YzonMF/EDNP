@@ -5,6 +5,83 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'code-field.css' %}">
+<style>
+.date-att-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 6px;
+  padding: 5px 8px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  font-size: 11px;
+  line-height: 1.3;
+}
+.date-att-bar.uploaded {
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+  color: #166534;
+}
+.date-att-bar.missing {
+  background: #fffbeb;
+  border-color: #fef08a;
+  color: #854d0e;
+}
+.date-att-bar .att-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.date-att-bar .att-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  margin-left: 8px;
+}
+.date-att-bar .att-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 4px;
+  text-decoration: none;
+  cursor: pointer;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  color: #334155;
+  transition: all 0.15s ease;
+}
+.date-att-bar.uploaded .att-btn.view {
+  color: #0369a1;
+  border-color: #bae6fd;
+}
+.date-att-bar.uploaded .att-btn.view:hover {
+  background: #e0f2fe;
+}
+.date-att-bar.uploaded .att-btn.replace {
+  color: #475569;
+  border-color: #cbd5e1;
+}
+.date-att-bar.uploaded .att-btn.replace:hover {
+  background: #f1f5f9;
+}
+.date-att-bar.missing .att-btn.upload {
+  color: #1d4ed8;
+  background: #eff6ff;
+  border-color: #bfdbfe;
+}
+.date-att-bar.missing .att-btn.upload:hover {
+  background: #dbeafe;
+}
+</style>
 {% endblock %}
 
 {% block top_actions %}
@@ -118,6 +195,27 @@
           <div class="field">
             <label>Date of Birth <span class="req-mark">*</span></label>
             <input name="date_of_birth" type="date" value="{{ profile.record.date_of_birth|date:'Y-m-d' }}" required>
+            {% with att=profile.record.date_attachments_map.date_of_birth %}
+            <div class="date-att-bar {% if att.is_uploaded %}uploaded{% else %}missing{% endif %}">
+              <span class="att-status">
+                {% if att.is_uploaded %}<i class="fa-solid fa-circle-check"></i> {{ att.name }} attached{% else %}<i class="fa-solid fa-circle-exclamation"></i> No {{ att.name }} attached{% endif %}
+              </span>
+              <div class="att-actions">
+                {% if att.is_uploaded %}
+                  <a href="{% url 'registrar:view_document' att.doc_id %}" target="_blank" class="att-btn view"><i class="fa-solid fa-eye"></i> View</a>
+                  {% if att.can_clergy_upload and att.doc_type %}
+                  <button type="button" class="att-btn replace" data-quick-upload="{{ att.doc_type.id }}" data-doc-name="{{ att.name }}"><i class="fa-solid fa-arrow-up-from-bracket"></i> Replace</button>
+                  {% endif %}
+                {% else %}
+                  {% if att.can_clergy_upload and att.doc_type %}
+                  <button type="button" class="att-btn upload" data-quick-upload="{{ att.doc_type.id }}" data-doc-name="{{ att.name }}"><i class="fa-solid fa-cloud-arrow-up"></i> Upload</button>
+                  {% else %}
+                  <span class="muted" style="font-size:10px;">Provided by Registrar</span>
+                  {% endif %}
+                {% endif %}
+              </div>
+            </div>
+            {% endwith %}
           </div>
 
           <div class="field">
@@ -158,6 +256,27 @@
           <div class="field">
             <label>Date of Baptism <span class="req-mark">*</span></label>
             <input name="baptism_date" type="date" value="{{ profile.record.baptism_date|date:'Y-m-d' }}" required>
+            {% with att=profile.record.date_attachments_map.baptism_date %}
+            <div class="date-att-bar {% if att.is_uploaded %}uploaded{% else %}missing{% endif %}">
+              <span class="att-status">
+                {% if att.is_uploaded %}<i class="fa-solid fa-circle-check"></i> {{ att.name }} attached{% else %}<i class="fa-solid fa-circle-exclamation"></i> No {{ att.name }} attached{% endif %}
+              </span>
+              <div class="att-actions">
+                {% if att.is_uploaded %}
+                  <a href="{% url 'registrar:view_document' att.doc_id %}" target="_blank" class="att-btn view"><i class="fa-solid fa-eye"></i> View</a>
+                  {% if att.can_clergy_upload and att.doc_type %}
+                  <button type="button" class="att-btn replace" data-quick-upload="{{ att.doc_type.id }}" data-doc-name="{{ att.name }}"><i class="fa-solid fa-arrow-up-from-bracket"></i> Replace</button>
+                  {% endif %}
+                {% else %}
+                  {% if att.can_clergy_upload and att.doc_type %}
+                  <button type="button" class="att-btn upload" data-quick-upload="{{ att.doc_type.id }}" data-doc-name="{{ att.name }}"><i class="fa-solid fa-cloud-arrow-up"></i> Upload</button>
+                  {% else %}
+                  <span class="muted" style="font-size:10px;">Provided by Registrar</span>
+                  {% endif %}
+                {% endif %}
+              </div>
+            </div>
+            {% endwith %}
           </div>
 
           <div class="field">
@@ -168,6 +287,27 @@
           <div class="field">
             <label>Date of Confirmation <span class="req-mark">*</span></label>
             <input name="confirmation_date" type="date" value="{{ profile.record.confirmation_date|date:'Y-m-d' }}" required>
+            {% with att=profile.record.date_attachments_map.confirmation_date %}
+            <div class="date-att-bar {% if att.is_uploaded %}uploaded{% else %}missing{% endif %}">
+              <span class="att-status">
+                {% if att.is_uploaded %}<i class="fa-solid fa-circle-check"></i> {{ att.name }} attached{% else %}<i class="fa-solid fa-circle-exclamation"></i> No {{ att.name }} attached{% endif %}
+              </span>
+              <div class="att-actions">
+                {% if att.is_uploaded %}
+                  <a href="{% url 'registrar:view_document' att.doc_id %}" target="_blank" class="att-btn view"><i class="fa-solid fa-eye"></i> View</a>
+                  {% if att.can_clergy_upload and att.doc_type %}
+                  <button type="button" class="att-btn replace" data-quick-upload="{{ att.doc_type.id }}" data-doc-name="{{ att.name }}"><i class="fa-solid fa-arrow-up-from-bracket"></i> Replace</button>
+                  {% endif %}
+                {% else %}
+                  {% if att.can_clergy_upload and att.doc_type %}
+                  <button type="button" class="att-btn upload" data-quick-upload="{{ att.doc_type.id }}" data-doc-name="{{ att.name }}"><i class="fa-solid fa-cloud-arrow-up"></i> Upload</button>
+                  {% else %}
+                  <span class="muted" style="font-size:10px;">Provided by Registrar</span>
+                  {% endif %}
+                {% endif %}
+              </div>
+            </div>
+            {% endwith %}
           </div>
 
           <div class="field">
@@ -190,6 +330,20 @@
           <div class="field">
             <label>Date of Ordination to Diaconate</label>
             <input name="diaconate_date" type="date" value="{{ profile.record.diaconate_date|date:'Y-m-d' }}">
+            {% with att=profile.record.date_attachments_map.diaconate_date %}
+            <div class="date-att-bar {% if att.is_uploaded %}uploaded{% else %}missing{% endif %}">
+              <span class="att-status">
+                {% if att.is_uploaded %}<i class="fa-solid fa-circle-check"></i> {{ att.name }} attached{% else %}<i class="fa-solid fa-circle-exclamation"></i> No {{ att.name }} on file{% endif %}
+              </span>
+              <div class="att-actions">
+                {% if att.is_uploaded %}
+                  <a href="{% url 'registrar:view_document' att.doc_id %}" target="_blank" class="att-btn view"><i class="fa-solid fa-eye"></i> View</a>
+                {% else %}
+                  <span class="muted" style="font-size:10px;">Provided by Registrar</span>
+                {% endif %}
+              </div>
+            </div>
+            {% endwith %}
           </div>
 
           <div class="field">
@@ -203,6 +357,20 @@
           <div class="field">
             <label>Date of Ordination to Priesthood</label>
             <input name="ordination_date" type="date" value="{{ profile.record.ordination_date|date:'Y-m-d' }}">
+            {% with att=profile.record.date_attachments_map.ordination_date %}
+            <div class="date-att-bar {% if att.is_uploaded %}uploaded{% else %}missing{% endif %}">
+              <span class="att-status">
+                {% if att.is_uploaded %}<i class="fa-solid fa-circle-check"></i> {{ att.name }} attached{% else %}<i class="fa-solid fa-circle-exclamation"></i> No {{ att.name }} on file{% endif %}
+              </span>
+              <div class="att-actions">
+                {% if att.is_uploaded %}
+                  <a href="{% url 'registrar:view_document' att.doc_id %}" target="_blank" class="att-btn view"><i class="fa-solid fa-eye"></i> View</a>
+                {% else %}
+                  <span class="muted" style="font-size:10px;">Provided by Registrar</span>
+                {% endif %}
+              </div>
+            </div>
+            {% endwith %}
           </div>
 
           <div class="field">
@@ -225,6 +393,20 @@
           <div class="field">
             <label>Date Admitted as Holy Order</label>
             <input name="holy_orders_date" type="date" value="{{ profile.record.holy_orders_date|date:'Y-m-d' }}">
+            {% with att=profile.record.date_attachments_map.holy_orders_date %}
+            <div class="date-att-bar {% if att.is_uploaded %}uploaded{% else %}missing{% endif %}">
+              <span class="att-status">
+                {% if att.is_uploaded %}<i class="fa-solid fa-circle-check"></i> {{ att.name }} attached{% else %}<i class="fa-solid fa-circle-exclamation"></i> No {{ att.name }} on file{% endif %}
+              </span>
+              <div class="att-actions">
+                {% if att.is_uploaded %}
+                  <a href="{% url 'registrar:view_document' att.doc_id %}" target="_blank" class="att-btn view"><i class="fa-solid fa-eye"></i> View</a>
+                {% else %}
+                  <span class="muted" style="font-size:10px;">Provided by Registrar</span>
+                {% endif %}
+              </div>
+            </div>
+            {% endwith %}
           </div>
 
           <div class="field">
@@ -235,6 +417,20 @@
           <div class="field">
             <label>Date of Bishop Consecration</label>
             <input name="consecration_date" type="date" value="{{ profile.record.consecration_date|date:'Y-m-d' }}">
+            {% with att=profile.record.date_attachments_map.consecration_date %}
+            <div class="date-att-bar {% if att.is_uploaded %}uploaded{% else %}missing{% endif %}">
+              <span class="att-status">
+                {% if att.is_uploaded %}<i class="fa-solid fa-circle-check"></i> {{ att.name }} attached{% else %}<i class="fa-solid fa-circle-exclamation"></i> No {{ att.name }} on file{% endif %}
+              </span>
+              <div class="att-actions">
+                {% if att.is_uploaded %}
+                  <a href="{% url 'registrar:view_document' att.doc_id %}" target="_blank" class="att-btn view"><i class="fa-solid fa-eye"></i> View</a>
+                {% else %}
+                  <span class="muted" style="font-size:10px;">Provided by Registrar</span>
+                {% endif %}
+              </div>
+            </div>
+            {% endwith %}
           </div>
 
         </div>
@@ -518,6 +714,39 @@
     </form>
   </div>
 </div>
+
+<div class="modal-bg" id="quickUploadModal">
+  <div class="modal">
+    <div class="modal-head">
+      <div>
+        <h3><i class="fa-solid fa-cloud-arrow-up"></i> <span id="quickUploadDocTitle">Upload Document</span></h3>
+        <span class="muted">Supported formats: PDF, PNG, JPG (maximum 10 MB)</span>
+      </div>
+      <button class="close" type="button" aria-label="Close" data-close-modal="quickUploadModal">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+    <form method="post" enctype="multipart/form-data">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="upload_attachment">
+      <input type="hidden" name="document_type" id="quickUploadDocTypeId" value="">
+      <div class="form-grid" style="margin-top:10px;">
+        <div class="field full">
+          <label>File (PDF, PNG, JPG) <span class="req-mark">*</span></label>
+          <input type="file" name="file" required accept=".pdf,.jpg,.jpeg,.png">
+        </div>
+        <div class="field full">
+          <label>Notes (optional)</label>
+          <input name="notes" placeholder="e.g. Certified copy / registry entry">
+        </div>
+      </div>
+      <div class="modal-actions" style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px;">
+        <button type="button" class="btn secondary" data-close-modal="quickUploadModal"><i class="fa-solid fa-xmark"></i> Cancel</button>
+        <button type="submit" class="btn green"><i class="fa-solid fa-arrow-up-from-bracket"></i> Upload Attachment</button>
+      </div>
+    </form>
+  </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
@@ -615,6 +844,19 @@ function updateFamilyFieldsVisibility() {
 
 document.getElementById('civilStatusSelect')?.addEventListener('change', updateFamilyFieldsVisibility);
 updateFamilyFieldsVisibility();
+
+document.addEventListener('click', function(e) {
+  const btn = e.target.closest('[data-quick-upload]');
+  if (btn) {
+    const docTypeId = btn.dataset.quickUpload;
+    const docName = btn.dataset.docName;
+    const input = document.getElementById('quickUploadDocTypeId');
+    const title = document.getElementById('quickUploadDocTitle');
+    if (input) input.value = docTypeId;
+    if (title) title.textContent = 'Upload ' + docName;
+    openModal('quickUploadModal');
+  }
+});
 </script>
 
 {% endblock %}
