@@ -9,3 +9,11 @@ staticfiles/
 # Reference material stays local; track only what the code points to.
 resources/*
 !resources/storage-bucket.md
+# AI Agent skills and lockfiles
+.agents/
+skills-lock.json
+# Security audit run outputs (if generated)
+coverage-ledger.json
+findings.json
+REPORT.md
+FINDINGS-DETAIL.md

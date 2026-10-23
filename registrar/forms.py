@@ -4,7 +4,7 @@ from datetime import date
 from django import forms
 
 from . import images
-from .models import ClergyRecord, DocumentType
+from .models import ClergyRecord, ClergyDeployment, DocumentType
 
 
 class ClergyRecordForm(forms.ModelForm):
@@ -27,8 +27,8 @@ class PersonalInfoForm(forms.ModelForm):
         fields = ['name', 'date_of_birth', 'gender', 'baptism_date', 'confirmation_date',
                   'email', 'address', 'deanery', 'assignment', 'status', 'leave_reason', 'rank',
                   'contract_end', 'retirement_date',
-                  'diaconate_date', 'ordination_date', 'holy_orders_date', 'ordination_place',
-                  'bishop_name', 'consecration_date', 'previous_assignment', 'service_history']
+                  'diaconate_date', 'diaconate_place', 'ordination_date', 'holy_orders_date', 'ordination_place',
+                  'bishop_name', 'consecration_date']
         widgets = {
             'date_of_birth': forms.DateInput(attrs={'type': 'date'}),
             'baptism_date': forms.DateInput(attrs={'type': 'date'}),
@@ -39,7 +39,16 @@ class PersonalInfoForm(forms.ModelForm):
             'ordination_date': forms.DateInput(attrs={'type': 'date'}),
             'holy_orders_date': forms.DateInput(attrs={'type': 'date'}),
             'consecration_date': forms.DateInput(attrs={'type': 'date'}),
-            'service_history': forms.Textarea(attrs={'rows': 3}),
+        }
+
+
+class ClergyDeploymentForm(forms.ModelForm):
+    class Meta:
+        model = ClergyDeployment
+        fields = ['station_name', 'place_name', 'role', 'start_date', 'end_date', 'is_current', 'notes']
+        widgets = {
+            'start_date': forms.DateInput(attrs={'type': 'date'}),
+            'end_date': forms.DateInput(attrs={'type': 'date'}),
         }
 
 

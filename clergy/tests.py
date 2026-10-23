@@ -164,3 +164,241 @@ class ProfilePictureTests(TestCase):
         with self.record.profile_picture.open('rb') as stored_file:
             with Image.open(stored_file) as img:
                 self.assertEqual(img.size, (AVATAR_SIZE, AVATAR_SIZE))
+
+
+from datetime import date
+from .models import ClergyChild, ClergyEducation
+from registrar.models import ClergyDeployment
+
+
+class EnhancedClergyProfileTests(TestCase):
+    def setUp(self):
+        self.record = ClergyRecord.objects.create(
+            id='CLG-201',
+            name='Fr. Luke Skywalker',
+            date_of_birth=date(1980, 5, 15),
+            diaconate_date=date(2005, 6, 1),
+            diaconate_place='All Saints Cathedral, Bontoc',
+            ordination_date=date(2006, 6, 1),
+            ordination_place='St. Andrew Cathedral',
+        )
+        self.user = activate(User.objects.create_user('CLG-201', password='pw12345!x'))
+        self.profile = ClergyProfile.objects.create(user=self.user, record=self.record)
+        self.client.force_login(self.user)
+
+    def test_save_family_and_education_details(self):
+        post_data = {
+            'name': 'Fr. Luke Skywalker Updated',
+            'date_of_birth': '1980-05-15',
+            'place_of_birth': 'Sagada, Mountain Province',
+            'gender': 'Male',
+            'civil_status': 'Married',
+            'baptism_date': '1980-06-01',
+            'confirmation_date': '1992-06-01',
+            'address': 'Bontoc, Mountain Province',
+            'email': 'luke@example.com',
+            'marriage_date': '2008-10-12',
+            'marriage_place': 'Epiphany Church, La Trinidad',
+            'spouse_name': 'Mara Jade',
+            'spouse_birth_date': '1982-03-21',
+            'child_name': ['Ben Skywalker', 'Joy Skywalker'],
+            'child_dob': ['2010-04-10', '2015-08-25'],
+            'child_gender': ['Male', 'Female'],
+            'edu_degree': ['Bachelor of Theology', 'Master of Divinity'],
+            'edu_institution': ["St. Andrew's Seminary", 'Trinity College'],
+            'edu_place': ['Quezon City', 'Quezon City'],
+            'edu_year': ['2004', '2007'],
+            'education': 'Continuing pastoral leadership training',
+        }
+        res = self.client.post(reverse('clergy:my_profile'), post_data, follow=True)
+        self.assertEqual(res.status_code, 200)
+
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.place_of_birth, 'Sagada, Mountain Province')
+        self.assertEqual(self.profile.marriage_place, 'Epiphany Church, La Trinidad')
+        self.assertEqual(self.profile.spouse_name, 'Mara Jade')
+        self.assertEqual(self.profile.spouse_birth_date, date(1982, 3, 21))
+
+        # Check structured children
+        children = list(self.profile.children.order_by('birth_date'))
+        self.assertEqual(len(children), 2)
+        self.assertEqual(children[0].name, 'Ben Skywalker')
+        self.assertEqual(children[0].gender, 'Male')
+        self.assertTrue(children[0].age >= 10)
+
+        self.assertEqual(children[1].name, 'Joy Skywalker')
+        self.assertEqual(children[1].gender, 'Female')
+
+        # Check structured educations
+        edus = list(self.profile.educations.order_by('year_graduated'))
+        self.assertEqual(len(edus), 2)
+        self.assertEqual(edus[0].degree, 'Bachelor of Theology')
+        self.assertEqual(edus[0].year_graduated, 2004)
+        self.assertEqual(edus[1].degree, 'Master of Divinity')
+        self.assertEqual(edus[1].year_graduated, 2007)
+
+    def test_clergy_can_edit_holy_orders_and_ordination_history(self):
+        post_data = {
+            'name': 'Fr. Luke Skywalker Updated',
+            'date_of_birth': '1980-05-15',
+            'place_of_birth': 'Sagada, Mountain Province',
+            'gender': 'Male',
+            'civil_status': 'Single',
+            'baptism_date': '1980-06-01',
+            'confirmation_date': '1992-06-01',
+            'address': 'Bontoc, Mountain Province',
+            'email': 'luke@example.com',
+            'diaconate_date': '2005-07-15',
+            'diaconate_place': 'Holy Trinity Church, Sagada',
+            'ordination_date': '2006-08-20',
+            'ordination_place': 'All Saints Cathedral, Bontoc',
+            'holy_orders_date': '2004-12-01',
+            'bishop_name': 'Bishop Brent',
+            'consecration_date': '2020-01-15',
+        }
+        res = self.client.post(reverse('clergy:my_profile'), post_data, follow=True)
+        self.assertEqual(res.status_code, 200)
+
+        self.record.refresh_from_db()
+        self.assertEqual(self.record.diaconate_date, date(2005, 7, 15))
+        self.assertEqual(self.record.diaconate_place, 'Holy Trinity Church, Sagada')
+        self.assertEqual(self.record.ordination_date, date(2006, 8, 20))
+        self.assertEqual(self.record.ordination_place, 'All Saints Cathedral, Bontoc')
+        self.assertEqual(self.record.holy_orders_date, date(2004, 12, 1))
+        self.assertEqual(self.record.bishop_name, 'Bishop Brent')
+        self.assertEqual(self.record.consecration_date, date(2020, 1, 15))
+
+        # Also verify GET page renders these fields
+        get_res = self.client.get(reverse('clergy:my_profile'))
+        self.assertEqual(get_res.status_code, 200)
+        self.assertContains(get_res, 'Holy Trinity Church, Sagada')
+        self.assertContains(get_res, 'All Saints Cathedral, Bontoc')
+        self.assertContains(get_res, 'Bishop Brent')
+
+    def test_years_of_service_adds_up_from_deployments(self):
+        # Without deployments, falls back to ordination / diaconate date
+        # diaconate_date is 2005-06-01
+        self.assertGreaterEqual(self.record.years_of_service, 20)
+
+        # When structured deployments exist, years_of_service adds up from deployments
+        ClergyDeployment.objects.create(
+            record=self.record,
+            station_name='St. Paul Mission',
+            place_name='Balbalan',
+            start_date=date(2010, 1, 1),
+            end_date=date(2013, 1, 1),  # 3 years
+            is_current=False
+        )
+        ClergyDeployment.objects.create(
+            record=self.record,
+            station_name='St. Luke Mission',
+            place_name='Bontoc',
+            start_date=date(2015, 1, 1),
+            end_date=date(2017, 1, 1),  # 2 years
+            is_current=False
+        )
+        self.assertEqual(self.record.years_of_service, 5)
+        self.assertEqual(self.record.years_of_service_display, '5 years')
+
+    def test_single_clergy_cannot_have_spouse_or_children(self):
+        post_data = {
+            'name': 'Fr. Luke Skywalker Updated',
+            'date_of_birth': '1980-05-15',
+            'place_of_birth': 'Sagada, Mountain Province',
+            'gender': 'Male',
+            'civil_status': 'Single',
+            'baptism_date': '1980-06-01',
+            'confirmation_date': '1992-06-01',
+            'address': 'Bontoc, Mountain Province',
+            'email': 'luke@example.com',
+            'marriage_date': '2008-10-12',
+            'marriage_place': 'Epiphany Church, La Trinidad',
+            'spouse_name': 'Mara Jade',
+            'spouse_birth_date': '1982-03-21',
+            'children_names': 'Ben Skywalker',
+            'child_name': ['Ben Skywalker'],
+            'child_dob': ['2010-04-10'],
+            'child_gender': ['Male'],
+        }
+        res = self.client.post(reverse('clergy:my_profile'), post_data, follow=True)
+        self.assertEqual(res.status_code, 200)
+
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.civil_status, 'Single')
+        self.assertIsNone(self.profile.marriage_date)
+        self.assertEqual(self.profile.marriage_place, '')
+        self.assertEqual(self.profile.spouse_name, '')
+        self.assertIsNone(self.profile.spouse_birth_date)
+        self.assertEqual(self.profile.children.count(), 0)
+        self.assertEqual(self.profile.children_names, '')
+
+    def test_transition_from_married_to_single_clears_family(self):
+        self.profile.civil_status = 'Married'
+        self.profile.spouse_name = 'Mara Jade'
+        self.profile.marriage_date = date(2008, 10, 12)
+        self.profile.marriage_place = 'Bontoc'
+        self.profile.save()
+        ClergyChild.objects.create(profile=self.profile, name='Ben Skywalker', birth_date=date(2010, 4, 10))
+
+        post_data = {
+            'name': 'Fr. Luke Skywalker Updated',
+            'date_of_birth': '1980-05-15',
+            'place_of_birth': 'Sagada, Mountain Province',
+            'gender': 'Male',
+            'civil_status': 'Single',
+            'baptism_date': '1980-06-01',
+            'confirmation_date': '1992-06-01',
+            'address': 'Bontoc, Mountain Province',
+            'email': 'luke@example.com',
+        }
+        res = self.client.post(reverse('clergy:my_profile'), post_data, follow=True)
+        self.assertEqual(res.status_code, 200)
+
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.civil_status, 'Single')
+        self.assertIsNone(self.profile.marriage_date)
+        self.assertEqual(self.profile.spouse_name, '')
+        self.assertEqual(self.profile.children.count(), 0)
+
+    def test_clergy_can_add_and_delete_deployments(self):
+        # Add deployment
+        add_res = self.client.post(reverse('clergy:my_profile'), {
+            'action': 'add_deployment',
+            'station_name': 'St. Matthew Mission',
+            'place_name': 'Sagada',
+            'role': 'Vicar',
+            'start_date': '2015-01-01',
+            'is_current': '1',
+            'notes': 'Parish mission',
+        }, follow=True)
+        self.assertEqual(add_res.status_code, 200)
+
+        dep = ClergyDeployment.objects.get(record=self.record, station_name='St. Matthew Mission')
+        self.assertEqual(dep.place_name, 'Sagada')
+        self.assertTrue(dep.is_current)
+
+        # Delete deployment
+        del_res = self.client.post(reverse('clergy:my_profile'), {
+            'action': 'delete_deployment',
+            'deployment_id': dep.id,
+        }, follow=True)
+        self.assertEqual(del_res.status_code, 200)
+        self.assertFalse(ClergyDeployment.objects.filter(id=dep.id).exists())
+
+    def test_print_own_record_renders_enhancements(self):
+        ClergyDeployment.objects.create(
+            record=self.record, station_name='Holy Trinity Mission',
+            place_name='Bontoc', role='Rector', is_current=True
+        )
+        ClergyChild.objects.create(
+            profile=self.profile, name='Ben Skywalker', birth_date=date(2012, 1, 1), gender='Male'
+        )
+        ClergyEducation.objects.create(
+            profile=self.profile, degree='B.Th.', institution='SAS', place='QC', year_graduated=2004
+        )
+        res = self.client.get(reverse('clergy:print_own_record'))
+        self.assertEqual(res.status_code, 200)
+        self.assertContains(res, 'All Saints Cathedral, Bontoc')
+        self.assertContains(res, 'Holy Trinity Mission')
+        self.assertContains(res, 'Ben Skywalker')
+        self.assertContains(res, 'B.Th.')

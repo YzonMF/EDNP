@@ -223,9 +223,19 @@ class SavedArchiveTests(MediaFolderMixin, BackupTestCase):
         BackupArchive.objects.all().delete()
         self.assertNotContains(self.client.get(PAGE), 'Archives Saved on the Server')
 
+    def test_a_plain_get_request_is_refused(self):
+        response = self.client.get(reverse('registrar:download_backup_archive', args=[self.saved.id]))
+        self.assertRedirects(response, PAGE)
+        self.assertFalse(AccountAuditLog.objects.exists())
+
+    def test_wrong_password_is_refused(self):
+        response = self.client.post(reverse('registrar:download_backup_archive', args=[self.saved.id]), {'current_password': 'wrong'})
+        self.assertRedirects(response, PAGE)
+        self.assertFalse(AccountAuditLog.objects.exists())
+
     def test_one_can_still_be_downloaded_and_it_is_recorded_in_both_logs(self):
         with self.assertLogs('ednp.security', level='INFO') as logs:
-            response = self.client.get(reverse('registrar:download_backup_archive', args=[self.saved.id]))
+            response = self.client.post(reverse('registrar:download_backup_archive', args=[self.saved.id]), {'current_password': PASSWORD})
             b''.join(response.streaming_content)   # reading it all is what closes the file
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response['Content-Type'], 'application/zip')
@@ -259,7 +269,7 @@ class SavedArchiveTests(MediaFolderMixin, BackupTestCase):
         self.assertContains(page, 'File missing')
         self.assertNotContains(page, reverse('registrar:download_backup_archive', args=[self.saved.id]))
 
-        response = self.client.get(reverse('registrar:download_backup_archive', args=[self.saved.id]), follow=True)
+        response = self.client.post(reverse('registrar:download_backup_archive', args=[self.saved.id]), {'current_password': PASSWORD}, follow=True)
         self.assertContains(response, 'no longer on the server')
         self.assertFalse(AccountAuditLog.objects.exists())   # nothing was downloaded, so nothing is recorded
 

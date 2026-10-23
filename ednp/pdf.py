@@ -24,12 +24,15 @@ BASE_URL = 'file:///'
 
 class StaticFileFetcher(URLFetcher):
     """Serves file:///static/... from the static files and refuses any other file: URL,
-    so a page can't pull in arbitrary files from the server's disk."""
+    and blocks all outbound network requests (http/https), so a page can't pull in
+    arbitrary files from the server's disk or probe external/internal networks."""
 
     def fetch(self, url, headers=None):
         parts = urlsplit(url)
+        if parts.scheme in ('http', 'https', 'ftp'):
+            raise ValueError(f'Outbound network requests are disabled: {url}')
         if parts.scheme != 'file':
-            return super().fetch(url, headers)
+            raise ValueError(f'Unsupported URL scheme: {url}')
         prefix = urlsplit(settings.STATIC_URL).path
         path = unquote(parts.path)
         found = path.startswith(prefix) and finders.find(path[len(prefix):])

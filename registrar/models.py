@@ -2,8 +2,9 @@ import calendar
 from datetime import date, timedelta
 
 from django.conf import settings
-from django.db import models, transaction
+from django.db import models, transaction, OperationalError
 from django.db.models import CheckConstraint, Q, UniqueConstraint
+from django.db.models.functions import Coalesce
 from django.utils import timezone
 
 RANK_CHOICES = [
@@ -39,6 +40,90 @@ class Parish(models.Model):
 
     def __str__(self):
         return f"{self.parish_name} - {self.place_name}" if self.place_name else self.parish_name
+
+
+def parse_station_and_place(assignment):
+    """Split an assignment string (e.g. 'St. Barnabas Parish - Alab' or
+    'St. Jude Church, Baguio') into station_name and place_name."""
+    if not assignment:
+        return '', ''
+    assignment = assignment.strip()
+    if ' - ' in assignment:
+        parts = assignment.split(' - ', 1)
+        return parts[0].strip(), parts[1].strip()
+    elif ', ' in assignment:
+        parts = assignment.split(', ', 1)
+        return parts[0].strip(), parts[1].strip()
+    return assignment, ''
+
+
+class ClergyDeploymentQuerySet(models.QuerySet):
+    def latest_first(self):
+        return self.order_by(
+            '-is_current',
+            Coalesce('end_date', 'start_date').desc(),
+            '-end_date',
+            '-start_date',
+            '-id'
+        )
+
+
+class ClergyDeploymentManager(models.Manager):
+    def get_queryset(self):
+        return ClergyDeploymentQuerySet(self.model, using=self._db).latest_first()
+
+
+class ClergyDeployment(models.Model):
+    record = models.ForeignKey('ClergyRecord', on_delete=models.CASCADE, related_name='deployments')
+    station_name = models.CharField('Parish / Station / Mission', max_length=150)
+    place_name = models.CharField('Place / Location', max_length=150, blank=True, null=True)
+    role = models.CharField('Role / Position', max_length=100, default='Priest-in-Charge')
+    start_date = models.DateField('Start Date', blank=True, null=True)
+    end_date = models.DateField('End Date', blank=True, null=True)
+    is_current = models.BooleanField('Current Assignment', default=False)
+    notes = models.CharField(max_length=255, blank=True, null=True)
+
+    objects = ClergyDeploymentManager()
+
+    class Meta:
+        db_table = 'clergy_deployments'
+        ordering = ['-is_current', '-end_date', '-start_date', '-id']
+
+    def __str__(self):
+        return f"{self.role} - {self.station_name}"
+
+    @property
+    def date_range_display(self):
+        if self.is_current:
+            if self.start_date:
+                return f"{self.start_date.strftime('%b %d, %Y')} – Present"
+            return "Current"
+        if self.start_date and self.end_date:
+            return f"{self.start_date.strftime('%b %d, %Y')} – {self.end_date.strftime('%b %d, %Y')}"
+        if self.end_date:
+            return f"Ended {self.end_date.strftime('%b %d, %Y')}"
+        if self.start_date:
+            return f"From {self.start_date.strftime('%b %d, %Y')}"
+        return ""
+
+    @property
+    def location_display(self):
+        if self.place_name and self.place_name.lower() not in self.station_name.lower():
+            return f"{self.station_name}, {self.place_name}"
+        return self.station_name
+
+    @property
+    def summary_display(self):
+        date_str = self.date_range_display
+        loc_str = self.location_display
+        role_str = f"({self.role})" if self.role else ""
+        if date_str and loc_str:
+            base = f"{date_str}: {loc_str}"
+        else:
+            base = loc_str or date_str or ""
+        if role_str and base:
+            return f"{base} {role_str}"
+        return base or role_str
 
 
 class IdCounter(models.Model):
@@ -99,9 +184,10 @@ class ClergyRecord(models.Model):
     # throughout the app); diaconate/holy-orders are the earlier/parallel
     # steps in that same process.
     diaconate_date = models.DateField('Date of Ordination to Diaconate', blank=True, null=True)
+    diaconate_place = models.CharField('Place of Diaconate Ordination', max_length=150, blank=True, null=True)
     ordination_date = models.DateField('Date of Ordination to Priesthood', blank=True, null=True)
     holy_orders_date = models.DateField('Date Admitted as Holy Order', blank=True, null=True)
-    ordination_place = models.CharField(max_length=150, blank=True, null=True)
+    ordination_place = models.CharField('Place of Priesthood Ordination', max_length=150, blank=True, null=True)
     bishop_name = models.CharField('Bishop', max_length=150, blank=True, null=True)
     consecration_date = models.DateField('Date of Bishop Consecration', blank=True, null=True)
     previous_assignment = models.CharField(max_length=150, blank=True, null=True)
@@ -133,16 +219,122 @@ class ClergyRecord(models.Model):
     def is_archived(self):
         return self.archived_at is not None
 
+    @property
     def years_of_service(self):
-        """Computed from ordination to today (or to retirement, if retired)
-        — deliberately not stored, since a stored value would silently go
-        stale every single day it isn't manually re-saved."""
+        """Computed from deployment history if available (summing non-overlapping
+        service periods across all assignments), or falling back to diaconate / ordination
+        date to today (or to retirement date, if retired). Deliberately not stored
+        since a stored value would silently go stale every single day."""
+        today = self.retirement_date if (self.status == 'Retired' and self.retirement_date) else date.today()
+
+        # 1. Compute from structured deployments if any have start_date
+        intervals = []
+        for dep in self.deployments.all():
+            start = dep.start_date
+            if not start:
+                continue
+            if dep.is_current:
+                end = today
+            elif dep.end_date:
+                end = dep.end_date
+            else:
+                end = start
+            if end >= start:
+                intervals.append((start, end))
+
+        if intervals:
+            intervals.sort(key=lambda x: x[0])
+            merged = [intervals[0]]
+            for c_start, c_end in intervals[1:]:
+                prev_start, prev_end = merged[-1]
+                if c_start <= prev_end:
+                    merged[-1] = (prev_start, max(prev_end, c_end))
+                else:
+                    merged.append((c_start, c_end))
+
+            total_days = sum((end - start).days for start, end in merged)
+            years = int(total_days / 365.25)
+            return max(years, 0)
+
+        # 2. Fallback: Diaconate or Ordination date to today / retirement
         start = self.diaconate_date or self.ordination_date
         if not start:
             return None
-        end = self.retirement_date if (self.status == 'Retired' and self.retirement_date) else date.today()
-        years = end.year - start.year - ((end.month, end.day) < (start.month, start.day))
+        years = today.year - start.year - ((today.month, today.day) < (start.month, start.day))
         return max(years, 0)
+
+    @property
+    def years_of_service_display(self):
+        y = self.years_of_service
+        if y is None:
+            return "—"
+        if y == 0:
+            return "< 1 year"
+        return f"{y} year{'s' if y != 1 else ''}"
+
+    def record_expired_contract(self, today=None):
+        """Automatically records an expired contract assignment into deployments
+        history, and ensures current deployments are unmarked when their contract ends.
+        Prevents duplicate entries and ensures deployments are ordered latest to oldest."""
+        if today is None:
+            today = date.today()
+
+        if not self.contract_end or self.contract_end > today:
+            return False
+
+        assignment_text = (self.assignment or '').strip()
+        if not assignment_text:
+            return False
+
+        station, place = parse_station_and_place(assignment_text)
+        if not station:
+            station = assignment_text
+
+        if not place and self.deanery_id:
+            p = self.deanery.parishes.filter(parish_name__iexact=station).first()
+            if p and p.place_name:
+                place = p.place_name
+
+        # Check and update any currently active deployment for this record that has now expired
+        current_deps = list(self.deployments.filter(is_current=True))
+        updated_current = False
+        for dep in current_deps:
+            if (dep.end_date and dep.end_date <= today) or dep.station_name.lower() == station.lower():
+                dep.is_current = False
+                if not dep.end_date:
+                    dep.end_date = self.contract_end
+                if not dep.notes:
+                    dep.notes = f"Contract expired on {self.contract_end.isoformat()}"
+                dep.save(update_fields=['is_current', 'end_date', 'notes'])
+                updated_current = True
+
+        # Check if a deployment already exists for this station and contract_end
+        already_recorded = self.deployments.filter(
+            station_name__iexact=station,
+            end_date=self.contract_end
+        ).exists()
+
+        if not already_recorded:
+            role = 'Priest-in-Charge'
+            if self.rank == 'deacon':
+                role = 'Deacon'
+            elif self.rank == 'bishop':
+                role = 'Bishop'
+            elif self.rank == 'priest':
+                role = 'Priest-in-Charge'
+
+            self.deployments.create(
+                station_name=station,
+                place_name=place or None,
+                role=role,
+                end_date=self.contract_end,
+                is_current=False,
+                notes=f"Contract expired on {self.contract_end.isoformat()}"
+            )
+            return True
+
+        return updated_current
+
 
     COUNTER_NAME = 'clergy_record'
 
@@ -252,6 +444,28 @@ class ClergyRecord(models.Model):
             'years': year_count,
             'target': target,
         }
+
+
+def sync_expired_contracts(today=None, queryset=None):
+    """Scan and synchronize all expired contracts into deployment records."""
+    if today is None:
+        today = date.today()
+    if queryset is None:
+        queryset = ClergyRecord.objects.filter(
+            contract_end__isnull=False,
+            contract_end__lte=today
+        ).exclude(assignment__isnull=True).exclude(assignment='')
+    else:
+        queryset = queryset.filter(
+            contract_end__isnull=False,
+            contract_end__lte=today
+        ).exclude(assignment__isnull=True).exclude(assignment='')
+
+    synced = 0
+    for record in queryset:
+        if record.record_expired_contract(today=today):
+            synced += 1
+    return synced
 
 
 class DocumentType(models.Model):

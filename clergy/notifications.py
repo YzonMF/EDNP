@@ -259,6 +259,8 @@ def sync_reminders(user, record, today=None):
     if record is None or user.is_staff:
         return
     today = today or date.today()
+    if record.contract_end and record.contract_end <= today:
+        record.record_expired_contract(today=today)
     due = [*_contract_reminders(record, today), *_document_reminders(record, today)]
     if not due:
         return

@@ -1,3 +1,4 @@
+from datetime import date
 from django.conf import settings
 from django.db import models
 
@@ -35,7 +36,9 @@ class ClergyProfile(models.Model):
     other_information = models.TextField(blank=True)
 
     marriage_date = models.DateField(blank=True, null=True)
+    marriage_place = models.CharField(max_length=150, blank=True)
     spouse_name = models.CharField(max_length=150, blank=True)
+    spouse_birth_date = models.DateField(blank=True, null=True)
     children_names = models.TextField(blank=True)
 
     # Government ID numbers: stored encrypted once DATA_ENCRYPTION_KEY is set (ednp/fields.py).
@@ -69,6 +72,42 @@ class ClergyProfile(models.Model):
 # 'security' (sign-ins and account changes), 'record' (profile, record and
 # contract) and 'documents'. Kept here rather than as field choices so a new
 # kind doesn't need a migration.
+class ClergyChild(models.Model):
+    profile = models.ForeignKey(ClergyProfile, on_delete=models.CASCADE, related_name='children')
+    name = models.CharField(max_length=150)
+    birth_date = models.DateField(blank=True, null=True)
+    gender = models.CharField(max_length=10, choices=[('Male', 'Male'), ('Female', 'Female')], blank=True)
+
+    class Meta:
+        db_table = 'clergy_children'
+        ordering = ['birth_date', 'id']
+
+    @property
+    def age(self):
+        if not self.birth_date:
+            return None
+        today = date.today()
+        return today.year - self.birth_date.year - ((today.month, today.day) < (self.birth_date.month, self.birth_date.day))
+
+    def __str__(self):
+        return self.name
+
+
+class ClergyEducation(models.Model):
+    profile = models.ForeignKey(ClergyProfile, on_delete=models.CASCADE, related_name='educations')
+    degree = models.CharField('Degree / Program', max_length=150)
+    institution = models.CharField('Institution / Seminary / School', max_length=150)
+    place = models.CharField('Place / Location', max_length=150, blank=True)
+    year_graduated = models.PositiveSmallIntegerField('Year Graduated', blank=True, null=True)
+
+    class Meta:
+        db_table = 'clergy_educations'
+        ordering = ['-year_graduated', '-id']
+
+    def __str__(self):
+        return f"{self.degree} - {self.institution}"
+
+
 NOTIFICATION_KINDS = {
     'account_activated': ('security', 'fa-circle-check', 'green'),
     'password_changed': ('security', 'fa-key', 'blue'),

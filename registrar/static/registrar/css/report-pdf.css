@@ -22,6 +22,21 @@ th { background: #f4f4f4; text-align: left; font-weight: bold; color: #17324d; }
 .footer { margin-top: 26px; font-size: 9pt; text-align: center; color: #526273; }
 .empty-row { text-align: center; color: #667085; }
 
+/* Clerical Directory Specific Styles */
+.directory-list { margin-top: 14px; }
+.directory-entry { page-break-inside: avoid; break-inside: avoid; margin-bottom: 14px; padding-bottom: 12px; border-bottom: 1px solid #d0d7de; }
+.directory-entry:last-child { border-bottom: none; }
+.entry-header { margin-bottom: 4px; font-size: 11pt; }
+.clergy-name { font-size: 11pt; color: #17324d; }
+.clergy-rank { font-size: 9.5pt; color: #555; margin-left: 4px; }
+.entry-record-id { font-size: 8.5pt; color: #667085; margin-left: 6px; font-family: monospace; }
+table.dir-details-table { width: 100%; border-collapse: collapse; border: none; margin: 0; }
+table.dir-details-table td { border: none; padding: 2px 4px 2px 0; font-size: 9.5pt; line-height: 1.35; vertical-align: top; }
+table.dir-details-table td.dir-label { width: 50px; font-weight: bold; color: #17324d; white-space: nowrap; }
+table.dir-details-table td.dir-val { color: #222; }
+.dep-item { margin-bottom: 2px; }
+.dep-item:last-child { margin-bottom: 0; }
+
 .toolbar { display: none; }
 @media screen {
   body { background: #f4f6f9; padding: 24px; }

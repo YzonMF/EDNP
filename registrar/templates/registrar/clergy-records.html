@@ -22,6 +22,20 @@
                class="search"
                placeholder="Search by clergy name, assignment or ID..."
                value="{{ search_query }}">
+        <select name="deanery" class="select" data-autosubmit>
+          <option value="">All Deaneries</option>
+          {% for d in deaneries %}
+            <option value="{{ d.id }}"
+                    {% if deanery_filter|stringformat:"s" == d.id|stringformat:"s" %}selected{% endif %}>{{ d.name }}</option>
+          {% endfor %}
+        </select>
+        <select name="rank" class="select" data-autosubmit>
+          <option value="">All Ranks</option>
+          {% for value, label in rank_choices %}
+            <option value="{{ value }}"
+                    {% if rank_filter|lower == value|lower %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
         <select name="status" class="select" data-autosubmit>
           <option value="">All Status</option>
           {% for value, label in status_choices %}

@@ -1,6 +1,6 @@
 from django import forms
 
-from registrar.models import ClergyRecord
+from registrar.models import ClergyRecord, ClergyDeployment
 
 from .models import ClergyProfile
 
@@ -14,28 +14,49 @@ class ClergyProfileForm(forms.ModelForm):
             'place_of_birth', 'civil_status',
             'baptism_place', 'confirmation_place',
             'education', 'other_information',
-            'marriage_date', 'spouse_name', 'children_names',
+            'marriage_date', 'marriage_place', 'spouse_name', 'spouse_birth_date', 'children_names',
             'sss_number', 'philhealth_number', 'pagibig_number',
         ]
         widgets = {
             'marriage_date': forms.DateInput(attrs={'type': 'date'}),
+            'spouse_birth_date': forms.DateInput(attrs={'type': 'date'}),
         }
+
+    def clean(self):
+        cleaned_data = super().clean()
+        civil_status = cleaned_data.get('civil_status')
+        if civil_status == 'Single':
+            # Single clergy cannot have spouse or marriage records
+            cleaned_data['marriage_date'] = None
+            cleaned_data['marriage_place'] = ''
+            cleaned_data['spouse_name'] = ''
+            cleaned_data['spouse_birth_date'] = None
+            cleaned_data['children_names'] = ''
+        return cleaned_data
 
 
 class ClergyRecordSelfServiceForm(forms.ModelForm):
     """The subset of ClergyRecord fields a clergy member may edit about
-    themselves from My Profile — deliberately excludes assignment, status,
-    rank, contract/retirement dates, and the whole Ordination/Bishop history,
-    which stay Registrar-controlled (verified church events, not self-reported)."""
+    themselves from My Profile — includes personal information, Holy Orders &
+    Ordination history; excludes assignment, status, rank, and
+    contract/retirement dates which stay Registrar-controlled."""
 
     class Meta:
         model = ClergyRecord
         # No 'phone': the contact number is the verified one on the account and
         # only changes through a code sent to the new number.
-        fields = ['name', 'gender', 'date_of_birth', 'baptism_date', 'confirmation_date',
-                  'email', 'address']
+        fields = [
+            'name', 'gender', 'date_of_birth', 'baptism_date', 'confirmation_date',
+            'email', 'address',
+            'diaconate_date', 'diaconate_place', 'ordination_date', 'ordination_place',
+            'holy_orders_date', 'bishop_name', 'consecration_date',
+        ]
         widgets = {
             'date_of_birth': forms.DateInput(attrs={'type': 'date'}),
             'baptism_date': forms.DateInput(attrs={'type': 'date'}),
             'confirmation_date': forms.DateInput(attrs={'type': 'date'}),
+            'diaconate_date': forms.DateInput(attrs={'type': 'date'}),
+            'ordination_date': forms.DateInput(attrs={'type': 'date'}),
+            'holy_orders_date': forms.DateInput(attrs={'type': 'date'}),
+            'consecration_date': forms.DateInput(attrs={'type': 'date'}),
         }

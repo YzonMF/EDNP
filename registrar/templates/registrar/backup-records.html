@@ -77,9 +77,12 @@
                 {% endif %}
                 <td>
                   <div class="row-actions">
-                    {% if saved.stored_size is not None %}<a class="btn small"
-   href="{% url 'registrar:download_backup_archive' saved.id %}"
-   download><i class="fa-solid fa-download"></i> Download</a>{% endif %}
+                    {% if saved.stored_size is not None %}
+                      <button type="button" class="btn small"
+                              onclick="openDownloadArchiveModal('{% url 'registrar:download_backup_archive' saved.id %}', '{{ saved.created_at|date:"F d, Y" }}')">
+                        <i class="fa-solid fa-download"></i> Download
+                      </button>
+                    {% endif %}
                     <form method="post"
                           action="{% url 'registrar:delete_backup_archive' saved.id %}"
                           data-confirm="Delete the archive saved {{ saved.created_at|date:"M d, Y" }}? This cannot be undone.">{% csrf_token %}<button class="btn small danger" type="submit"><i class="fa-solid fa-trash"></i> Delete</button></form>
@@ -92,4 +95,56 @@
       </div>
     {% endif %}
   </section>
+{% endblock %}
+
+{% block modals %}
+  {% if saved_archives %}
+    <div class="modal-bg" id="downloadArchiveModal">
+      <div class="modal">
+        <div class="modal-head">
+          <div>
+            <h3><i class="fa-solid fa-box-archive"></i> Download Saved Archive</h3>
+            <span class="muted" id="downloadArchivePrompt">Confirm with your password to download this backup archive.</span>
+          </div>
+          <button class="close" type="button" aria-label="Close" data-close-modal="downloadArchiveModal">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+        <form method="post" id="downloadArchiveForm" action="" class="password-form" style="margin-top: 1rem;">
+          {% csrf_token %}
+          <input type="password"
+                 id="downloadArchivePassword"
+                 name="current_password"
+                 placeholder="Confirm with your password"
+                 autocomplete="current-password"
+                 required>
+          <div class="modal-actions" style="margin-top: 1rem;">
+            <button type="button" class="btn secondary" data-close-modal="downloadArchiveModal">
+              <i class="fa-solid fa-xmark"></i> Cancel
+            </button>
+            <button class="btn" type="submit">
+              <i class="fa-solid fa-download"></i> Download Archive
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  {% endif %}
+{% endblock %}
+
+{% block extra_js %}
+  {% if saved_archives %}
+    <script>
+      function openDownloadArchiveModal(actionUrl, dateStr) {
+        const form = document.getElementById('downloadArchiveForm');
+        if (form) form.action = actionUrl;
+        const prompt = document.getElementById('downloadArchivePrompt');
+        if (prompt && dateStr) prompt.textContent = 'Confirm with your password to download the archive saved on ' + dateStr + '.';
+        const input = document.getElementById('downloadArchivePassword');
+        if (input) input.value = '';
+        openModal('downloadArchiveModal');
+        if (input) input.focus();
+      }
+    </script>
+  {% endif %}
 {% endblock %}

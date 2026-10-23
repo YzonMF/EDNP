@@ -24,9 +24,9 @@ from ednp import encryption, security_log
 from . import archive, backups, bulk, reports, slips
 from .decorators import registrar_required
 from .forms import ClergyRecordForm, DocumentUploadForm, EmberLetterUploadForm, PersonalInfoForm, first_error
-from .models import (RANK_CHOICES, REPORT_ARCHIVE_DAYS, BackupArchive, ClergyRecord, Deanery, Document, DocumentType,
+from .models import (RANK_CHOICES, REPORT_ARCHIVE_DAYS, BackupArchive, ClergyRecord, ClergyDeployment, Deanery, Document, DocumentType,
                      EmberLetter, GeneratedReport, delete_ember_letter as remove_ember_letter,
-                     note_document_submission, save_document, save_ember_letter)
+                     note_document_submission, save_document, save_ember_letter, sync_expired_contracts)
 from .provisioning import (SETUP_WINDOW_DAYS, ProvisionError, account_status, provision_account, reset_credentials,
                            reset_lost_phone)
 
@@ -85,6 +85,7 @@ def download_document(request, document_id):
 @login_required(login_url='index')
 def view_profile_picture(request, record_id):
     record = get_object_or_404(ClergyRecord, id=record_id)
+    record.record_expired_contract()
     profile = getattr(request.user, 'clergy_profile', None)
     if not (request.user.is_staff or (profile is not None and profile.record_id == record.id)):
         raise Http404
@@ -237,6 +238,7 @@ def _build_deaneries_map():
 
 @registrar_required
 def dashboard(request):
+    sync_expired_contracts()
     records = ClergyRecord.objects.current()
     near_expiry_cutoff = date.today() + timedelta(days=NEAR_EXPIRY_WINDOW_DAYS)
     stats = {
@@ -258,11 +260,15 @@ def dashboard(request):
 @registrar_required
 def clergy_records(request):
     """The working list, or with `?view=archived` the archived records (retired
-    clergy filed away; see registrar/archive.py). Search and the status filter
-    work within whichever list is showing."""
+    clergy filed away; see registrar/archive.py). Search and the status, deanery,
+    and rank filters work within whichever list is showing."""
     query = request.GET.get('q', '').strip()
     status = request.GET.get('status', '').strip()
+    deanery_filter = request.GET.get('deanery', '').strip()
+    rank_filter = request.GET.get('rank', '').strip()
     showing_archived = request.GET.get('view') == 'archived'
+
+    deaneries_map = _build_deaneries_map()
 
     records = ClergyRecord.objects.archived() if showing_archived else ClergyRecord.objects.current()
     if query:
@@ -273,6 +279,26 @@ def clergy_records(request):
         )
     if status:
         records = records.filter(status=status)
+    if rank_filter:
+        records = records.filter(rank__iexact=rank_filter)
+    if deanery_filter:
+        deanery_id_val = None
+        try:
+            deanery_id_val = int(deanery_filter)
+        except (ValueError, TypeError):
+            for d_id, d_data in deaneries_map.items():
+                if d_data['name'].lower() == deanery_filter.lower():
+                    deanery_id_val = int(d_id)
+                    deanery_filter = d_id
+                    break
+        if deanery_id_val is not None:
+            parishes = deaneries_map.get(str(deanery_id_val), {}).get('parishes', [])
+            records = records.filter(
+                db_models.Q(deanery_id=deanery_id_val)
+                | (db_models.Q(deanery__isnull=True) & db_models.Q(assignment__in=parishes))
+            )
+        else:
+            records = records.none()
 
     records = records.prefetch_related('documents__document_type')
     page = Paginator(records, CLERGY_RECORDS_PER_PAGE).get_page(request.GET.get('page'))
@@ -299,6 +325,10 @@ def clergy_records(request):
         page_params['q'] = query
     if status:
         page_params['status'] = status
+    if deanery_filter:
+        page_params['deanery'] = deanery_filter
+    if rank_filter:
+        page_params['rank'] = rank_filter
 
     return render(request, 'registrar/clergy-records.html', {
         'active_page': 'clergy_records',
@@ -308,11 +338,15 @@ def clergy_records(request):
         'search_query': query,
         'status_filter': status,
         'status_choices': ClergyRecord.STATUS_CHOICES,
+        'deanery_filter': deanery_filter,
+        'deaneries': [{'id': d_id, 'name': d['name']} for d_id, d in deaneries_map.items()],
+        'rank_filter': rank_filter,
+        'rank_choices': RANK_CHOICES,
         'showing_archived': showing_archived,
         'archived_count': ClergyRecord.objects.archived().count(),
         'archivable_status': archive.ARCHIVABLE_STATUS,
         'next_id': ClergyRecord.next_id(),
-        'deaneries_map': _build_deaneries_map(),
+        'deaneries_map': deaneries_map,
     })
 
 
@@ -597,6 +631,52 @@ def record_detail(request, record_id):
             messages.error(request, first_error(doc_form) or 'Please choose a document type and a file.')
         return redirect(f"{request.path}?tab=documents")
 
+    if request.method == 'POST' and request.POST.get('action') == 'add_deployment':
+        station_name = request.POST.get('station_name', '').strip()
+        place_name = request.POST.get('place_name', '').strip()
+        role = request.POST.get('role', '').strip() or 'Priest-in-Charge'
+        start_date_raw = request.POST.get('start_date')
+        end_date_raw = request.POST.get('end_date')
+        is_current = request.POST.get('is_current') == '1'
+        notes = request.POST.get('notes', '').strip()
+
+        start_date = None
+        if start_date_raw:
+            try:
+                start_date = date.fromisoformat(start_date_raw)
+            except ValueError:
+                pass
+        end_date = None
+        if end_date_raw:
+            try:
+                end_date = date.fromisoformat(end_date_raw)
+            except ValueError:
+                pass
+
+        if not station_name:
+            messages.error(request, 'Please provide a station or parish name.')
+        else:
+            if is_current:
+                record.deployments.filter(is_current=True).update(is_current=False)
+            ClergyDeployment.objects.create(
+                record=record,
+                station_name=station_name,
+                place_name=place_name,
+                role=role,
+                start_date=start_date,
+                end_date=end_date,
+                is_current=is_current,
+                notes=notes
+            )
+            messages.success(request, f'Deployment at {station_name} added successfully.')
+        return redirect(f"{request.path}?tab=personal")
+
+    if request.method == 'POST' and request.POST.get('action') == 'delete_deployment':
+        dep_id = request.POST.get('deployment_id')
+        get_object_or_404(ClergyDeployment, id=dep_id, record=record).delete()
+        messages.success(request, 'Deployment removed.')
+        return redirect(f"{request.path}?tab=personal")
+
     if request.method == 'POST':
         was_archived = record.is_archived
         form = PersonalInfoForm(request.POST, instance=record)
@@ -607,15 +687,21 @@ def record_detail(request, record_id):
             messages.error(request, 'This record is archived. Restore it before changing its status.')
         else:
             form.save()
+            record.record_expired_contract()
             notifications.record_updated(record, request.user, form)
             messages.success(request, 'Personal Information updated successfully.')
         return redirect(f"{request.path}?tab=personal")
 
     records_list_url = reverse('registrar:clergy_records')
     ember_upload_url = reverse('registrar:upload_ember_letter', args=[record.id])
+    try:
+        clergy_profile = record.profile
+    except Exception:
+        clergy_profile = None
     return render(request, 'registrar/record-detail.html', {
         'active_page': 'clergy_records',
         'record': record,
+        'clergy_profile': clergy_profile,
         'checklist': record.document_checklist_grouped(),
         'active_tab': request.GET.get('tab', 'personal'),
         'deaneries_map': _build_deaneries_map(),
@@ -666,6 +752,7 @@ def ordination_requirements(request):
 
 @registrar_required
 def contract_review(request):
+    sync_expired_contracts()
     records = ClergyRecord.objects.current().filter(contract_end__isnull=False).order_by('contract_end')
     today = date.today()
     rows = [{'record': r, 'days_left': (r.contract_end - today).days} for r in records]
@@ -866,6 +953,9 @@ def download_documents_archive(request):
 
 @registrar_required
 def download_backup_archive(request, archive_id):
+    if request.method != 'POST' or not password_confirmed(request):
+        return redirect('registrar:backup_records')
+
     saved = get_object_or_404(BackupArchive, id=archive_id)
     filename = saved.file.name.rsplit('/', 1)[-1]
     try:

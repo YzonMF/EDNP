@@ -17,6 +17,10 @@ function selectTab(tab) {
   var btnEl = document.getElementById(chosen.btn);
   if (contentEl) contentEl.classList.add('active');
   if (btnEl) btnEl.classList.add('active');
+  var topSaveBtn = document.getElementById('topSaveRecordBtn');
+  if (topSaveBtn) {
+    topSaveBtn.style.display = (tab === 'personal' || !tab) ? '' : 'none';
+  }
 }
 
 function initRecordDetailTabs(activeTab) {

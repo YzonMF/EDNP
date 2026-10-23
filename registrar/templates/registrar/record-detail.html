@@ -10,7 +10,10 @@
   <section class="page active">
     <div class="panel">
       <div class="panel-head"><div class="record-head-identity"><div class="record-avatar">{% if record.profile_picture %}<img src="{% url 'registrar:view_profile_picture' record.id %}" alt="{{ record.name }}" width="44" height="44">{% else %}<span>{{ record.initials }}</span>{% endif %}</div><div><h3><i class="fa-solid fa-user-tie"></i> {{ record.name }}</h3><span class="muted">{{ record.id }} — {{ record.get_rank_display }} — {{ record.get_status_display }}{% if record.is_archived %} — Archived{% endif %}</span></div></div>
-        <div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          {% if not record.is_archived %}
+            <button type="submit" form="recordPersonalForm" id="topSaveRecordBtn" class="btn"><i class="fa-solid fa-floppy-disk"></i> Save Changes</button>
+          {% endif %}
           {% if record.is_archived %}
             <form method="post"
                   action="{% url 'registrar:restore_record' record.id %}"
@@ -35,13 +38,16 @@
         <button type="button" id="tabBtnEmber" data-tab="ember"><i class="fa-solid fa-envelope-open-text"></i> Ember Letters <span class="badge abroad-b" data-ember-tab-badge>{{ ember_summary.uploaded }}/{{ ember_summary.target }}</span></button>
       </div>
       <div id="tabPersonal" class="tab-content">
-        <form method="post">
+        <form method="post" id="recordPersonalForm">
           {% csrf_token %}
           <div class="section-card">
-            <h4><i class="fa-solid fa-user"></i> Personal Information</h4>
+            <h4><i class="fa-solid fa-user"></i> Personal &amp; Contact Information</h4>
             <div class="edit-grid">
+              <div class="edit-field full" style="font-weight: 700; font-size: 13px; color: #17324d; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; margin-top: 4px; display: flex; align-items: center; gap: 8px;">
+                <i class="fa-solid fa-id-card" style="color: #2f6fed;"></i> Identity &amp; Basic Details
+              </div>
               <div class="edit-field">
-                <label>Full Name</label><input name="name" value="{{ record.name }}" required>
+                <label>Full Name <span class="req-mark">*</span></label><input name="name" value="{{ record.name }}" required>
               </div>
               <div class="edit-field">
                 <label>Record ID</label><input value="{{ record.id }}" readonly>
@@ -52,24 +58,9 @@
        value="{{ record.date_of_birth|date:'Y-m-d' }}">
               </div>
               <div class="edit-field"><label>Gender</label><select name="gender"><option value="">Select</option><option {% if record.gender == 'Male' %}selected{% endif %}>Male</option><option {% if record.gender == 'Female' %}selected{% endif %}>Female</option></select></div>
-              <div class="edit-field">
-                <label>Date of Baptism</label><input name="baptism_date"
-       type="date"
-       value="{{ record.baptism_date|date:'Y-m-d' }}">
-              </div>
-              <div class="edit-field">
-                <label>Date of Confirmation</label><input name="confirmation_date"
-       type="date"
-       value="{{ record.confirmation_date|date:'Y-m-d' }}">
-              </div>
-              <div class="edit-field">
-                <label>Contact Number</label><input type="tel"
-       value="{{ record.phone|default:'' }}"
-       readonly
-       title="Verified by the clergy member. Only they can change it.">
-              </div>
-              <div class="edit-field">
-                <label>Email Address</label><input name="email" type="email" value="{{ record.email|default:'' }}">
+
+              <div class="edit-field full" style="font-weight: 700; font-size: 13px; color: #17324d; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; margin-top: 12px; display: flex; align-items: center; gap: 8px;">
+                <i class="fa-solid fa-address-book" style="color: #2f6fed;"></i> Contact &amp; Residential Information
               </div>
               <div class="edit-field full">
                 <label>Residential Address</label>
@@ -84,15 +75,36 @@
                   </button>
                 </div>
               </div>
+              <div class="edit-field">
+                <label>Contact Number</label><input type="tel"
+       value="{{ record.phone|default:'' }}"
+       readonly
+       title="Verified by the clergy member. Only they can change it.">
+              </div>
+              <div class="edit-field">
+                <label>Email Address</label><input name="email" type="email" value="{{ record.email|default:'' }}">
+              </div>
+
+              <div class="edit-field full" style="font-weight: 700; font-size: 13px; color: #17324d; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; margin-top: 12px; display: flex; align-items: center; gap: 8px;">
+                <i class="fa-solid fa-water" style="color: #2f6fed;"></i> Sacramental Records
+              </div>
+              <div class="edit-field">
+                <label>Date of Baptism</label><input name="baptism_date"
+       type="date"
+       value="{{ record.baptism_date|date:'Y-m-d' }}">
+              </div>
+              <div class="edit-field">
+                <label>Date of Confirmation</label><input name="confirmation_date"
+       type="date"
+       value="{{ record.confirmation_date|date:'Y-m-d' }}">
+              </div>
             </div>
           </div>
           <div class="section-card">
-            <h4><i class="fa-solid fa-church"></i> Ordination, Bishop &amp; Family</h4>
+            <h4><i class="fa-solid fa-church"></i> Holy Orders &amp; Ordination History</h4>
             <div class="edit-grid">
-              <div class="edit-field">
-                <label>Date Admitted as Holy Order</label><input name="holy_orders_date"
-       type="date"
-       value="{{ record.holy_orders_date|date:'Y-m-d' }}">
+              <div class="edit-field full" style="font-weight: 700; font-size: 13px; color: #17324d; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; margin-top: 4px; display: flex; align-items: center; gap: 8px;">
+                <i class="fa-solid fa-cross" style="color: #2f6fed;"></i> Sacred Orders (Diaconate &amp; Priesthood)
               </div>
               <div class="edit-field">
                 <label>Date of Ordination to Diaconate</label><input name="diaconate_date"
@@ -100,13 +112,28 @@
        value="{{ record.diaconate_date|date:'Y-m-d' }}">
               </div>
               <div class="edit-field">
+                <label>Place of Diaconate Ordination</label><input name="diaconate_place"
+       value="{{ record.diaconate_place|default:'' }}"
+       placeholder="e.g. Cathedral of All Saints">
+              </div>
+              <div class="edit-field">
                 <label>Date of Ordination to Priesthood</label><input name="ordination_date"
        type="date"
        value="{{ record.ordination_date|date:'Y-m-d' }}">
               </div>
               <div class="edit-field">
-                <label>Place of Ordination</label><input name="ordination_place"
-       value="{{ record.ordination_place|default:'' }}">
+                <label>Place of Priesthood Ordination</label><input name="ordination_place"
+       value="{{ record.ordination_place|default:'' }}"
+       placeholder="e.g. St. Andrew's Cathedral">
+              </div>
+
+              <div class="edit-field full" style="font-weight: 700; font-size: 13px; color: #17324d; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; margin-top: 12px; display: flex; align-items: center; gap: 8px;">
+                <i class="fa-solid fa-hands-praying" style="color: #2f6fed;"></i> Holy Order &amp; Episcopate
+              </div>
+              <div class="edit-field">
+                <label>Date Admitted as Holy Order</label><input name="holy_orders_date"
+       type="date"
+       value="{{ record.holy_orders_date|date:'Y-m-d' }}">
               </div>
               <div class="edit-field">
                 <label>Bishop</label><input name="bishop_name" value="{{ record.bishop_name|default:'' }}">
@@ -116,32 +143,23 @@
        type="date"
        value="{{ record.consecration_date|date:'Y-m-d' }}">
               </div>
-              <div class="edit-field">
-                <label>Previous Assignment</label><input name="previous_assignment"
-       value="{{ record.previous_assignment|default:'' }}">
-              </div>
-              <div class="edit-field">
-                <label>Years of Service</label><input value="{{ record.years_of_service|default:'—' }}" readonly>
-              </div>
-              <div class="edit-field full">
-                <label>Deployment &amp; Service History</label><textarea name="service_history" rows="3">{{ record.service_history|default:'' }}</textarea>
-              </div>
             </div>
           </div>
           <div class="section-card">
-            <h4><i class="fa-solid fa-map-location-dot"></i> Deployment &amp; Status</h4>
+            <h4><i class="fa-solid fa-briefcase"></i> Deployment &amp; Official Status</h4>
             <div class="edit-grid">
+              <div class="edit-field full" style="font-weight: 700; font-size: 13px; color: #17324d; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; margin-top: 4px; display: flex; align-items: center; gap: 8px;">
+                <i class="fa-solid fa-id-badge" style="color: #2f6fed;"></i> Ecclesiastical Rank &amp; Status
+              </div>
               <div class="edit-field">
-                <label>Deanery</label><select name="deanery"
-        id="editDeanery"
-        data-parish-target="editAssignment">
-                  <option value="">Select Deanery</option>
+                <label>Rank</label><select name="rank">
+                  <option value="deacon" {% if record.rank == 'deacon' %}selected{% endif %}>Deacon</option>
+                  <option value="priest" {% if record.rank == 'priest' %}selected{% endif %}>Priest</option>
+                  <option value="bishop" {% if record.rank == 'bishop' %}selected{% endif %}>Bishop</option>
                 </select>
               </div>
               <div class="edit-field">
-                <label>Current Assignment</label><select name="assignment" id="editAssignment">
-                  <option value="">Select Deanery first</option>
-                </select>
+                <label>Years of Service</label><input value="{{ record.years_of_service_display }}" readonly title="Calculated automatically from deployment history">
               </div>
               <div class="edit-field">
                 <label>Current Status</label><select name="status"
@@ -158,16 +176,28 @@
               </div>
               <div class="edit-field hidden" id="editLeaveReasonField">
                 <label>Leave Reason</label><input name="leave_reason"
-       value="{{ record.leave_reason|default:'' }}"
-       placeholder="e.g. medical leave, sabbatical">
+        value="{{ record.leave_reason|default:'' }}"
+        placeholder="e.g. medical leave, sabbatical">
+              </div>
+
+              <div class="edit-field full" style="font-weight: 700; font-size: 13px; color: #17324d; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; margin-top: 12px; display: flex; align-items: center; gap: 8px;">
+                <i class="fa-solid fa-church" style="color: #2f6fed;"></i> Assignment &amp; Jurisdiction
               </div>
               <div class="edit-field">
-                <label>Rank</label><select name="rank">
-              
-                  <option value="deacon" {% if record.rank == 'deacon' %}selected{% endif %}>Deacon</option>
-                  <option value="priest" {% if record.rank == 'priest' %}selected{% endif %}>Priest</option>
-                  <option value="bishop" {% if record.rank == 'bishop' %}selected{% endif %}>Bishop</option>
+                <label>Deanery</label><select name="deanery"
+        id="editDeanery"
+        data-parish-target="editAssignment">
+                  <option value="">Select Deanery</option>
                 </select>
+              </div>
+              <div class="edit-field">
+                <label>Current Assignment</label><select name="assignment" id="editAssignment">
+                  <option value="">Select Deanery first</option>
+                </select>
+              </div>
+
+              <div class="edit-field full" style="font-weight: 700; font-size: 13px; color: #17324d; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; margin-top: 12px; display: flex; align-items: center; gap: 8px;">
+                <i class="fa-solid fa-calendar-days" style="color: #2f6fed;"></i> Contract &amp; Tenure Dates
               </div>
               <div class="edit-field">
                 <label>Contract End Date</label><input name="contract_end"
@@ -181,10 +211,140 @@
               </div>
             </div>
           </div>
-          <div class="actions">
+          <div class="actions form-actions" style="margin-top:20px;display:flex;justify-content:flex-end;gap:10px;">
+            <a class="btn secondary" href="{{ records_list_url }}"><i class="fa-solid fa-xmark"></i> Cancel</a>
             <button type="submit" class="btn"><i class="fa-solid fa-floppy-disk"></i> Save Changes</button>
           </div>
         </form>
+
+        <!-- Deployments & Station History -->
+        <div class="section-card" style="margin-top:24px;">
+          <div class="section-head" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:10px;">
+            <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+              <h4 style="margin:0;"><i class="fa-solid fa-map-location-dot"></i> Deployments &amp; Station History</h4>
+              <span class="badge blue" style="font-size:12px;padding:3px 8px;font-weight:600;"><i class="fa-solid fa-business-time"></i> Total Service: {{ record.years_of_service_display }}</span>
+            </div>
+            <button type="button" class="btn small" onclick="openModal('addDeploymentModal')"><i class="fa-solid fa-plus"></i> Add Deployment</button>
+          </div>
+          <div class="notice">Track parish assignments, mission stations, and appointments. Can be updated by both the Registrar and the clergy member.</div>
+          <table style="width:100%;border-collapse:collapse;margin-top:12px;">
+            <thead>
+              <tr style="border-bottom:2px solid #e3e8ef;text-align:left;font-size:11px;color:#64748b;">
+                <th style="padding:8px;">Parish / Station / Mission</th>
+                <th style="padding:8px;">Place / Location</th>
+                <th style="padding:8px;">Role</th>
+                <th style="padding:8px;">Period</th>
+                <th style="padding:8px;">Status</th>
+                <th style="padding:8px;text-align:center;">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for dep in record.deployments.all %}
+              <tr style="border-bottom:1px solid #edf0f3;">
+                <td style="padding:8px;"><b>{{ dep.station_name }}</b>{% if dep.notes %}<br><span class="muted" style="font-size:11px;">{{ dep.notes }}</span>{% endif %}</td>
+                <td style="padding:8px;">{{ dep.place_name|default:"—" }}</td>
+                <td style="padding:8px;">{{ dep.role }}</td>
+                <td style="padding:8px;">{% if dep.start_date %}{{ dep.start_date|date:"M Y" }} to {% endif %}{% if dep.is_current %}<span class="badge active-b" style="background:#e9f7ef;color:#166534;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700;">Present</span>{% elif dep.end_date %}{% if not dep.start_date %}Ended {% endif %}{{ dep.end_date|date:"M Y" }}{% else %}—{% endif %}</td>
+                <td style="padding:8px;">{% if dep.is_current %}<span class="badge active-b" style="background:#e9f7ef;color:#166534;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700;">Current</span>{% else %}—{% endif %}</td>
+                <td style="padding:8px;text-align:center;">
+                  <form method="post" class="inline-form" data-confirm="Remove this deployment entry?">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="delete_deployment">
+                    <input type="hidden" name="deployment_id" value="{{ dep.id }}">
+                    <button type="submit" class="btn small danger" style="padding:4px 8px;"><i class="fa-solid fa-trash"></i></button>
+                  </form>
+                </td>
+              </tr>
+              {% empty %}
+              <tr><td colspan="6" style="padding:14px;text-align:center;color:#64748b;font-size:12px;">No structured deployments recorded yet. Click "Add Deployment" to record an assignment.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Family & Educational Background (Filed by Clergy) -->
+        <div class="section-card" style="margin-top:24px;">
+          <div class="section-head" style="margin-bottom:8px;">
+            <h4 style="margin:0;"><i class="fa-solid fa-people-roof"></i> Family &amp; Education <span class="badge blue" style="font-size:10px;font-weight:600;margin-left:8px;">Filed by Clergy</span></h4>
+          </div>
+          <div class="notice">These details are entered and maintained directly by the clergy member through their self-service portal (Read-only for Registrar).</div>
+
+          <h5 style="margin:16px 0 8px;font-size:13px;color:#1e293b;border-bottom:1px solid #e2e8f0;padding-bottom:4px;"><i class="fa-solid fa-ring"></i> Marriage &amp; Spouse</h5>
+          <div class="edit-grid" style="margin-bottom:16px;">
+            <div class="edit-field"><label>Place of Birth</label><input value="{{ clergy_profile.place_of_birth|default:'—' }}" readonly></div>
+            <div class="edit-field"><label>Civil Status</label><input value="{{ clergy_profile.civil_status|default:'—' }}" readonly></div>
+            <div class="edit-field"><label>Date Married</label><input value="{{ clergy_profile.marriage_date|date:'M d, Y'|default:'—' }}" readonly></div>
+            <div class="edit-field"><label>Place of Marriage</label><input value="{{ clergy_profile.marriage_place|default:'—' }}" readonly></div>
+            <div class="edit-field"><label>Name of Spouse</label><input value="{{ clergy_profile.spouse_name|default:'—' }}" readonly></div>
+            <div class="edit-field"><label>Spouse Date of Birth</label><input value="{{ clergy_profile.spouse_birth_date|date:'M d, Y'|default:'—' }}" readonly></div>
+          </div>
+
+          <h5 style="margin:16px 0 8px;font-size:13px;color:#1e293b;border-bottom:1px solid #e2e8f0;padding-bottom:4px;"><i class="fa-solid fa-children"></i> Children (Organized List)</h5>
+          <table style="width:100%;border-collapse:collapse;margin-bottom:16px;">
+            <thead>
+              <tr style="border-bottom:2px solid #e3e8ef;text-align:left;font-size:11px;color:#64748b;">
+                <th style="padding:6px;">Child Name</th>
+                <th style="padding:6px;width:160px;">Date of Birth</th>
+                <th style="padding:6px;width:120px;">Gender</th>
+                <th style="padding:6px;width:100px;">Age</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for child in clergy_profile.children.all %}
+              <tr style="border-bottom:1px solid #edf0f3;">
+                <td style="padding:6px;"><b>{{ child.name }}</b></td>
+                <td style="padding:6px;">{{ child.birth_date|date:"M d, Y"|default:"—" }}</td>
+                <td style="padding:6px;">{{ child.gender|default:"—" }}</td>
+                <td style="padding:6px;">{% if child.age is not None %}{{ child.age }} yrs old{% else %}—{% endif %}</td>
+              </tr>
+              {% empty %}
+              <tr><td colspan="4" style="padding:10px;text-align:center;color:#64748b;font-size:12px;">No children recorded by clergy member.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          {% if clergy_profile.children_names %}
+          <div class="edit-field full" style="margin-bottom:16px;">
+            <label>Additional Family Notes</label>
+            <div style="background:#f8fafc;padding:8px 12px;border:1px solid #e2e8f0;border-radius:6px;font-size:13px;">{{ clergy_profile.children_names }}</div>
+          </div>
+          {% endif %}
+
+          <h5 style="margin:16px 0 8px;font-size:13px;color:#1e293b;border-bottom:1px solid #e2e8f0;padding-bottom:4px;"><i class="fa-solid fa-graduation-cap"></i> Educational Background (Degrees &amp; Graduations)</h5>
+          <table style="width:100%;border-collapse:collapse;margin-bottom:12px;">
+            <thead>
+              <tr style="border-bottom:2px solid #e3e8ef;text-align:left;font-size:11px;color:#64748b;">
+                <th style="padding:6px;">Degree / Program</th>
+                <th style="padding:6px;">Institution / Seminary / School</th>
+                <th style="padding:6px;">Place / Location</th>
+                <th style="padding:6px;width:120px;">Year Graduated</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for edu in clergy_profile.educations.all %}
+              <tr style="border-bottom:1px solid #edf0f3;">
+                <td style="padding:6px;"><b>{{ edu.degree }}</b></td>
+                <td style="padding:6px;">{{ edu.institution }}</td>
+                <td style="padding:6px;">{{ edu.place|default:"—" }}</td>
+                <td style="padding:6px;">{{ edu.year_graduated|default:"—" }}</td>
+              </tr>
+              {% empty %}
+              <tr><td colspan="4" style="padding:10px;text-align:center;color:#64748b;font-size:12px;">No structured education records filed by clergy member.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          {% if clergy_profile.education %}
+          <div class="edit-field full">
+            <label>Educational Notes / Continuing Education</label>
+            <div style="background:#f8fafc;padding:8px 12px;border:1px solid #e2e8f0;border-radius:6px;font-size:13px;">{{ clergy_profile.education }}</div>
+          </div>
+          {% endif %}
+        </div>
+        <div class="actions" style="margin-top:24px;display:flex;justify-content:flex-end;gap:10px;">
+          <a class="btn secondary" href="{{ records_list_url }}"><i class="fa-solid fa-arrow-left"></i> Back to Clergy Records</a>
+          {% if not record.is_archived %}
+            <button type="submit" form="recordPersonalForm" class="btn"><i class="fa-solid fa-floppy-disk"></i> Save Changes</button>
+          {% endif %}
+        </div>
       </div>
       <div id="tabDocuments" class="tab-content">
         <div class="notice">
@@ -355,6 +515,64 @@
 {{ deaneries_map|json_script:"deaneries-data" }}
 {{ record_data|json_script:"record-data" }}
 {% endblock %}
+{% block modals %}
+<div class="modal-bg" id="addDeploymentModal">
+  <div class="modal">
+    <div class="modal-head">
+      <div>
+        <h3><i class="fa-solid fa-map-location-dot"></i> Add Deployment / Assignment</h3>
+        <span class="muted">Record a parish, mission station, or diocesan assignment for {{ record.name }}</span>
+      </div>
+      <button class="close" type="button" aria-label="Close" data-close-modal="addDeploymentModal">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+    <form method="post">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="add_deployment">
+      <div class="edit-grid">
+        <div class="edit-field full">
+          <label>Parish / Mission / Station <span class="req-mark">*</span></label>
+          <input name="station_name" required placeholder="e.g. St. Barnabas Parish">
+        </div>
+        <div class="edit-field">
+          <label>Place / Location</label>
+          <div class="input-with-action">
+            <input name="place_name" id="depPlaceInputRegistrar" placeholder="e.g. Alab, Bontoc">
+            <button type="button" class="ph-picker-btn" data-ph-picker-target="depPlaceInputRegistrar" title="Choose from province / city / barangay list"><i class="fa-solid fa-location-dot"></i></button>
+          </div>
+        </div>
+        <div class="edit-field">
+          <label>Role / Position</label>
+          <input name="role" value="Priest-in-Charge" placeholder="e.g. Rector, Vicar, Assistant">
+        </div>
+        <div class="edit-field">
+          <label>Start Date</label>
+          <input name="start_date" type="date">
+        </div>
+        <div class="edit-field">
+          <label>End Date (leave blank if current)</label>
+          <input name="end_date" type="date">
+        </div>
+        <div class="edit-field full">
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+            <input type="checkbox" name="is_current" value="1"> This is the current active assignment
+          </label>
+        </div>
+        <div class="edit-field full">
+          <label>Notes (optional)</label>
+          <input name="notes" placeholder="e.g. Concurrent assignment, sabbatical covering">
+        </div>
+      </div>
+      <div class="actions" style="margin-top:16px;">
+        <button type="button" class="btn secondary" data-close-modal="addDeploymentModal"><i class="fa-solid fa-xmark"></i> Cancel</button>
+        <button type="submit" class="btn green"><i class="fa-solid fa-floppy-disk"></i> Save Deployment</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
 {% block extra_js %}
   <script src="{% static 'registrar/js/clergy-records.js' %}"></script>
   <script src="{% static 'registrar/js/record-detail.js' %}"></script>

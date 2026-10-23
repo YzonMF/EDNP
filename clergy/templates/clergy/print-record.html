@@ -42,21 +42,74 @@
     <tr><th>Email Address</th><td>{{ profile.record.email|default:"—" }}</td></tr>
     <tr><th>Date Admitted as Holy Order</th><td>{{ profile.record.holy_orders_date|default:"—" }}</td></tr>
     <tr><th>Diaconate Ordination</th><td>{{ profile.record.diaconate_date|default:"—" }}</td></tr>
+    <tr><th>Diaconate Place</th><td>{{ profile.record.diaconate_place|default:"—" }}</td></tr>
     <tr><th>Priesthood Ordination</th><td>{{ profile.record.ordination_date|default:"—" }}</td></tr>
     <tr><th>Ordination Place</th><td>{{ profile.record.ordination_place|default:"—" }}</td></tr>
     <tr><th>Bishop</th><td>{{ profile.record.bishop_name|default:"—" }}</td></tr>
     <tr><th>Consecration Date</th><td>{{ profile.record.consecration_date|default:"—" }}</td></tr>
-    <tr><th>Previous Assignment</th><td>{{ profile.record.previous_assignment|default:"—" }}</td></tr>
-    <tr><th>Years of Service</th><td>{{ profile.record.years_of_service|default:"—" }}</td></tr>
-    <tr><th>Service History</th><td>{{ profile.record.service_history|default:"—"|linebreaksbr }}</td></tr>
+    <tr><th>Years of Service</th><td>{{ profile.record.years_of_service_display }}</td></tr>
     <tr><th>Educational Background</th><td>{{ profile.education|default:"—" }}</td></tr>
     <tr><th>Marriage Date</th><td>{{ profile.marriage_date|default:"—" }}</td></tr>
+    <tr><th>Marriage Place</th><td>{{ profile.marriage_place|default:"—" }}</td></tr>
     <tr><th>Spouse</th><td>{{ profile.spouse_name|default:"—" }}</td></tr>
-    <tr><th>Children</th><td>{{ profile.children_names|default:"—"|linebreaksbr }}</td></tr>
+    <tr><th>Spouse Date of Birth</th><td>{{ profile.spouse_birth_date|default:"—" }}</td></tr>
+    <tr><th>Children (Notes)</th><td>{{ profile.children_names|default:"—"|linebreaksbr }}</td></tr>
     <tr><th>SSS No.</th><td>{{ profile.sss_number|default:"—" }}</td></tr>
     <tr><th>PhilHealth No.</th><td>{{ profile.philhealth_number|default:"—" }}</td></tr>
     <tr><th>Pag-IBIG No.</th><td>{{ profile.pagibig_number|default:"—" }}</td></tr>
     <tr><th>Reason for Leave</th><td>{{ profile.record.leave_reason|default:"—" }}</td></tr>
+  </table>
+
+  <h2>Deployments &amp; Station History</h2>
+  <table>
+    <thead><tr><th>Parish / Station / Mission</th><th>Place / Location</th><th>Role</th><th>Period</th><th>Status</th></tr></thead>
+    <tbody>
+      {% for dep in profile.record.deployments.all %}
+      <tr>
+        <td><b>{{ dep.station_name }}</b>{% if dep.notes %}<br><small>{{ dep.notes }}</small>{% endif %}</td>
+        <td>{{ dep.place_name|default:"—" }}</td>
+        <td>{{ dep.role }}</td>
+        <td>{% if dep.start_date %}{{ dep.start_date|date:"M Y" }} to {% endif %}{% if dep.is_current %}Present{% elif dep.end_date %}{% if not dep.start_date %}Ended {% endif %}{{ dep.end_date|date:"M Y" }}{% else %}—{% endif %}</td>
+        <td>{% if dep.is_current %}Current{% else %}—{% endif %}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="5">No deployments recorded.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <h2>Children</h2>
+  <table>
+    <thead><tr><th>Name</th><th>Date of Birth</th><th>Age</th><th>Gender</th></tr></thead>
+    <tbody>
+      {% for child in profile.children.all %}
+      <tr>
+        <td><b>{{ child.name }}</b></td>
+        <td>{{ child.birth_date|default:"—" }}</td>
+        <td>{{ child.age|default:"—" }}</td>
+        <td>{{ child.gender|default:"—" }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="4">No children recorded.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <h2>Educational Background (Degrees &amp; Graduations)</h2>
+  <table>
+    <thead><tr><th>Degree / Program</th><th>Institution / Seminary / School</th><th>Place / Location</th><th>Year Graduated</th></tr></thead>
+    <tbody>
+      {% for edu in profile.educations.all %}
+      <tr>
+        <td><b>{{ edu.degree }}</b></td>
+        <td>{{ edu.institution }}</td>
+        <td>{{ edu.place|default:"—" }}</td>
+        <td>{{ edu.year_graduated|default:"—" }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="4">No degrees recorded.</td></tr>
+      {% endfor %}
+    </tbody>
   </table>
 
   <h2>Requirements &amp; Attachments</h2>

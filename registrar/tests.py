@@ -1,7 +1,7 @@
 import shutil
 import tempfile
 import threading
-from datetime import date
+from datetime import date, timedelta
 from unittest import mock
 
 from django.contrib.auth import get_user_model
@@ -12,11 +12,11 @@ from django.test import TestCase, TransactionTestCase, override_settings, skipUn
 from django.urls import reverse
 
 from accounts.testing import activate
-from clergy.models import ClergyProfile
+from clergy.models import ClergyChild, ClergyEducation, ClergyProfile
 
 from .forms import DocumentUploadForm
 from . import reports
-from .models import ClergyRecord, Deanery, Document, DocumentType, GeneratedReport, IdCounter, Parish, save_document
+from .models import ClergyDeployment, ClergyRecord, Deanery, Document, DocumentType, GeneratedReport, IdCounter, Parish, save_document
 
 User = get_user_model()
 
@@ -151,6 +151,9 @@ class DocumentTests(TestCase):
 class ConcurrentIdAllocationTests(TransactionTestCase):
     """Real simultaneous creators (separate DB connections). Skipped on SQLite,
     which has no row locking — run against MySQL to exercise this."""
+
+    def setUp(self):
+        IdCounter.objects.get_or_create(name=ClergyRecord.COUNTER_NAME, defaults={'last_value': 0})
 
     def test_simultaneous_creates_never_share_an_id(self):
         n = 12
@@ -289,3 +292,399 @@ class PaginationAndQueryCountTests(TestCase):
 
         page2 = self.client.get(reverse('registrar:generate_report'), {'page': 2})
         self.assertEqual(len(page2.context['generated_reports']), 2)
+
+
+class ClergyRecordsFilterTests(TestCase):
+    def setUp(self):
+        self.registrar = activate(User.objects.create_user('reg_filter', password='pw12345!x', is_staff=True))
+        self.client.force_login(self.registrar)
+        self.deanery_central = Deanery.objects.create(name='Central Deanery')
+        self.deanery_bauko = Deanery.objects.create(name='Bauko Deanery')
+        self.parish_central = Parish.objects.create(deanery=self.deanery_central, parish_name='St. Barnabas', place_name='Alab')
+        self.parish_bauko = Parish.objects.create(deanery=self.deanery_bauko, parish_name='Holy Apostle', place_name='Abatan')
+
+        self.r1 = ClergyRecord.objects.create(
+            id='CLG-101', name='Fr. Juan', deanery=self.deanery_central,
+            assignment=str(self.parish_central), rank='priest', status='Active'
+        )
+        self.r2 = ClergyRecord.objects.create(
+            id='CLG-102', name='Fr. Pedro', deanery=None,
+            assignment=str(self.parish_bauko), rank='deacon', status='Active'
+        )
+        self.r3 = ClergyRecord.objects.create(
+            id='CLG-103', name='Bp. Marco', deanery=self.deanery_central,
+            assignment='Cathedral', rank='bishop', status='On Leave'
+        )
+
+    def test_filter_by_deanery_fk(self):
+        res = self.client.get(reverse('registrar:clergy_records'), {'deanery': self.deanery_central.id})
+        ids = [r.id for r in res.context['records']]
+        self.assertIn(self.r1.id, ids)
+        self.assertIn(self.r3.id, ids)
+        self.assertNotIn(self.r2.id, ids)
+        self.assertContains(res, 'Central Deanery')
+
+    def test_filter_by_deanery_fallback_parish(self):
+        res = self.client.get(reverse('registrar:clergy_records'), {'deanery': self.deanery_bauko.id})
+        ids = [r.id for r in res.context['records']]
+        self.assertIn(self.r2.id, ids)
+        self.assertNotIn(self.r1.id, ids)
+        self.assertNotIn(self.r3.id, ids)
+
+    def test_filter_by_rank(self):
+        res = self.client.get(reverse('registrar:clergy_records'), {'rank': 'priest'})
+        ids = [r.id for r in res.context['records']]
+        self.assertEqual(ids, [self.r1.id])
+
+        res_deacon = self.client.get(reverse('registrar:clergy_records'), {'rank': 'deacon'})
+        self.assertEqual([r.id for r in res_deacon.context['records']], [self.r2.id])
+
+    def test_filter_by_deanery_and_rank_combined(self):
+        res = self.client.get(reverse('registrar:clergy_records'), {
+            'deanery': self.deanery_central.id,
+            'rank': 'bishop',
+        })
+        ids = [r.id for r in res.context['records']]
+        self.assertEqual(ids, [self.r3.id])
+
+    def test_filter_preserves_in_pagination_and_renders_selects(self):
+        res = self.client.get(reverse('registrar:clergy_records'), {
+            'deanery': self.deanery_central.id,
+            'rank': 'priest',
+            'status': 'Active',
+        })
+        self.assertContains(res, '<select name="deanery"')
+        self.assertContains(res, '<select name="rank"')
+        self.assertContains(res, '<select name="status"')
+        self.assertEqual(res.context['deanery_filter'], str(self.deanery_central.id))
+        self.assertEqual(res.context['rank_filter'], 'priest')
+
+
+from clergy.models import ClergyChild, ClergyEducation
+from .models import ClergyDeployment
+
+
+class ClergyRecordEnhancementRegistrarTests(TestCase):
+    def setUp(self):
+        self.registrar = activate(User.objects.create_user('reg_enh', password='pw12345!x', is_staff=True))
+        self.client.force_login(self.registrar)
+        self.record = ClergyRecord.objects.create(
+            id='CLG-301',
+            name='Fr. Timothy',
+            status='Active',
+            rank='priest',
+            diaconate_date=date(2010, 5, 1),
+            diaconate_place='Bontoc Cathedral',
+            ordination_date=date(2011, 5, 1),
+            ordination_place='Baguio Cathedral',
+        )
+        self.clergy_user = activate(User.objects.create_user('CLG-301', password='pw12345!x'))
+        self.profile = ClergyProfile.objects.create(
+            user=self.clergy_user,
+            record=self.record,
+            place_of_birth='Bontoc',
+            marriage_place='St. Paul Church',
+            spouse_name='Sarah Timothy',
+            spouse_birth_date=date(1985, 8, 20),
+            marriage_date=date(2012, 6, 15),
+        )
+        ClergyChild.objects.create(
+            profile=self.profile,
+            name='Hannah Timothy',
+            birth_date=date(2015, 3, 10),
+            gender='Female',
+        )
+        ClergyEducation.objects.create(
+            profile=self.profile,
+            degree='Master of Divinity',
+            institution="St. Andrew's Seminary",
+            place='Quezon City',
+            year_graduated=2009,
+        )
+
+    def test_registrar_can_save_diaconate_place(self):
+        res = self.client.post(reverse('registrar:record_detail', args=[self.record.id]), {
+            'name': 'Fr. Timothy',
+            'status': 'Active',
+            'rank': 'priest',
+            'diaconate_date': '2010-05-01',
+            'diaconate_place': 'Cathedral of Saint Mary & Saint John',
+            'ordination_date': '2011-05-01',
+            'ordination_place': 'Baguio Cathedral',
+        }, follow=True)
+        self.assertEqual(res.status_code, 200)
+        self.record.refresh_from_db()
+        self.assertEqual(self.record.diaconate_place, 'Cathedral of Saint Mary & Saint John')
+
+    def test_registrar_can_add_and_delete_deployment(self):
+        # Add deployment
+        add_res = self.client.post(reverse('registrar:record_detail', args=[self.record.id]), {
+            'action': 'add_deployment',
+            'station_name': 'St. Peter Parish',
+            'place_name': 'Sagada',
+            'role': 'Rector',
+            'start_date': '2018-01-01',
+            'is_current': '1',
+        }, follow=True)
+        self.assertEqual(add_res.status_code, 200)
+
+        dep = ClergyDeployment.objects.get(record=self.record, station_name='St. Peter Parish')
+        self.assertEqual(dep.place_name, 'Sagada')
+        self.assertTrue(dep.is_current)
+
+        # Delete deployment
+        del_res = self.client.post(reverse('registrar:record_detail', args=[self.record.id]), {
+            'action': 'delete_deployment',
+            'deployment_id': dep.id,
+        }, follow=True)
+        self.assertEqual(del_res.status_code, 200)
+        self.assertFalse(ClergyDeployment.objects.filter(id=dep.id).exists())
+
+    def test_registrar_view_renders_read_only_family_and_education(self):
+        res = self.client.get(reverse('registrar:record_detail', args=[self.record.id]))
+        self.assertEqual(res.status_code, 200)
+        self.assertContains(res, 'Sarah Timothy')
+        self.assertContains(res, 'St. Paul Church')
+        self.assertContains(res, 'Hannah Timothy')
+        self.assertContains(res, 'Master of Divinity')
+        self.assertContains(res, 'Filed by Clergy')
+
+
+
+class ContractExpiryDeploymentTests(TestCase):
+    def setUp(self):
+        self.registrar = activate(User.objects.create_user('reg_exp', password='pw12345!x', is_staff=True))
+        self.client.force_login(self.registrar)
+        self.record = ClergyRecord.objects.create(
+            id='CLG-401',
+            name='Fr. Barnaby',
+            status='Active',
+            rank='priest',
+            assignment='St. Barnabas Parish - Alab',
+            contract_end=date.today() - timedelta(days=10),
+        )
+
+    def test_expired_contract_automatically_recorded_in_deployments(self):
+        # Visiting contract review automatically syncs expired contracts
+        res = self.client.get(reverse('registrar:contract_review'))
+        self.assertEqual(res.status_code, 200)
+
+        dep = self.record.deployments.filter(end_date=self.record.contract_end).first()
+        self.assertIsNotNone(dep)
+        self.assertEqual(dep.station_name, 'St. Barnabas Parish')
+        self.assertEqual(dep.place_name, 'Alab')
+        self.assertEqual(dep.role, 'Priest-in-Charge')
+        self.assertFalse(dep.is_current)
+
+    def test_deployments_are_sorted_from_latest_to_oldest(self):
+        # 1. Very old deployment (2012-2015)
+        d_old = ClergyDeployment.objects.create(
+            record=self.record, station_name='First Parish',
+            start_date=date(2012, 1, 1), end_date=date(2015, 12, 31), is_current=False
+        )
+        # 2. Mid deployment (2016-2020)
+        d_mid = ClergyDeployment.objects.create(
+            record=self.record, station_name='Second Parish',
+            start_date=date(2016, 1, 1), end_date=date(2020, 12, 31), is_current=False
+        )
+        # 3. Recently ended contract (2026)
+        d_recent = ClergyDeployment.objects.create(
+            record=self.record, station_name='Recent Station',
+            end_date=date(2026, 1, 15), is_current=False
+        )
+        # 4. Current deployment
+        d_current = ClergyDeployment.objects.create(
+            record=self.record, station_name='Current Mission',
+            start_date=date(2026, 2, 1), is_current=True
+        )
+
+        deps = list(self.record.deployments.all())
+        self.assertEqual(len(deps), 4)
+        # Ordered latest to oldest: Current first, then Recent (2026), then Mid (2020), then Old (2015)
+        self.assertEqual(deps[0].id, d_current.id)
+        self.assertEqual(deps[1].id, d_recent.id)
+        self.assertEqual(deps[2].id, d_mid.id)
+        self.assertEqual(deps[3].id, d_old.id)
+
+    def test_no_duplicate_deployment_on_repeated_checks(self):
+        self.record.record_expired_contract()
+        self.record.record_expired_contract()
+        self.assertEqual(self.record.deployments.filter(end_date=self.record.contract_end).count(), 1)
+
+    def test_active_deployment_updated_when_contract_expires(self):
+        active_dep = ClergyDeployment.objects.create(
+            record=self.record, station_name='St. Barnabas Parish',
+            role='Rector', is_current=True
+        )
+        self.assertTrue(active_dep.is_current)
+
+        # Trigger expiration sync
+        self.record.record_expired_contract()
+        active_dep.refresh_from_db()
+        self.assertFalse(active_dep.is_current)
+        self.assertEqual(active_dep.end_date, self.record.contract_end)
+
+    def test_future_contract_not_recorded_as_expired(self):
+        future_record = ClergyRecord.objects.create(
+            id='CLG-402',
+            name='Fr. Future',
+            status='Active',
+            rank='priest',
+            assignment='Epiphany Cathedral',
+            contract_end=date.today() + timedelta(days=90),
+        )
+        result = future_record.record_expired_contract()
+        self.assertFalse(result)
+        self.assertFalse(future_record.deployments.exists())
+
+    def test_management_command_sync_expired_contracts(self):
+        from django.core.management import call_command
+        import io
+        out = io.StringIO()
+        call_command('sync_expired_contracts', stdout=out)
+        self.assertIn('Successfully synchronized', out.getvalue())
+
+
+class ClericalDirectoryReportTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user('fr_john', 'john@example.com', 'Pass1234!')
+        self.record = ClergyRecord.objects.create(
+            id='CLG-501',
+            name='The Rev. Fr. John Doe, M.Div.',
+            rank='priest',
+            status='Active',
+            date_of_birth=date(1980, 5, 15),
+            diaconate_date=date(2005, 6, 24),
+            diaconate_place='Cathedral of All Saints, Bontoc',
+            ordination_date=date(2006, 12, 8),
+            ordination_place='Church of the Epiphany, La Trinidad',
+            assignment='Cathedral of All Saints',
+        )
+        self.profile = ClergyProfile.objects.create(
+            user=self.user,
+            record=self.record,
+            place_of_birth='Bontoc, Mountain Province',
+            spouse_name='Jane Doe',
+            spouse_birth_date=date(1982, 8, 20),
+            marriage_date=date(2008, 1, 18),
+            marriage_place='St. Paul Church, Sagada',
+        )
+        ClergyEducation.objects.create(
+            profile=self.profile,
+            degree='BA Philosophy',
+            institution='University of the Philippines',
+            place='Baguio',
+            year_graduated=2001,
+        )
+        ClergyEducation.objects.create(
+            profile=self.profile,
+            degree='Master of Divinity',
+            institution="St. Andrew's Theological Seminary",
+            place='Quezon City',
+            year_graduated=2005,
+        )
+        ClergyChild.objects.create(profile=self.profile, name='Mark Doe', birth_date=date(2010, 3, 10))
+        ClergyChild.objects.create(profile=self.profile, name='Luke Doe', birth_date=date(2013, 7, 22))
+
+        # Deployments: oldest to newest created, but manager / query must order latest to oldest
+        ClergyDeployment.objects.create(
+            record=self.record,
+            station_name='St. Matthew Mission',
+            place_name='Besao',
+            role='Deacon',
+            start_date=date(2007, 1, 1),
+            end_date=date(2012, 12, 31),
+            is_current=False,
+        )
+        ClergyDeployment.objects.create(
+            record=self.record,
+            station_name='St. Paul Church',
+            place_name='Sagada',
+            role='Priest-in-Charge',
+            start_date=date(2013, 1, 1),
+            end_date=date(2020, 12, 31),
+            is_current=False,
+        )
+        ClergyDeployment.objects.create(
+            record=self.record,
+            station_name='Cathedral of All Saints',
+            place_name='Bontoc',
+            role='Dean',
+            start_date=date(2021, 1, 1),
+            is_current=True,
+        )
+
+    def test_clerical_directory_data_mapping_and_order(self):
+        report = reports.build_report('clerical_directory')
+        self.assertEqual(report['title'], 'Clerical Directory')
+        self.assertEqual(len(report['entries']), 1)
+
+        entry = report['entries'][0]
+        self.assertEqual(entry['name'], 'The Rev. Fr. John Doe, M.Div.')
+        self.assertEqual(entry['dob'], 'May 15, 1980 — Bontoc, Mountain Province')
+        self.assertIn('2001 — University of the Philippines, Baguio (BA Philosophy)', entry['grad'])
+        self.assertIn("2005 — St. Andrew's Theological Seminary, Quezon City (Master of Divinity)", entry['grad'])
+        self.assertEqual(entry['od'], 'Jun 24, 2005 — Cathedral of All Saints, Bontoc')
+        self.assertEqual(entry['op'], 'Dec 08, 2006 — Church of the Epiphany, La Trinidad')
+
+        # Deployments: exactly 3, sorted latest to oldest
+        self.assertEqual(len(entry['deployments']), 3)
+        self.assertIn('Cathedral of All Saints', entry['deployments'][0])
+        self.assertIn('Present', entry['deployments'][0])
+        self.assertIn('St. Paul Church', entry['deployments'][1])
+        self.assertIn('St. Matthew Mission', entry['deployments'][2])
+
+        self.assertEqual(entry['spouse'], 'Jane Doe (b. Aug 20, 1982)')
+        self.assertEqual(entry['marriage'], 'Jan 18, 2008 — St. Paul Church, Sagada')
+        self.assertEqual(entry['children'], 'Mark Doe (b. Mar 10, 2010); Luke Doe (b. Jul 22, 2013)')
+
+    def test_clerical_directory_html_and_pdf_rendering(self):
+        from django.template.loader import render_to_string
+        report = reports.build_report('clerical_directory')
+        html = render_to_string('registrar/report_pdf.html', {'report': report})
+
+        # Bolds name and abbreviations
+        self.assertIn('<b>The Rev. Fr. John Doe, M.Div.</b>', html)
+        self.assertIn('<b>DOB:</b>', html)
+        self.assertIn('<b>Grad:</b>', html)
+        self.assertIn('<b>OD:</b>', html)
+        self.assertIn('<b>OP:</b>', html)
+        self.assertIn('<b>Dep:</b>', html)
+        self.assertIn('<b>S:</b>', html)
+        self.assertIn('<b>M:</b>', html)
+        self.assertIn('<b>C:</b>', html)
+
+        # PDF generation produces valid binary
+        pdf = reports.render_pdf(report)
+        self.assertTrue(pdf.startswith(b'%PDF'))
+
+    def test_clerical_directory_fallbacks_for_empty_fields(self):
+        minimal = ClergyRecord.objects.create(id='CLG-502', name='Fr. Minimal', rank='deacon')
+        report = reports.build_report('clerical_directory')
+        entry = [e for e in report['entries'] if e['id'] == 'CLG-502'][0]
+
+        self.assertEqual(entry['dob'], '—')
+        self.assertEqual(entry['grad'], '—')
+        self.assertEqual(entry['od'], '—')
+        self.assertEqual(entry['op'], '—')
+        self.assertEqual(entry['deployments'], [])
+        self.assertEqual(entry['spouse'], '—')
+        self.assertEqual(entry['marriage'], '—')
+        self.assertEqual(entry['children'], '—')
+
+    def test_clerical_directory_query_count_flat(self):
+        # Adding 10 more records should not increase queries linearly
+        for i in range(10):
+            r = ClergyRecord.objects.create(id=f'CLG-6{i:02d}', name=f'Fr. Batch {i}')
+            u = User.objects.create_user(f'batch_{i}', f'b{i}@example.com', 'Pass1234!')
+            p = ClergyProfile.objects.create(user=u, record=r, place_of_birth='Bontoc')
+            ClergyDeployment.objects.create(record=r, station_name=f'Parish {i}', is_current=True)
+            ClergyEducation.objects.create(profile=p, degree='B.Th.', institution='SATS', year_graduated=2010)
+            ClergyChild.objects.create(profile=p, name=f'Child {i}', birth_date=date(2015, 1, 1))
+
+        # Flat query count: 1 for ClergyRecord + Deanery + ClergyProfile (joined),
+        # 1 for ClergyDeployment, 1 for ClergyChild, 1 for ClergyEducation
+        with self.assertNumQueries(4):
+            report = reports.build_report('clerical_directory')
+        self.assertEqual(len(report['entries']), 11)
+

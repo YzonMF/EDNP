@@ -265,6 +265,13 @@ CSRF_COOKIE_SECURE = not DEBUG
 CSRF_COOKIE_HTTPONLY = True
 CSRF_FAILURE_VIEW = 'ednp.views.csrf_failure'
 
+# HTTP Strict Transport Security (HSTS) in production so browsers automatically upgrade
+# all connections to HTTPS and resist SSL-stripping man-in-the-middle attacks.
+if not DEBUG:
+    SECURE_HSTS_SECONDS = 31536000
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+
 
 # Behind a TLS-terminating proxy (Railway, etc.): trust its forwarded-proto
 # header so Django sees requests as HTTPS, and allow its origin for CSRF.
