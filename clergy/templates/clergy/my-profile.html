@@ -319,121 +319,161 @@
       </div>
 
       <div class="section-card">
-        <h3><i class="fa-solid fa-church"></i> Holy Orders &amp; Ordination History</h3>
-        <div class="notice">Record your sacred orders, ordination dates, consecration details, and ecclesiastical background for official diocesan records.</div>
-
-        <div class="form-grid">
-          <div class="form-subhead" style="grid-column: 1 / -1; font-weight: 700; font-size: 13px; color: #17324d; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px; margin: 8px 0 4px; display: flex; align-items: center; gap: 8px;">
-            <i class="fa-solid fa-cross" style="color: #2f6fed;"></i> Sacred Orders (Diaconate &amp; Priesthood)
-          </div>
-
-          <div class="field">
-            <label>Date of Ordination to Diaconate</label>
-            <input name="diaconate_date" type="date" value="{{ profile.record.diaconate_date|date:'Y-m-d' }}">
-            {% with att=profile.record.date_attachments_map.diaconate_date %}
-            <div class="date-att-bar {% if att.is_uploaded %}uploaded{% else %}missing{% endif %}">
-              <span class="att-status">
-                {% if att.is_uploaded %}<i class="fa-solid fa-circle-check"></i> {{ att.name }} attached{% else %}<i class="fa-solid fa-circle-exclamation"></i> No {{ att.name }} on file{% endif %}
-              </span>
-              <div class="att-actions">
-                {% if att.is_uploaded %}
-                  <a href="{% url 'registrar:view_document' att.doc_id %}" target="_blank" class="att-btn view"><i class="fa-solid fa-eye"></i> View</a>
-                {% else %}
-                  <span class="muted" style="font-size:10px;">Provided by Registrar</span>
-                {% endif %}
-              </div>
-            </div>
-            {% endwith %}
-          </div>
-
-          <div class="field">
-            <label>Place of Diaconate Ordination</label>
-            <div class="input-with-action">
-              <input name="diaconate_place" id="diaconatePlaceInput" value="{{ profile.record.diaconate_place|default:'' }}" placeholder="e.g. Cathedral of All Saints, Bontoc">
-              <button type="button" class="ph-picker-btn" data-ph-picker-target="diaconatePlaceInput" title="Choose from province / city / barangay list"><i class="fa-solid fa-location-dot"></i></button>
-            </div>
-          </div>
-
-          <div class="field">
-            <label>Date of Ordination to Priesthood</label>
-            <input name="ordination_date" type="date" value="{{ profile.record.ordination_date|date:'Y-m-d' }}">
-            {% with att=profile.record.date_attachments_map.ordination_date %}
-            <div class="date-att-bar {% if att.is_uploaded %}uploaded{% else %}missing{% endif %}">
-              <span class="att-status">
-                {% if att.is_uploaded %}<i class="fa-solid fa-circle-check"></i> {{ att.name }} attached{% else %}<i class="fa-solid fa-circle-exclamation"></i> No {{ att.name }} on file{% endif %}
-              </span>
-              <div class="att-actions">
-                {% if att.is_uploaded %}
-                  <a href="{% url 'registrar:view_document' att.doc_id %}" target="_blank" class="att-btn view"><i class="fa-solid fa-eye"></i> View</a>
-                {% else %}
-                  <span class="muted" style="font-size:10px;">Provided by Registrar</span>
-                {% endif %}
-              </div>
-            </div>
-            {% endwith %}
-          </div>
-
-          <div class="field">
-            <label>Place of Priesthood Ordination</label>
-            <div class="input-with-action">
-              <input name="ordination_place" id="ordinationPlaceInput" value="{{ profile.record.ordination_place|default:'' }}" placeholder="e.g. St. Andrew's Cathedral">
-              <button type="button" class="ph-picker-btn" data-ph-picker-target="ordinationPlaceInput" title="Choose from province / city / barangay list"><i class="fa-solid fa-location-dot"></i></button>
-            </div>
-          </div>
-
-          <div class="form-subhead" style="grid-column: 1 / -1; font-weight: 700; font-size: 13px; color: #17324d; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px; margin: 12px 0 4px; display: flex; align-items: center; gap: 8px;">
-            <i class="fa-solid fa-hands-praying" style="color: #2f6fed;"></i> Holy Order &amp; Episcopate
-          </div>
-
-          <div class="field">
-            <label>Current Rank</label>
-            <input value="{{ profile.record.get_rank_display|default:'—' }}" readonly title="Official ecclesiastical rank maintained by the diocese">
-          </div>
-
-          <div class="field">
-            <label>Date Admitted as Holy Order</label>
-            <input name="holy_orders_date" type="date" value="{{ profile.record.holy_orders_date|date:'Y-m-d' }}">
-            {% with att=profile.record.date_attachments_map.holy_orders_date %}
-            <div class="date-att-bar {% if att.is_uploaded %}uploaded{% else %}missing{% endif %}">
-              <span class="att-status">
-                {% if att.is_uploaded %}<i class="fa-solid fa-circle-check"></i> {{ att.name }} attached{% else %}<i class="fa-solid fa-circle-exclamation"></i> No {{ att.name }} on file{% endif %}
-              </span>
-              <div class="att-actions">
-                {% if att.is_uploaded %}
-                  <a href="{% url 'registrar:view_document' att.doc_id %}" target="_blank" class="att-btn view"><i class="fa-solid fa-eye"></i> View</a>
-                {% else %}
-                  <span class="muted" style="font-size:10px;">Provided by Registrar</span>
-                {% endif %}
-              </div>
-            </div>
-            {% endwith %}
-          </div>
-
-          <div class="field">
-            <label>Bishop</label>
-            <input name="bishop_name" value="{{ profile.record.bishop_name|default:'' }}" placeholder="e.g. Bp. Brent">
-          </div>
-
-          <div class="field">
-            <label>Date of Bishop Consecration</label>
-            <input name="consecration_date" type="date" value="{{ profile.record.consecration_date|date:'Y-m-d' }}">
-            {% with att=profile.record.date_attachments_map.consecration_date %}
-            <div class="date-att-bar {% if att.is_uploaded %}uploaded{% else %}missing{% endif %}">
-              <span class="att-status">
-                {% if att.is_uploaded %}<i class="fa-solid fa-circle-check"></i> {{ att.name }} attached{% else %}<i class="fa-solid fa-circle-exclamation"></i> No {{ att.name }} on file{% endif %}
-              </span>
-              <div class="att-actions">
-                {% if att.is_uploaded %}
-                  <a href="{% url 'registrar:view_document' att.doc_id %}" target="_blank" class="att-btn view"><i class="fa-solid fa-eye"></i> View</a>
-                {% else %}
-                  <span class="muted" style="font-size:10px;">Provided by Registrar</span>
-                {% endif %}
-              </div>
-            </div>
-            {% endwith %}
-          </div>
-
+        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+          <h3 style="margin: 0;"><i class="fa-solid fa-church"></i> Holy Orders &amp; Ordination History</h3>
+          <span class="badge" style="background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; font-size: 11px; padding: 3px 8px; border-radius: 9999px; font-weight: 600;">
+            Rank: {{ profile.record.get_rank_display }}
+          </span>
         </div>
+
+        {% if profile.record.rank == 'postulancy' %}
+          <div class="notice" style="background: #f8fafc; border-color: #cbd5e1; color: #334155; margin-top: 10px;">
+            <i class="fa-solid fa-seedling" style="color: #0284c7;"></i>
+            <strong>Postulancy (Lay Candidate):</strong> You are currently registered in Postulancy as a candidate preparing for holy orders. Sacred ordination records (Diaconate, Priesthood, Episcopate) will be recorded here sequentially following your ordination to the Sacred Order of Deacons.
+          </div>
+        {% else %}
+          <div class="notice" style="margin-top: 10px;">
+            {% if profile.record.rank == 'deacon' %}
+              <i class="fa-solid fa-info-circle"></i> <strong>Order of Deacons:</strong> As an ordained Deacon, your record reflects the First Order of Ministry.
+            {% elif profile.record.rank == 'priest' %}
+              <i class="fa-solid fa-info-circle"></i> <strong>Order of Priests:</strong> Holy orders are cumulative — as an ordained Priest, your record preserves both your Diaconal ordination and your Priesthood ordination.
+            {% elif profile.record.rank == 'bishop' %}
+              <i class="fa-solid fa-info-circle"></i> <strong>The Episcopate:</strong> As a Bishop, your record reflects the complete three-fold progression of Holy Orders (Deacon, Priest, and Bishop).
+            {% endif %}
+          </div>
+
+          <div class="form-grid">
+            <!-- 1st Ordination: The Diaconate (Deacon, Priest, Bishop) -->
+            <div class="form-subhead" style="grid-column: 1 / -1; font-weight: 700; font-size: 13px; color: #17324d; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px; margin: 8px 0 4px; display: flex; align-items: center; gap: 8px;">
+              <i class="fa-solid fa-cross" style="color: #2f6fed;"></i> 1st Ordination: The Diaconate
+            </div>
+
+            <div class="field">
+              <label>Date of Ordination to Diaconate</label>
+              <input name="diaconate_date" type="date" value="{{ profile.record.diaconate_date|date:'Y-m-d' }}">
+              {% with att=profile.record.date_attachments_map.diaconate_date %}
+              {% if att %}
+              <div class="date-att-bar {% if att.is_uploaded %}uploaded{% else %}missing{% endif %}">
+                <span class="att-status">
+                  {% if att.is_uploaded %}<i class="fa-solid fa-circle-check"></i> {{ att.name }} attached{% else %}<i class="fa-solid fa-circle-exclamation"></i> No {{ att.name }} on file{% endif %}
+                </span>
+                <div class="att-actions">
+                  {% if att.is_uploaded %}
+                    <a href="{% url 'registrar:view_document' att.doc_id %}" target="_blank" class="att-btn view"><i class="fa-solid fa-eye"></i> View</a>
+                  {% else %}
+                    <span class="muted" style="font-size:10px;">Provided by Registrar</span>
+                  {% endif %}
+                </div>
+              </div>
+              {% endif %}
+              {% endwith %}
+            </div>
+
+            <div class="field">
+              <label>Place of Diaconate Ordination</label>
+              <div class="input-with-action">
+                <input name="diaconate_place" id="diaconatePlaceInput" value="{{ profile.record.diaconate_place|default:'' }}" placeholder="e.g. Cathedral of All Saints, Bontoc">
+                <button type="button" class="ph-picker-btn" data-ph-picker-target="diaconatePlaceInput" title="Choose from province / city / barangay list"><i class="fa-solid fa-location-dot"></i></button>
+              </div>
+            </div>
+
+            {% if profile.record.can_have_priesthood %}
+            <!-- 2nd Ordination: The Priesthood (Priest, Bishop) -->
+            <div class="form-subhead" style="grid-column: 1 / -1; font-weight: 700; font-size: 13px; color: #17324d; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px; margin: 12px 0 4px; display: flex; align-items: center; gap: 8px;">
+              <i class="fa-solid fa-hands-praying" style="color: #2f6fed;"></i> 2nd Ordination: The Priesthood
+            </div>
+
+            <div class="field">
+              <label>Date of Ordination to Priesthood</label>
+              <input name="ordination_date" type="date" value="{{ profile.record.ordination_date|date:'Y-m-d' }}">
+              {% with att=profile.record.date_attachments_map.ordination_date %}
+              {% if att %}
+              <div class="date-att-bar {% if att.is_uploaded %}uploaded{% else %}missing{% endif %}">
+                <span class="att-status">
+                  {% if att.is_uploaded %}<i class="fa-solid fa-circle-check"></i> {{ att.name }} attached{% else %}<i class="fa-solid fa-circle-exclamation"></i> No {{ att.name }} on file{% endif %}
+                </span>
+                <div class="att-actions">
+                  {% if att.is_uploaded %}
+                    <a href="{% url 'registrar:view_document' att.doc_id %}" target="_blank" class="att-btn view"><i class="fa-solid fa-eye"></i> View</a>
+                  {% else %}
+                    <span class="muted" style="font-size:10px;">Provided by Registrar</span>
+                  {% endif %}
+                </div>
+              </div>
+              {% endif %}
+              {% endwith %}
+            </div>
+
+            <div class="field">
+              <label>Place of Priesthood Ordination</label>
+              <div class="input-with-action">
+                <input name="ordination_place" id="ordinationPlaceInput" value="{{ profile.record.ordination_place|default:'' }}" placeholder="e.g. St. Andrew's Cathedral">
+                <button type="button" class="ph-picker-btn" data-ph-picker-target="ordinationPlaceInput" title="Choose from province / city / barangay list"><i class="fa-solid fa-location-dot"></i></button>
+              </div>
+            </div>
+            {% endif %}
+
+            {% if profile.record.can_have_consecration %}
+            <!-- 3rd Ordination: Consecration to the Episcopate (Bishop) -->
+            <div class="form-subhead" style="grid-column: 1 / -1; font-weight: 700; font-size: 13px; color: #17324d; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px; margin: 12px 0 4px; display: flex; align-items: center; gap: 8px;">
+              <i class="fa-solid fa-crown" style="color: #2f6fed;"></i> 3rd Ordination: Consecration to the Episcopate
+            </div>
+
+            <div class="field">
+              <label>Date of Bishop Consecration</label>
+              <input name="consecration_date" type="date" value="{{ profile.record.consecration_date|date:'Y-m-d' }}">
+              {% with att=profile.record.date_attachments_map.consecration_date %}
+              {% if att %}
+              <div class="date-att-bar {% if att.is_uploaded %}uploaded{% else %}missing{% endif %}">
+                <span class="att-status">
+                  {% if att.is_uploaded %}<i class="fa-solid fa-circle-check"></i> {{ att.name }} attached{% else %}<i class="fa-solid fa-circle-exclamation"></i> No {{ att.name }} on file{% endif %}
+                </span>
+                <div class="att-actions">
+                  {% if att.is_uploaded %}
+                    <a href="{% url 'registrar:view_document' att.doc_id %}" target="_blank" class="att-btn view"><i class="fa-solid fa-eye"></i> View</a>
+                  {% else %}
+                    <span class="muted" style="font-size:10px;">Provided by Registrar</span>
+                  {% endif %}
+                </div>
+              </div>
+              {% endif %}
+              {% endwith %}
+            </div>
+            {% endif %}
+
+            <!-- Ecclesiastical Oversight & Admission details -->
+            <div class="form-subhead" style="grid-column: 1 / -1; font-weight: 700; font-size: 13px; color: #17324d; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px; margin: 12px 0 4px; display: flex; align-items: center; gap: 8px;">
+              <i class="fa-solid fa-circle-info" style="color: #2f6fed;"></i> Holy Order Details &amp; Oversight
+            </div>
+
+            <div class="field">
+              <label>Date Admitted as Holy Order</label>
+              <input name="holy_orders_date" type="date" value="{{ profile.record.holy_orders_date|date:'Y-m-d' }}">
+              {% with att=profile.record.date_attachments_map.holy_orders_date %}
+              {% if att %}
+              <div class="date-att-bar {% if att.is_uploaded %}uploaded{% else %}missing{% endif %}">
+                <span class="att-status">
+                  {% if att.is_uploaded %}<i class="fa-solid fa-circle-check"></i> {{ att.name }} attached{% else %}<i class="fa-solid fa-circle-exclamation"></i> No {{ att.name }} on file{% endif %}
+                </span>
+                <div class="att-actions">
+                  {% if att.is_uploaded %}
+                    <a href="{% url 'registrar:view_document' att.doc_id %}" target="_blank" class="att-btn view"><i class="fa-solid fa-eye"></i> View</a>
+                  {% else %}
+                    <span class="muted" style="font-size:10px;">Provided by Registrar</span>
+                  {% endif %}
+                </div>
+              </div>
+              {% endif %}
+              {% endwith %}
+            </div>
+
+            <div class="field">
+              <label>Ordaining / Presiding Bishop</label>
+              <input name="bishop_name" value="{{ profile.record.bishop_name|default:'' }}" placeholder="e.g. Bp. Brent">
+            </div>
+
+          </div>
+        {% endif %}
       </div>
 
       <div class="section-card" id="marriageFamilyCard">

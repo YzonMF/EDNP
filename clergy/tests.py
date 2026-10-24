@@ -176,6 +176,7 @@ class EnhancedClergyProfileTests(TestCase):
         self.record = ClergyRecord.objects.create(
             id='CLG-201',
             name='Fr. Luke Skywalker',
+            rank='priest',
             date_of_birth=date(1980, 5, 15),
             diaconate_date=date(2005, 6, 1),
             diaconate_place='All Saints Cathedral, Bontoc',
@@ -238,6 +239,8 @@ class EnhancedClergyProfileTests(TestCase):
         self.assertEqual(edus[1].year_graduated, 2007)
 
     def test_clergy_can_edit_holy_orders_and_ordination_history(self):
+        self.record.rank = 'bishop'
+        self.record.save()
         post_data = {
             'name': 'Fr. Luke Skywalker Updated',
             'date_of_birth': '1980-05-15',
@@ -472,4 +475,98 @@ class EnhancedClergyProfileTests(TestCase):
         fresh_record_2 = ClergyRecord.objects.get(id=self.record.id)
         self.assertTrue(fresh_record_2.date_attachments_map['diaconate_date']['is_uploaded'])
         self.assertIsNotNone(fresh_record_2.date_attachments_map['diaconate_date']['doc_id'])
+
+    def test_sequential_ordination_progression_by_rank(self):
+        # 1. Postulancy cannot hold any ordination dates
+        rec_post = ClergyRecord(
+            id='CLG-POST', name='Postulant Mark', rank='postulancy',
+            diaconate_date=date(2020, 1, 1), ordination_date=date(2021, 1, 1)
+        )
+        rec_post.save()
+        self.assertIsNone(rec_post.diaconate_date)
+        self.assertIsNone(rec_post.ordination_date)
+
+        # 2. Deacon can hold diaconate, but not priesthood or consecration
+        rec_deacon = ClergyRecord(
+            id='CLG-DEAC', name='Deacon Paul', rank='deacon',
+            diaconate_date=date(2020, 1, 1), diaconate_place='Bontoc',
+            ordination_date=date(2021, 1, 1), consecration_date=date(2025, 1, 1)
+        )
+        rec_deacon.save()
+        self.assertEqual(rec_deacon.diaconate_date, date(2020, 1, 1))
+        self.assertEqual(rec_deacon.diaconate_place, 'Bontoc')
+        self.assertIsNone(rec_deacon.ordination_date)
+        self.assertIsNone(rec_deacon.consecration_date)
+
+        # 3. Priest can hold diaconate and priesthood, but not consecration
+        rec_priest = ClergyRecord(
+            id='CLG-PRST', name='Fr. Peter', rank='priest',
+            diaconate_date=date(2020, 1, 1), ordination_date=date(2021, 1, 1),
+            consecration_date=date(2025, 1, 1)
+        )
+        rec_priest.save()
+        self.assertEqual(rec_priest.diaconate_date, date(2020, 1, 1))
+        self.assertEqual(rec_priest.ordination_date, date(2021, 1, 1))
+        self.assertIsNone(rec_priest.consecration_date)
+
+        # 4. Bishop can hold all three ordinations
+        rec_bishop = ClergyRecord(
+            id='CLG-BSHP', name='Bp. James', rank='bishop',
+            diaconate_date=date(2010, 1, 1), ordination_date=date(2012, 1, 1),
+            consecration_date=date(2020, 1, 1)
+        )
+        rec_bishop.save()
+        self.assertEqual(rec_bishop.diaconate_date, date(2010, 1, 1))
+        self.assertEqual(rec_bishop.ordination_date, date(2012, 1, 1))
+        self.assertEqual(rec_bishop.consecration_date, date(2020, 1, 1))
+
+    def test_chronological_ordination_validation(self):
+        from django.core.exceptions import ValidationError
+        # Diaconate after Priesthood is invalid
+        rec_bad_priest = ClergyRecord(
+            id='CLG-ERR1', name='Fr. Backward', rank='priest',
+            diaconate_date=date(2022, 1, 1), ordination_date=date(2020, 1, 1)
+        )
+        with self.assertRaises(ValidationError) as ctx:
+            rec_bad_priest.save()
+        self.assertIn('ordination_date', ctx.exception.message_dict)
+
+        # Priesthood after Bishop Consecration is invalid
+        rec_bad_bishop = ClergyRecord(
+            id='CLG-ERR2', name='Bp. Backward', rank='bishop',
+            diaconate_date=date(2010, 1, 1), ordination_date=date(2022, 1, 1),
+            consecration_date=date(2020, 1, 1)
+        )
+        with self.assertRaises(ValidationError) as ctx:
+            rec_bad_bishop.save()
+        self.assertIn('consecration_date', ctx.exception.message_dict)
+
+    def test_date_attachments_map_filtered_by_rank(self):
+        rec_deacon = ClergyRecord.objects.create(
+            id='CLG-MAP-D', name='Deacon Timothy', rank='deacon',
+            diaconate_date=date(2020, 1, 1)
+        )
+        deacon_map = rec_deacon.date_attachments_map
+        self.assertIn('diaconate_date', deacon_map)
+        self.assertNotIn('ordination_date', deacon_map)
+        self.assertNotIn('consecration_date', deacon_map)
+
+        rec_priest = ClergyRecord.objects.create(
+            id='CLG-MAP-P', name='Fr. Timothy', rank='priest',
+            diaconate_date=date(2018, 1, 1), ordination_date=date(2019, 1, 1)
+        )
+        priest_map = rec_priest.date_attachments_map
+        self.assertIn('diaconate_date', priest_map)
+        self.assertIn('ordination_date', priest_map)
+        self.assertNotIn('consecration_date', priest_map)
+
+        rec_bishop = ClergyRecord.objects.create(
+            id='CLG-MAP-B', name='Bp. Timothy', rank='bishop',
+            diaconate_date=date(2010, 1, 1), ordination_date=date(2012, 1, 1),
+            consecration_date=date(2020, 1, 1)
+        )
+        bishop_map = rec_bishop.date_attachments_map
+        self.assertIn('diaconate_date', bishop_map)
+        self.assertIn('ordination_date', bishop_map)
+        self.assertIn('consecration_date', bishop_map)
 

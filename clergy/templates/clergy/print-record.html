@@ -40,13 +40,23 @@
     <tr><th>Address</th><td>{{ profile.record.address|default:"—" }}</td></tr>
     <tr><th>Contact Number</th><td>{{ profile.record.phone|default:"—" }}</td></tr>
     <tr><th>Email Address</th><td>{{ profile.record.email|default:"—" }}</td></tr>
-    <tr><th>Date Admitted as Holy Order</th><td>{{ profile.record.holy_orders_date|default:"—" }}</td></tr>
-    <tr><th>Diaconate Ordination</th><td>{{ profile.record.diaconate_date|default:"—" }}</td></tr>
-    <tr><th>Diaconate Place</th><td>{{ profile.record.diaconate_place|default:"—" }}</td></tr>
-    <tr><th>Priesthood Ordination</th><td>{{ profile.record.ordination_date|default:"—" }}</td></tr>
-    <tr><th>Ordination Place</th><td>{{ profile.record.ordination_place|default:"—" }}</td></tr>
-    <tr><th>Bishop</th><td>{{ profile.record.bishop_name|default:"—" }}</td></tr>
-    <tr><th>Consecration Date</th><td>{{ profile.record.consecration_date|default:"—" }}</td></tr>
+    {% if profile.record.rank == 'postulancy' %}
+    <tr><th>Holy Orders Status</th><td>Postulancy (Lay Candidate in Preparation)</td></tr>
+    {% else %}
+      {% if profile.record.can_have_diaconate %}
+      <tr><th>Diaconate Ordination</th><td>{{ profile.record.diaconate_date|default:"—" }}</td></tr>
+      <tr><th>Diaconate Place</th><td>{{ profile.record.diaconate_place|default:"—" }}</td></tr>
+      {% endif %}
+      {% if profile.record.can_have_priesthood %}
+      <tr><th>Priesthood Ordination</th><td>{{ profile.record.ordination_date|default:"—" }}</td></tr>
+      <tr><th>Ordination Place</th><td>{{ profile.record.ordination_place|default:"—" }}</td></tr>
+      {% endif %}
+      {% if profile.record.can_have_consecration %}
+      <tr><th>Consecration Date</th><td>{{ profile.record.consecration_date|default:"—" }}</td></tr>
+      {% endif %}
+      <tr><th>Date Admitted as Holy Order</th><td>{{ profile.record.holy_orders_date|default:"—" }}</td></tr>
+      <tr><th>Ordaining / Presiding Bishop</th><td>{{ profile.record.bishop_name|default:"—" }}</td></tr>
+    {% endif %}
     <tr><th>Years of Service</th><td>{{ profile.record.years_of_service_display }}</td></tr>
     <tr><th>Educational Background</th><td>{{ profile.education|default:"—" }}</td></tr>
     <tr><th>Marriage Date</th><td>{{ profile.marriage_date|default:"—" }}</td></tr>

@@ -237,122 +237,153 @@
           <div class="section-card">
             <h4><i class="fa-solid fa-church"></i> Holy Orders &amp; Ordination History</h4>
             <div class="edit-grid">
-              <div class="edit-field full" style="font-weight: 700; font-size: 13px; color: #17324d; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; margin-top: 4px; display: flex; align-items: center; gap: 8px;">
-                <i class="fa-solid fa-cross" style="color: #2f6fed;"></i> Sacred Orders (Diaconate &amp; Priesthood)
-              </div>
-              <div class="edit-field">
-                <label>Date of Ordination to Diaconate</label><input name="diaconate_date"
-       type="date"
-       value="{{ record.diaconate_date|date:'Y-m-d' }}">
-                {% with att=record.date_attachments_map.diaconate_date %}
-                <div class="date-att-bar {% if att.is_uploaded %}uploaded{% else %}missing{% endif %}">
-                  <span class="att-status">
-                    {% if att.is_uploaded %}<i class="fa-solid fa-circle-check"></i> {{ att.name }} attached{% else %}<i class="fa-solid fa-circle-exclamation"></i> No {{ att.name }} attached{% endif %}
-                  </span>
-                  <div class="att-actions">
-                    {% if att.is_uploaded %}
-                      <a href="{% url 'registrar:view_document' att.doc_id %}" target="_blank" class="att-btn view"><i class="fa-solid fa-eye"></i> View</a>
-                      {% if att.doc_type %}
-                      <button type="button" class="att-btn replace" data-quick-upload="{{ att.doc_type.id }}" data-doc-name="{{ att.name }}"><i class="fa-solid fa-arrow-up-from-bracket"></i> Replace</button>
-                      {% endif %}
-                    {% else %}
-                      {% if att.doc_type %}
-                      <button type="button" class="att-btn upload" data-quick-upload="{{ att.doc_type.id }}" data-doc-name="{{ att.name }}"><i class="fa-solid fa-cloud-arrow-up"></i> Upload</button>
-                      {% endif %}
-                    {% endif %}
-                  </div>
-                </div>
-                {% endwith %}
-              </div>
-              <div class="edit-field">
-                <label>Place of Diaconate Ordination</label><input name="diaconate_place"
-       value="{{ record.diaconate_place|default:'' }}"
-       placeholder="e.g. Cathedral of All Saints">
-              </div>
-              <div class="edit-field">
-                <label>Date of Ordination to Priesthood</label><input name="ordination_date"
-       type="date"
-       value="{{ record.ordination_date|date:'Y-m-d' }}">
-                {% with att=record.date_attachments_map.ordination_date %}
-                <div class="date-att-bar {% if att.is_uploaded %}uploaded{% else %}missing{% endif %}">
-                  <span class="att-status">
-                    {% if att.is_uploaded %}<i class="fa-solid fa-circle-check"></i> {{ att.name }} attached{% else %}<i class="fa-solid fa-circle-exclamation"></i> No {{ att.name }} attached{% endif %}
-                  </span>
-                  <div class="att-actions">
-                    {% if att.is_uploaded %}
-                      <a href="{% url 'registrar:view_document' att.doc_id %}" target="_blank" class="att-btn view"><i class="fa-solid fa-eye"></i> View</a>
-                      {% if att.doc_type %}
-                      <button type="button" class="att-btn replace" data-quick-upload="{{ att.doc_type.id }}" data-doc-name="{{ att.name }}"><i class="fa-solid fa-arrow-up-from-bracket"></i> Replace</button>
-                      {% endif %}
-                    {% else %}
-                      {% if att.doc_type %}
-                      <button type="button" class="att-btn upload" data-quick-upload="{{ att.doc_type.id }}" data-doc-name="{{ att.name }}"><i class="fa-solid fa-cloud-arrow-up"></i> Upload</button>
-                      {% endif %}
-                    {% endif %}
-                  </div>
-                </div>
-                {% endwith %}
-              </div>
-              <div class="edit-field">
-                <label>Place of Priesthood Ordination</label><input name="ordination_place"
-       value="{{ record.ordination_place|default:'' }}"
-       placeholder="e.g. St. Andrew's Cathedral">
+
+              <!-- Postulancy Notice (Shown when rank == postulancy) -->
+              <div id="stage-postulancy" class="edit-field full" style="{% if record.rank != 'postulancy' %}display:none;{% endif %} background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; padding: 12px 14px; color: #475569; font-size: 12px;">
+                <i class="fa-solid fa-seedling" style="color: #0284c7;"></i>
+                <strong>Postulancy (Lay Candidate):</strong> This record is registered in Postulancy. Ordination stages (Diaconate, Priesthood, Episcopate) are unlocked sequentially as the candidate receives Holy Orders.
               </div>
 
-              <div class="edit-field full" style="font-weight: 700; font-size: 13px; color: #17324d; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; margin-top: 12px; display: flex; align-items: center; gap: 8px;">
-                <i class="fa-solid fa-hands-praying" style="color: #2f6fed;"></i> Holy Order &amp; Episcopate
-              </div>
-              <div class="edit-field">
-                <label>Date Admitted as Holy Order</label><input name="holy_orders_date"
-       type="date"
-       value="{{ record.holy_orders_date|date:'Y-m-d' }}">
-                {% with att=record.date_attachments_map.holy_orders_date %}
-                <div class="date-att-bar {% if att.is_uploaded %}uploaded{% else %}missing{% endif %}">
-                  <span class="att-status">
-                    {% if att.is_uploaded %}<i class="fa-solid fa-circle-check"></i> {{ att.name }} attached{% else %}<i class="fa-solid fa-circle-exclamation"></i> No {{ att.name }} attached{% endif %}
-                  </span>
-                  <div class="att-actions">
-                    {% if att.is_uploaded %}
-                      <a href="{% url 'registrar:view_document' att.doc_id %}" target="_blank" class="att-btn view"><i class="fa-solid fa-eye"></i> View</a>
-                      {% if att.doc_type %}
-                      <button type="button" class="att-btn replace" data-quick-upload="{{ att.doc_type.id }}" data-doc-name="{{ att.name }}"><i class="fa-solid fa-arrow-up-from-bracket"></i> Replace</button>
-                      {% endif %}
-                    {% else %}
-                      {% if att.doc_type %}
-                      <button type="button" class="att-btn upload" data-quick-upload="{{ att.doc_type.id }}" data-doc-name="{{ att.name }}"><i class="fa-solid fa-cloud-arrow-up"></i> Upload</button>
-                      {% endif %}
-                    {% endif %}
-                  </div>
+              <!-- Stage 1: The Diaconate (Deacon, Priest, Bishop) -->
+              <div id="stage-diaconate" style="{% if not record.can_have_diaconate %}display:none;{% else %}display:contents;{% endif %}">
+                <div class="edit-field full" style="font-weight: 700; font-size: 13px; color: #17324d; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; margin-top: 4px; display: flex; align-items: center; gap: 8px;">
+                  <i class="fa-solid fa-cross" style="color: #2f6fed;"></i> 1st Ordination: The Diaconate
                 </div>
-                {% endwith %}
-              </div>
-              <div class="edit-field">
-                <label>Bishop</label><input name="bishop_name" value="{{ record.bishop_name|default:'' }}">
-              </div>
-              <div class="edit-field">
-                <label>Date of Bishop Consecration</label><input name="consecration_date"
-       type="date"
-       value="{{ record.consecration_date|date:'Y-m-d' }}">
-                {% with att=record.date_attachments_map.consecration_date %}
-                <div class="date-att-bar {% if att.is_uploaded %}uploaded{% else %}missing{% endif %}">
-                  <span class="att-status">
-                    {% if att.is_uploaded %}<i class="fa-solid fa-circle-check"></i> {{ att.name }} attached{% else %}<i class="fa-solid fa-circle-exclamation"></i> No {{ att.name }} attached{% endif %}
-                  </span>
-                  <div class="att-actions">
-                    {% if att.is_uploaded %}
-                      <a href="{% url 'registrar:view_document' att.doc_id %}" target="_blank" class="att-btn view"><i class="fa-solid fa-eye"></i> View</a>
-                      {% if att.doc_type %}
-                      <button type="button" class="att-btn replace" data-quick-upload="{{ att.doc_type.id }}" data-doc-name="{{ att.name }}"><i class="fa-solid fa-arrow-up-from-bracket"></i> Replace</button>
+                <div class="edit-field">
+                  <label>Date of Ordination to Diaconate</label>
+                  <input name="diaconate_date" id="diaconateDateInput" type="date" value="{{ record.diaconate_date|date:'Y-m-d' }}">
+                  {% with att=record.date_attachments_map.diaconate_date %}
+                  {% if att %}
+                  <div class="date-att-bar {% if att.is_uploaded %}uploaded{% else %}missing{% endif %}">
+                    <span class="att-status">
+                      {% if att.is_uploaded %}<i class="fa-solid fa-circle-check"></i> {{ att.name }} attached{% else %}<i class="fa-solid fa-circle-exclamation"></i> No {{ att.name }} attached{% endif %}
+                    </span>
+                    <div class="att-actions">
+                      {% if att.is_uploaded %}
+                        <a href="{% url 'registrar:view_document' att.doc_id %}" target="_blank" class="att-btn view"><i class="fa-solid fa-eye"></i> View</a>
+                        {% if att.doc_type %}
+                        <button type="button" class="att-btn replace" data-quick-upload="{{ att.doc_type.id }}" data-doc-name="{{ att.name }}"><i class="fa-solid fa-arrow-up-from-bracket"></i> Replace</button>
+                        {% endif %}
+                      {% else %}
+                        {% if att.doc_type %}
+                        <button type="button" class="att-btn upload" data-quick-upload="{{ att.doc_type.id }}" data-doc-name="{{ att.name }}"><i class="fa-solid fa-cloud-arrow-up"></i> Upload</button>
+                        {% endif %}
                       {% endif %}
-                    {% else %}
-                      {% if att.doc_type %}
-                      <button type="button" class="att-btn upload" data-quick-upload="{{ att.doc_type.id }}" data-doc-name="{{ att.name }}"><i class="fa-solid fa-cloud-arrow-up"></i> Upload</button>
-                      {% endif %}
-                    {% endif %}
+                    </div>
                   </div>
+                  {% endif %}
+                  {% endwith %}
                 </div>
-                {% endwith %}
+                <div class="edit-field">
+                  <label>Place of Diaconate Ordination</label>
+                  <input name="diaconate_place" value="{{ record.diaconate_place|default:'' }}" placeholder="e.g. Cathedral of All Saints">
+                </div>
               </div>
+
+              <!-- Stage 2: The Priesthood (Priest, Bishop) -->
+              <div id="stage-priesthood" style="{% if not record.can_have_priesthood %}display:none;{% else %}display:contents;{% endif %}">
+                <div class="edit-field full" style="font-weight: 700; font-size: 13px; color: #17324d; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; margin-top: 12px; display: flex; align-items: center; gap: 8px;">
+                  <i class="fa-solid fa-hands-praying" style="color: #2f6fed;"></i> 2nd Ordination: The Priesthood
+                </div>
+                <div class="edit-field">
+                  <label>Date of Ordination to Priesthood</label>
+                  <input name="ordination_date" id="priesthoodDateInput" type="date" value="{{ record.ordination_date|date:'Y-m-d' }}">
+                  {% with att=record.date_attachments_map.ordination_date %}
+                  {% if att %}
+                  <div class="date-att-bar {% if att.is_uploaded %}uploaded{% else %}missing{% endif %}">
+                    <span class="att-status">
+                      {% if att.is_uploaded %}<i class="fa-solid fa-circle-check"></i> {{ att.name }} attached{% else %}<i class="fa-solid fa-circle-exclamation"></i> No {{ att.name }} attached{% endif %}
+                    </span>
+                    <div class="att-actions">
+                      {% if att.is_uploaded %}
+                        <a href="{% url 'registrar:view_document' att.doc_id %}" target="_blank" class="att-btn view"><i class="fa-solid fa-eye"></i> View</a>
+                        {% if att.doc_type %}
+                        <button type="button" class="att-btn replace" data-quick-upload="{{ att.doc_type.id }}" data-doc-name="{{ att.name }}"><i class="fa-solid fa-arrow-up-from-bracket"></i> Replace</button>
+                        {% endif %}
+                      {% else %}
+                        {% if att.doc_type %}
+                        <button type="button" class="att-btn upload" data-quick-upload="{{ att.doc_type.id }}" data-doc-name="{{ att.name }}"><i class="fa-solid fa-cloud-arrow-up"></i> Upload</button>
+                        {% endif %}
+                      {% endif %}
+                    </div>
+                  </div>
+                  {% endif %}
+                  {% endwith %}
+                </div>
+                <div class="edit-field">
+                  <label>Place of Priesthood Ordination</label>
+                  <input name="ordination_place" value="{{ record.ordination_place|default:'' }}" placeholder="e.g. St. Andrew's Cathedral">
+                </div>
+              </div>
+
+              <!-- Stage 3: Consecration to the Episcopate (Bishop) -->
+              <div id="stage-episcopate" style="{% if not record.can_have_consecration %}display:none;{% else %}display:contents;{% endif %}">
+                <div class="edit-field full" style="font-weight: 700; font-size: 13px; color: #17324d; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; margin-top: 12px; display: flex; align-items: center; gap: 8px;">
+                  <i class="fa-solid fa-crown" style="color: #2f6fed;"></i> 3rd Ordination: Consecration to the Episcopate
+                </div>
+                <div class="edit-field">
+                  <label>Date of Bishop Consecration</label>
+                  <input name="consecration_date" id="consecrationDateInput" type="date" value="{{ record.consecration_date|date:'Y-m-d' }}">
+                  {% with att=record.date_attachments_map.consecration_date %}
+                  {% if att %}
+                  <div class="date-att-bar {% if att.is_uploaded %}uploaded{% else %}missing{% endif %}">
+                    <span class="att-status">
+                      {% if att.is_uploaded %}<i class="fa-solid fa-circle-check"></i> {{ att.name }} attached{% else %}<i class="fa-solid fa-circle-exclamation"></i> No {{ att.name }} attached{% endif %}
+                    </span>
+                    <div class="att-actions">
+                      {% if att.is_uploaded %}
+                        <a href="{% url 'registrar:view_document' att.doc_id %}" target="_blank" class="att-btn view"><i class="fa-solid fa-eye"></i> View</a>
+                        {% if att.doc_type %}
+                        <button type="button" class="att-btn replace" data-quick-upload="{{ att.doc_type.id }}" data-doc-name="{{ att.name }}"><i class="fa-solid fa-arrow-up-from-bracket"></i> Replace</button>
+                        {% endif %}
+                      {% else %}
+                        {% if att.doc_type %}
+                        <button type="button" class="att-btn upload" data-quick-upload="{{ att.doc_type.id }}" data-doc-name="{{ att.name }}"><i class="fa-solid fa-cloud-arrow-up"></i> Upload</button>
+                        {% endif %}
+                      {% endif %}
+                    </div>
+                  </div>
+                  {% endif %}
+                  {% endwith %}
+                </div>
+              </div>
+
+              <!-- Holy Orders Admission & Oversight (Deacon, Priest, Bishop) -->
+              <div id="stage-oversight" style="{% if record.rank == 'postulancy' %}display:none;{% else %}display:contents;{% endif %}">
+                <div class="edit-field full" style="font-weight: 700; font-size: 13px; color: #17324d; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; margin-top: 12px; display: flex; align-items: center; gap: 8px;">
+                  <i class="fa-solid fa-circle-info" style="color: #2f6fed;"></i> Holy Order Details &amp; Oversight
+                </div>
+                <div class="edit-field">
+                  <label>Date Admitted as Holy Order</label>
+                  <input name="holy_orders_date" type="date" value="{{ record.holy_orders_date|date:'Y-m-d' }}">
+                  {% with att=record.date_attachments_map.holy_orders_date %}
+                  {% if att %}
+                  <div class="date-att-bar {% if att.is_uploaded %}uploaded{% else %}missing{% endif %}">
+                    <span class="att-status">
+                      {% if att.is_uploaded %}<i class="fa-solid fa-circle-check"></i> {{ att.name }} attached{% else %}<i class="fa-solid fa-circle-exclamation"></i> No {{ att.name }} attached{% endif %}
+                    </span>
+                    <div class="att-actions">
+                      {% if att.is_uploaded %}
+                        <a href="{% url 'registrar:view_document' att.doc_id %}" target="_blank" class="att-btn view"><i class="fa-solid fa-eye"></i> View</a>
+                        {% if att.doc_type %}
+                        <button type="button" class="att-btn replace" data-quick-upload="{{ att.doc_type.id }}" data-doc-name="{{ att.name }}"><i class="fa-solid fa-arrow-up-from-bracket"></i> Replace</button>
+                        {% endif %}
+                      {% else %}
+                        {% if att.doc_type %}
+                        <button type="button" class="att-btn upload" data-quick-upload="{{ att.doc_type.id }}" data-doc-name="{{ att.name }}"><i class="fa-solid fa-cloud-arrow-up"></i> Upload</button>
+                        {% endif %}
+                      {% endif %}
+                    </div>
+                  </div>
+                  {% endif %}
+                  {% endwith %}
+                </div>
+                <div class="edit-field">
+                  <label>Ordaining / Presiding Bishop</label>
+                  <input name="bishop_name" value="{{ record.bishop_name|default:'' }}" placeholder="e.g. Bp. Brent">
+                </div>
+              </div>
+
             </div>
           </div>
           <div class="section-card">
@@ -362,7 +393,8 @@
                 <i class="fa-solid fa-id-badge" style="color: #2f6fed;"></i> Ecclesiastical Rank &amp; Status
               </div>
               <div class="edit-field">
-                <label>Rank</label><select name="rank">
+                <label>Rank</label><select name="rank" id="rankSelect">
+                  <option value="postulancy" {% if record.rank == 'postulancy' %}selected{% endif %}>Postulancy</option>
                   <option value="deacon" {% if record.rank == 'deacon' %}selected{% endif %}>Deacon</option>
                   <option value="priest" {% if record.rank == 'priest' %}selected{% endif %}>Priest</option>
                   <option value="bishop" {% if record.rank == 'bishop' %}selected{% endif %}>Bishop</option>
@@ -834,5 +866,26 @@
       openModal('quickUploadModal');
     }
   });
+
+  const rankSelect = document.getElementById('rankSelect');
+  function updateOrdinationStages() {
+    if (!rankSelect) return;
+    const rank = rankSelect.value;
+    const post = document.getElementById('stage-postulancy');
+    const diac = document.getElementById('stage-diaconate');
+    const priest = document.getElementById('stage-priesthood');
+    const bis = document.getElementById('stage-episcopate');
+    const over = document.getElementById('stage-oversight');
+
+    if (post) post.style.display = (rank === 'postulancy') ? 'block' : 'none';
+    if (diac) diac.style.display = (['deacon', 'priest', 'bishop'].includes(rank)) ? 'contents' : 'none';
+    if (priest) priest.style.display = (['priest', 'bishop'].includes(rank)) ? 'contents' : 'none';
+    if (bis) bis.style.display = (rank === 'bishop') ? 'contents' : 'none';
+    if (over) over.style.display = (rank !== 'postulancy') ? 'contents' : 'none';
+  }
+  if (rankSelect) {
+    rankSelect.addEventListener('change', updateOrdinationStages);
+    updateOrdinationStages();
+  }
   </script>
 {% endblock %}

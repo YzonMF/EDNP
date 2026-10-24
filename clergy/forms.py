@@ -60,3 +60,31 @@ class ClergyRecordSelfServiceForm(forms.ModelForm):
             'holy_orders_date': forms.DateInput(attrs={'type': 'date'}),
             'consecration_date': forms.DateInput(attrs={'type': 'date'}),
         }
+
+    def clean(self):
+        cleaned_data = super().clean()
+        rank = self.instance.rank if self.instance else 'deacon'
+        if rank == 'postulancy':
+            cleaned_data['diaconate_date'] = None
+            cleaned_data['diaconate_place'] = ''
+            cleaned_data['ordination_date'] = None
+            cleaned_data['ordination_place'] = ''
+            cleaned_data['consecration_date'] = None
+            cleaned_data['holy_orders_date'] = None
+        elif rank == 'deacon':
+            cleaned_data['ordination_date'] = None
+            cleaned_data['ordination_place'] = ''
+            cleaned_data['consecration_date'] = None
+        elif rank == 'priest':
+            cleaned_data['consecration_date'] = None
+
+        diaconate = cleaned_data.get('diaconate_date')
+        ordination = cleaned_data.get('ordination_date')
+        consecration = cleaned_data.get('consecration_date')
+        if diaconate and ordination and diaconate > ordination:
+            self.add_error('ordination_date', 'Priesthood ordination date cannot be earlier than Diaconate ordination date.')
+        if ordination and consecration and ordination > consecration:
+            self.add_error('consecration_date', 'Bishop consecration date cannot be earlier than Priesthood ordination date.')
+        if diaconate and consecration and diaconate > consecration:
+            self.add_error('consecration_date', 'Bishop consecration date cannot be earlier than Diaconate ordination date.')
+        return cleaned_data

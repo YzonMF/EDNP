@@ -2,6 +2,7 @@ import calendar
 from datetime import date, timedelta
 
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db import models, transaction, OperationalError
 from django.db.models import CheckConstraint, Q, UniqueConstraint
 from django.db.models.functions import Coalesce
@@ -220,6 +221,54 @@ class ClergyRecord(models.Model):
         return self.archived_at is not None
 
     @property
+    def can_have_diaconate(self):
+        """Deacons, Priests, and Bishops have undergone the 1st Ordination (Diaconate)."""
+        return self.rank in ('deacon', 'priest', 'bishop')
+
+    @property
+    def can_have_priesthood(self):
+        """Priests and Bishops have undergone the 2nd Ordination (Priesthood)."""
+        return self.rank in ('priest', 'bishop')
+
+    @property
+    def can_have_consecration(self):
+        """Bishops have undergone the 3rd Ordination (Consecration to Episcopate)."""
+        return self.rank == 'bishop'
+
+    def clean(self):
+        super().clean()
+        # Enforce cumulative holy orders progression:
+        # Higher ranks build strictly on lower ranks. Postulancy has no ordinations.
+        if self.rank == 'postulancy':
+            self.diaconate_date = None
+            self.diaconate_place = ''
+            self.ordination_date = None
+            self.ordination_place = ''
+            self.consecration_date = None
+            self.holy_orders_date = None
+        elif self.rank == 'deacon':
+            self.ordination_date = None
+            self.ordination_place = ''
+            self.consecration_date = None
+        elif self.rank == 'priest':
+            self.consecration_date = None
+
+        # Chronological validation across sequential ordinations
+        errors = {}
+        if self.diaconate_date and self.ordination_date and self.diaconate_date > self.ordination_date:
+            errors['ordination_date'] = 'Priesthood ordination date cannot be earlier than Diaconate ordination date.'
+        if self.ordination_date and self.consecration_date and self.ordination_date > self.consecration_date:
+            errors['consecration_date'] = 'Bishop consecration date cannot be earlier than Priesthood ordination date.'
+        if self.diaconate_date and self.consecration_date and self.diaconate_date > self.consecration_date:
+            errors['consecration_date'] = 'Bishop consecration date cannot be earlier than Diaconate ordination date.'
+        if errors:
+            raise ValidationError(errors)
+
+    def save(self, *args, **kwargs):
+        self.clean()
+        super().save(*args, **kwargs)
+
+    @property
     def years_of_service(self):
         """Computed from deployment history if available (summing non-overlapping
         service periods across all assignments), or falling back to diaconate / ordination
@@ -433,17 +482,22 @@ class ClergyRecord(models.Model):
     @property
     def date_attachments_map(self):
         """Map of date field names to their corresponding document requirement status,
-        attachment object, and upload metadata."""
+        attachment object, and upload metadata, strictly filtered by the clergy member's rank."""
         if not hasattr(self, '_date_attachments_cache'):
             fields_map = {
                 'date_of_birth': 'Birth Certificate',
                 'baptism_date': 'Baptismal Certificate',
                 'confirmation_date': 'Declaration of Conformity',
-                'diaconate_date': 'Ordination Entry / Holy Orders Document',
-                'ordination_date': 'Ordination Entry / Holy Orders Document',
-                'holy_orders_date': 'Ordination Entry / Holy Orders Document',
-                'consecration_date': 'Ordination Entry / Holy Orders Document',
             }
+            if self.rank in ('deacon', 'priest', 'bishop'):
+                fields_map['diaconate_date'] = 'Ordination Entry / Holy Orders Document'
+                if self.holy_orders_date:
+                    fields_map['holy_orders_date'] = 'Ordination Entry / Holy Orders Document'
+            if self.rank in ('priest', 'bishop'):
+                fields_map['ordination_date'] = 'Ordination Entry / Holy Orders Document'
+            if self.rank == 'bishop':
+                fields_map['consecration_date'] = 'Ordination Entry / Holy Orders Document'
+
             needed_names = set(fields_map.values())
             doc_types = {dt.name: dt for dt in DocumentType.objects.filter(name__in=needed_names)}
             existing_docs = {
